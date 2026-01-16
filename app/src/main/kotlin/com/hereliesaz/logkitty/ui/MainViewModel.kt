@@ -50,7 +50,6 @@ class MainViewModel(
     val customFilter: StateFlow<String> = userPreferences.customFilter
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
     val isRootEnabled: StateFlow<Boolean> = userPreferences.isRootEnabled
-    val isLogReversed: StateFlow<Boolean> = userPreferences.isLogReversed
     val prohibitedTags: StateFlow<Set<String>> = userPreferences.prohibitedTags
     val logColors: StateFlow<Map<LogLevel, Color>> = userPreferences.logColors
 
@@ -191,10 +190,6 @@ class MainViewModel(
 
     fun setRootEnabled(enabled: Boolean) {
         userPreferences.setRootEnabled(enabled)
-    }
-
-    fun setLogReversed(enabled: Boolean) {
-        userPreferences.setLogReversed(enabled)
     }
 
     fun setLogColor(level: LogLevel, color: Color) {
