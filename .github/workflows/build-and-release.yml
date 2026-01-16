@@ -57,20 +57,36 @@ jobs:
       - name: Prepare Keystore from Secrets
         env:
           KEYSTORE_PRIVATE: ${{ secrets.KEYSTORE_PRIVATE }}
+          KEYSTORE_RSA: ${{ secrets.KEYSTORE_RSA }}
           KEYSTORE_CHAIN: ${{ secrets.KEYSTORE_CHAIN }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_OWNER: ${{ secrets.KEYSTORE_OWNER }}
+          KEYSTORE_SHA1: ${{ secrets.KEYSTORE_SHA1 }}
+          KEYSTORE_SHA256: ${{ secrets.KEYSTORE_SHA256 }}
+          KEYSTORE_PUBLIC: ${{ secrets.KEYSTORE_PUBLIC }}
         run: |
           set -e
-          if [ -n "$KEYSTORE_PRIVATE" ] && [ -n "$KEYSTORE_CHAIN" ]; then
+          PRIVATE_KEY="${KEYSTORE_PRIVATE:-$KEYSTORE_RSA}"
+
+          if [ -n "$PRIVATE_KEY" ] && [ -n "$KEYSTORE_CHAIN" ]; then
              echo "Reconstructing Keystore from Secrets..."
-             echo "$KEYSTORE_PRIVATE" > private.key
+             echo "$PRIVATE_KEY" > private.key
              echo "$KEYSTORE_CHAIN" > chain.crt
 
              # Create PKCS12 Keystore
-             # We use legacy algorithms to ensure compatibility with Java's KeyStore
+             # Attempt to handle encrypted private key if KEY_PASSWORD is set
+             PASSIN_ARG=""
+             if [ -n "$KEY_PASSWORD" ]; then
+                PASSIN_ARG="-passin pass:$KEY_PASSWORD"
+             fi
+
              openssl pkcs12 -export -in chain.crt -inkey private.key -out release.keystore \
-               -name "$KEY_ALIAS" -passout env:KEYSTORE_PASSWORD
+               -name "$KEY_ALIAS" -passout env:KEYSTORE_PASSWORD $PASSIN_ARG
+
+             # Cleanup raw keys immediately
+             rm -f private.key chain.crt
 
              # Verify the keystore immediately to catch password/format issues
              echo "Verifying generated keystore..."
@@ -78,12 +94,11 @@ jobs:
 
              echo "KEYSTORE_FILE=$(pwd)/release.keystore" >> $GITHUB_ENV
              # Ensure Gradle uses the same password for the key as the store (OpenSSL default behavior)
-             # Using heredoc for safe environment variable export
              echo "KEY_PASSWORD<<EOF" >> $GITHUB_ENV
              echo "$KEYSTORE_PASSWORD" >> $GITHUB_ENV
              echo "EOF" >> $GITHUB_ENV
           else
-             echo "Warning: KEYSTORE_PRIVATE or KEYSTORE_CHAIN not set. Skipping release signing setup."
+             echo "Warning: KEYSTORE_PRIVATE/KEYSTORE_RSA or KEYSTORE_CHAIN not set. Skipping release signing setup."
           fi
 
       - name: Build with Gradle
@@ -110,6 +125,11 @@ jobs:
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
           cat build.log
           exit $EXIT_CODE
+
+      - name: Destroy Keystore
+        if: always()
+        run: |
+          rm -f release.keystore
 
       # ------------------------------------------------------------------
       # FAILURE HANDLING
