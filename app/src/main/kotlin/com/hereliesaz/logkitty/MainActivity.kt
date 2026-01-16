@@ -168,16 +168,15 @@ fun MainScreenContent(
                     shape = AzButtonShape.RECTANGLE
                 )
             }
-        }
 
-        AzButton(
-            onClick = onOpenSettings,
-            text = "Settings",
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(32.dp)
-                .fillMaxWidth(),
-            shape = AzButtonShape.RECTANGLE
-        )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AzButton(
+                onClick = onOpenSettings,
+                text = "Settings",
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = AzButtonShape.RECTANGLE
+            )
+        }
     }
 }
