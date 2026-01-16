@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,7 +35,9 @@ fun IdeBottomSheet(
     halfwayDetent: SheetDetent,
     fullyExpandedDetent: SheetDetent,
     screenHeight: Dp,
-    onSendPrompt: (String) -> Unit
+    onSendPrompt: (String) -> Unit,
+    onSaveClick: () -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     val isHalfwayExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
 
@@ -159,6 +163,20 @@ fun IdeBottomSheet(
                             .align(Alignment.TopEnd)
                             .padding(top = 48.dp, end = 16.dp)
                     ) {
+                        IconButton(onClick = onSaveClick) {
+                             Icon(
+                                 imageVector = Icons.Default.Save,
+                                 contentDescription = "Save Log",
+                                 tint = MaterialTheme.colorScheme.onSurface
+                             )
+                        }
+                        IconButton(onClick = onSettingsClick) {
+                             Icon(
+                                 imageVector = Icons.Default.Settings,
+                                 contentDescription = "Settings",
+                                 tint = MaterialTheme.colorScheme.onSurface
+                             )
+                        }
                         IconButton(onClick = {
                             coroutineScope.launch {
                                 clipboardManager.setText(AnnotatedString(systemLogMessages.joinToString("\n")))

@@ -13,14 +13,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.hereliesaz.logkitty.services.IdeazOverlayService
+import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 
 class MainActivity : ComponentActivity() {
 
     private var isOverlayGranted by mutableStateOf(false)
+    private var showSettings by mutableStateOf(false)
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -32,19 +33,35 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         checkOverlayPermission()
 
+        if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
+            showSettings = true
+        }
+
         setContent {
             LogKittyTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreenContent(
-                        isOverlayGranted = isOverlayGranted,
-                        onGrantPermission = { requestOverlayPermission() },
-                        onStartOverlay = { startOverlayService() }
-                    )
+                    if (showSettings) {
+                        SettingsScreen(onBack = { showSettings = false })
+                    } else {
+                        MainScreenContent(
+                            isOverlayGranted = isOverlayGranted,
+                            onGrantPermission = { requestOverlayPermission() },
+                            onStartOverlay = { startOverlayService() },
+                            onOpenSettings = { showSettings = true }
+                        )
+                    }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
+            showSettings = true
         }
     }
 
@@ -75,45 +92,58 @@ class MainActivity : ComponentActivity() {
 fun MainScreenContent(
     isOverlayGranted: Boolean,
     onGrantPermission: () -> Unit,
-    onStartOverlay: () -> Unit
+    onStartOverlay: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "🐱 LogKitty",
-            style = MaterialTheme.typography.displayMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        if (!isOverlayGranted) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
-                text = "To float above other apps, LogKitty needs permission to display over other apps.",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
+                text = "🐱 LogKitty",
+                style = MaterialTheme.typography.displayMedium,
+                color = MaterialTheme.colorScheme.primary
             )
-            Button(onClick = onGrantPermission) {
-                Text("Grant Overlay Permission")
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            if (!isOverlayGranted) {
+                Text(
+                    text = "To float above other apps, LogKitty needs permission to display over other apps.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                Button(onClick = onGrantPermission) {
+                    Text("Grant Overlay Permission")
+                }
+            } else {
+                Text(
+                    text = "Permission Granted!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onStartOverlay,
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Text("Start Overlay")
+                }
             }
-        } else {
-            Text(
-                text = "Permission Granted!",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = onStartOverlay,
-                modifier = Modifier.fillMaxWidth().height(56.dp)
-            ) {
-                Text("Start Overlay")
-            }
+        }
+
+        Button(
+            onClick = onOpenSettings,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(32.dp)
+                .fillMaxWidth()
+        ) {
+             Text("Settings")
         }
     }
 }

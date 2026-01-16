@@ -48,6 +48,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".FileSaverActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false" />
+
         <service
             android:name=".services.IdeazAccessibilityService"
             android:exported="true"
