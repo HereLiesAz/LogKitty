@@ -50,29 +50,17 @@ fun LogBottomSheet(
     onSettingsClick: () -> Unit
 ) {
     val isHalfwayExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
-
-    // Back Handler: If expanded, collapse to hidden (or peek if preferred, user said "collapse")
-    // Assuming "collapse" means minimal state. The user said "Pressing the x again should completely collapse".
-    // We will assume jumping to Hidden or Peek. Let's use Hidden as per "completely collapse".
     val isExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
 
-    BackHandler(enabled = isExpanded) {
-        // We need a coroutine scope to launch the suspend function
-        // However, BackHandler callback is not suspend. We need a scope available.
-        // We can't launch from here easily without a scope.
-        // But we have coroutineScope defined below.
-        // Wait, we can't use `coroutineScope` inside `BackHandler` lambda if it's not captured correctly?
-        // It is captured.
-        // But `jumpTo` is suspend.
-        // Wait, `BackHandler` takes `onBack: () -> Unit`.
-        // We need to launch a coroutine.
+    // Safely find the hidden detent from the state's own list to avoid identity issues
+    val hiddenDetent = remember(sheetState.detents) { 
+        sheetState.detents.find { it.toString().contains("hidden", ignoreCase = true) } ?: SheetDetent.Hidden 
     }
 
-    // Proper BackHandler implementation with scope
     val scope = rememberCoroutineScope()
     BackHandler(enabled = isExpanded) {
         scope.launch {
-            sheetState.jumpTo(SheetDetent.Hidden)
+            sheetState.jumpTo(hiddenDetent)
         }
     }
 
@@ -114,11 +102,9 @@ fun LogBottomSheet(
 
     val bottomBufferHeight = screenHeight * 0.075f
 
-    // Theme is provided by parent (LogKittyTheme)
     BottomSheet(
         state = sheetState,
         modifier = Modifier.fillMaxSize()
-        // REMOVED background here to prevent blocking touches on the rest of the screen
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
 
@@ -126,7 +112,7 @@ fun LogBottomSheet(
                     Column(
                         modifier = Modifier
                             .height(contentHeight)
-                            .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity)) // Moved background here
+                            .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
                     ) {
 
                         // Handle
@@ -249,7 +235,7 @@ fun LogBottomSheet(
                         IconButton(onClick = {
                             onSaveClick()
                             coroutineScope.launch {
-                                sheetState.jumpTo(SheetDetent.Hidden)
+                                sheetState.jumpTo(hiddenDetent)
                             }
                         }) {
                              Icon(
@@ -261,7 +247,7 @@ fun LogBottomSheet(
                         IconButton(onClick = {
                             onSettingsClick()
                             coroutineScope.launch {
-                                sheetState.jumpTo(SheetDetent.Hidden)
+                                sheetState.jumpTo(hiddenDetent)
                             }
                         }) {
                              Icon(
@@ -286,7 +272,7 @@ fun LogBottomSheet(
                                 viewModel.clearLog()
                             } else {
                                 coroutineScope.launch {
-                                    sheetState.jumpTo(SheetDetent.Hidden)
+                                    sheetState.jumpTo(hiddenDetent)
                                 }
                             }
                         }) {

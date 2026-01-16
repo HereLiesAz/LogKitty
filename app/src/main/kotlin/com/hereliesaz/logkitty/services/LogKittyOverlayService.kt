@@ -19,6 +19,7 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
@@ -161,21 +162,12 @@ class LogKittyOverlayService : Service() {
     }
 
     private fun collapseBottomSheet() {
-         // Needs to be run on main thread if modifying UI state,
-         // though bottomSheetState is SnapshotState, changes should be safe if done correctly.
-         // However, `jumpTo` is suspend.
-         // We can use the view's scope or Main scope.
          if (bottomSheetState != null) {
              CoroutineScope(Dispatchers.Main).launch {
                  try {
-                     // Check if it's already hidden or peeked to avoid unnecessary jumps?
-                     // Or just force it.
-                     // User said: "For the home and recents buttons, the bottom sheet should collapse"
-                     // We'll jump to hidden as per previous "complete collapse" logic, or Peek?
-                     // Let's assume Hidden for "collapse".
                      bottomSheetState?.jumpTo(SheetDetent.Hidden)
                  } catch (e: Exception) {
-                     e.printStackTrace()
+                     android.util.Log.e("LogKittyOverlay", "Failed to collapse bottom sheet", e)
                  }
              }
          }
@@ -217,12 +209,17 @@ class LogKittyOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-                val peekDetent = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
-                val halfwayDetent = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.5f })
-                val fullyExpandedDetent = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.8f })
+                
+                val detents = remember(screenHeight) {
+                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
+                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.5f })
+                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.8f })
+                    listOf(SheetDetent.Hidden, peek, halfway, fully)
+                }
+
                 val sheetState = rememberBottomSheetState(
-                    initialDetent = peekDetent,
-                    detents = listOf(peekDetent, halfwayDetent, fullyExpandedDetent)
+                    initialDetent = detents[1], // peek
+                    detents = detents
                 )
 
                 // Expose state to service
@@ -235,9 +232,9 @@ class LogKittyOverlayService : Service() {
                     LogBottomSheet(
                         sheetState = sheetState,
                         viewModel = viewModel,
-                        peekDetent = peekDetent,
-                        halfwayDetent = halfwayDetent,
-                        fullyExpandedDetent = fullyExpandedDetent,
+                        peekDetent = detents[1],
+                        halfwayDetent = detents[2],
+                        fullyExpandedDetent = detents[3],
                         screenHeight = screenHeight,
                         onSendPrompt = { viewModel.sendPrompt(it) },
                         onSaveClick = {
