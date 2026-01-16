@@ -1,34 +1,56 @@
-# Gradle files
-.gradle/
-build/
-
-# Local configuration file (sdk path, etc)
-local.properties
-
-# Log/OS Files
-*.log
-
-# Android Studio generated files and folders
-captures/
-.externalNativeBuild/
-.cxx/
-*.aab
-*.apk
-output-metadata.json
-
-# IntelliJ
 *.iml
-.idea/
-misc.xml
-deploymentTargetDropDown.xml
-render.experimental.xml
+.gradle
+.gradle/
+/local.properties
+.DS_Store
+/build
+build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.qodo
+/.qudo/*
+*/peridium/ide/
+*/peridium.ide/
+*/srcs/
+/project_backup_full_*
+/backup.ps1
+/.kotlin/errors/errors-1763681705690.log
+kotlin-compiler-*.salive
+/.idea/
+minapp/build/
+minapp/app/build/
+minapp/.gradle/
+minapp/local.properties
+minapp/.DS_Store
+minapp/build
+minapp/captures
+minapp/.externalNativeBuild
+minapp/.cxx
+minapp/.qodo
+minapp/.qudo/*
+minapp/*/peridium/ide/
+minapp/*/peridium.ide/
+minapp/*/srcs/
+minapp/project_backup_full_*
+min-app/backup.ps1
+minapp/.kotlin/errors/errors-1763681705690.log
+minapp/kotlin-compiler-*.salive
+minapp/.idea/
+/build.log
 
-# Keystore files
-*.jks
-*.keystore
+.gemini/
+gha-creds-*.json
+# gemini-cli settings
+.gemini/
+test-output*.txt
+test_output*.txt
+test_log*.txt
+test-log*.txt
+*log.txt
 
-# Google Services (e.g. APIs or Firebase)
-google-services.json
-
-# Android Profiling
-*.hprof
+# GitHub App credentials
+gha-creds-*.json
+/.vscode/
+*.log
