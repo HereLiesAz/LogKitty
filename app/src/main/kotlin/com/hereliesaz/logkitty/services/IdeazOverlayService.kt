@@ -176,9 +176,9 @@ class IdeazOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-                val peekDetent = SheetDetent("peek", calculate = { screenHeight * 0.25f })
-                val halfwayDetent = SheetDetent("halfway", calculate = { screenHeight * 0.5f })
-                val fullyExpandedDetent = SheetDetent("fully_expanded", calculate = { screenHeight * 0.8f })
+                val peekDetent = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
+                val halfwayDetent = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.5f })
+                val fullyExpandedDetent = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.8f })
                 val sheetState = rememberBottomSheetState(
                     initialDetent = peekDetent,
                     detents = listOf(peekDetent, halfwayDetent, fullyExpandedDetent)
