@@ -36,12 +36,6 @@ android {
     }
 
     signingConfigs {
-        getByName("debug") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
-        }
         create("release") {
             val keystoreFile = System.getenv("KEYSTORE_FILE")
             if (keystoreFile != null) {
@@ -127,6 +121,30 @@ configurations.all {
                 // Use a non-conflicting SLF4J bridge
                 useTarget("org.slf4j:jcl-over-slf4j:1.7.30")
                 because("Avoids duplicate classes with jcl-over-slf4j")
+            }
+            if (requested.group == "com.google.protobuf" && requested.name == "protobuf-kotlin") {
+                useVersion("3.25.5")
+                because("Security fix")
+            }
+            if (requested.group == "org.jdom" && requested.name == "jdom2") {
+                useVersion("2.0.6.1")
+                because("Security fix")
+            }
+            if (requested.group == "io.netty" && requested.name == "netty-codec-http2") {
+                useVersion("4.1.124.Final")
+                because("Security fix")
+            }
+            if (requested.group == "io.netty" && requested.name == "netty-handler") {
+                useVersion("4.1.118.Final")
+                because("Security fix")
+            }
+            if (requested.group == "org.bitbucket.b_c" && requested.name == "jose4j") {
+                useVersion("0.9.6")
+                because("Security fix")
+            }
+            if (requested.group == "io.netty" && requested.name == "netty-codec-http") {
+                useVersion("4.1.129.Final")
+                because("Security fix")
             }
         }
     }
