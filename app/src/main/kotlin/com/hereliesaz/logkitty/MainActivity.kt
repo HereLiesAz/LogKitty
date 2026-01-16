@@ -14,7 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.hereliesaz.logkitty.services.IdeazOverlayService
+import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 
@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startOverlayService() {
-        val intent = Intent(this, IdeazOverlayService::class.java)
+        val intent = Intent(this, LogKittyOverlayService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {

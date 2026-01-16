@@ -24,14 +24,14 @@ import androidx.core.app.NotificationCompat
 import com.hereliesaz.logkitty.MainActivity
 import com.hereliesaz.logkitty.MainApplication
 import com.hereliesaz.logkitty.R
-import com.hereliesaz.logkitty.ui.IdeBottomSheet
+import com.hereliesaz.logkitty.ui.LogBottomSheet
 import com.hereliesaz.logkitty.ui.inspection.OverlayView
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
 import com.composables.core.SheetDetent
 import com.composables.core.rememberBottomSheetState
 
-class IdeazOverlayService : Service() {
+class LogKittyOverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private var overlayView: OverlayView? = null
@@ -126,18 +126,24 @@ class IdeazOverlayService : Service() {
         if (isOverlayAdded && overlayView != null) {
             try {
                 windowManager.removeView(overlayView)
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.e("LogKittyOverlay", "Failed to remove overlay view", e)
+            }
         }
         if (composeView != null) {
             try {
                 lifecycleHelper?.onStop()
                 lifecycleHelper?.onDestroy()
                 windowManager.removeView(composeView)
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.e("LogKittyOverlay", "Failed to remove compose view", e)
+            }
         }
         try {
             unregisterReceiver(receiver)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            android.util.Log.e("LogKittyOverlay", "Failed to unregister receiver", e)
+        }
     }
 
     private fun handleSelectionMode(enable: Boolean) {
@@ -185,7 +191,7 @@ class IdeazOverlayService : Service() {
                 )
 
                 LogKittyTheme {
-                    IdeBottomSheet(
+                    LogBottomSheet(
                         sheetState = sheetState,
                         viewModel = viewModel,
                         peekDetent = peekDetent,
@@ -194,12 +200,12 @@ class IdeazOverlayService : Service() {
                         screenHeight = screenHeight,
                         onSendPrompt = { viewModel.sendPrompt(it) },
                         onSaveClick = {
-                            val intent = Intent(this@IdeazOverlayService, com.hereliesaz.logkitty.FileSaverActivity::class.java)
+                            val intent = Intent(this@LogKittyOverlayService, com.hereliesaz.logkitty.FileSaverActivity::class.java)
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             startActivity(intent)
                         },
                         onSettingsClick = {
-                            val intent = Intent(this@IdeazOverlayService, MainActivity::class.java)
+                            val intent = Intent(this@LogKittyOverlayService, MainActivity::class.java)
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             intent.putExtra("EXTRA_SHOW_SETTINGS", true)
                             startActivity(intent)

@@ -1,3 +1,29 @@
-/build
-*/srcs/
-*/srcsrc/
+# IntelliJ / Android Studio
+.idea/
+.gradle/
+build/
+*.iml
+local.properties
+
+# Kotlin / Java
+.kotlin/
+*.class
+*.jar
+*.war
+
+# Android
+.DS_Store
+*.apk
+*.ap_
+captures/
+.externalNativeBuild
+.cxx/
+
+# Python / Chaquopy
+__pycache__/
+*.pyc
+app/src/main/python/site-packages/
+
+# Misc
+.gemini/
+gha-creds-*.json

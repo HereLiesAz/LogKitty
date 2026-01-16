@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.hereliesaz.logkitty.services.IdeazOverlayService
+import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import kotlin.system.exitProcess
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +108,7 @@ fun SettingsScreen(
 
             Button(
                 onClick = {
-                    context.stopService(Intent(context, IdeazOverlayService::class.java))
+                    context.stopService(Intent(context, LogKittyOverlayService::class.java))
                     // We can't easily kill the accessibility service, but we can kill the process
                     exitProcess(0)
                 },

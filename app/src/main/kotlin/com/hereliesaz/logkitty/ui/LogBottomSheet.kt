@@ -26,9 +26,11 @@ import com.composables.core.BottomSheet
 import com.composables.core.BottomSheetState
 import com.composables.core.SheetDetent
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
-fun IdeBottomSheet(
+fun LogBottomSheet(
     sheetState: BottomSheetState,
     viewModel: MainViewModel,
     peekDetent: SheetDetent,
@@ -65,24 +67,6 @@ fun IdeBottomSheet(
         }
     }
 
-    // Theming Logic (Simplified to dark theme by default for now, or use system)
-    val isSystemDark = isSystemInDarkTheme()
-    val customColorScheme = if (isSystemDark) {
-        darkColorScheme(
-            surface = Color(0xFF1E1E1E),
-            onSurface = Color.White,
-            background = Color(0xFF1E1E1E),
-            onBackground = Color.White
-        )
-    } else {
-        lightColorScheme(
-            surface = Color(0xFFEEEEEE),
-            onSurface = Color.Black,
-            background = Color(0xFFEEEEEE),
-            onBackground = Color.Black
-        )
-    }
-
     val contentHeight = when (sheetState.currentDetent) {
         fullyExpandedDetent -> screenHeight * 0.8f
         halfwayDetent -> screenHeight * 0.5f
@@ -92,14 +76,14 @@ fun IdeBottomSheet(
 
     val bottomBufferHeight = screenHeight * 0.075f
 
-    MaterialTheme(colorScheme = customColorScheme) {
-        BottomSheet(
-            state = sheetState,
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+    // Theme is provided by parent (LogKittyTheme)
+    BottomSheet(
+        state = sheetState,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
 
                 if (contentHeight > 0.dp) {
                     Column(modifier = Modifier.height(contentHeight)) {
@@ -200,4 +184,3 @@ fun IdeBottomSheet(
             }
         }
     }
-}

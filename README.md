@@ -13,7 +13,8 @@ LogKitty is a developer tool that puts your system logs right where you need the
     *   **Half:** Scroll through recent logs.
     *   **Full:** Deep dive into stack traces.
 *   **Copy to Clipboard:** Quickly grab logs to share or analyze.
-*   **Context Aware (Beta):** Includes accessibility integration for future foreground app filtering.
+*   **Save to File:** Save the current log buffer to a text file for sharing or later analysis.
+*   **Settings:** Manage overlay and log permissions easily.
 
 ## Installation
 
@@ -32,6 +33,7 @@ LogKitty is a developer tool that puts your system logs right where you need the
 2.  Tap "Start Overlay".
 3.  Navigate to the app you want to debug.
 4.  Watch the logs roll in!
+5.  Use the icons in the overlay header to **Copy**, **Save**, or open **Settings**.
 
 ## Development
 
