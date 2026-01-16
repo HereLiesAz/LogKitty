@@ -2,6 +2,9 @@ package com.hereliesaz.logkitty.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import com.hereliesaz.logkitty.ui.LogLevel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +18,8 @@ data class ExportedPreferences(
     val customFilter: String,
     val overlayOpacity: Float,
     val isRootEnabled: Boolean,
-    val prohibitedTags: List<String>
+    val prohibitedTags: List<String>,
+    val logColors: Map<String, Int> // Store colors as ARGB Ints, keyed by LogLevel.name
 )
 
 class UserPreferences(context: Context) {
@@ -36,6 +40,9 @@ class UserPreferences(context: Context) {
 
     private val _prohibitedTags = MutableStateFlow(loadProhibitedTags())
     val prohibitedTags: StateFlow<Set<String>> = _prohibitedTags.asStateFlow()
+
+    private val _logColors = MutableStateFlow(loadLogColors())
+    val logColors: StateFlow<Map<LogLevel, Color>> = _logColors.asStateFlow()
 
     fun setContextModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_CONTEXT_MODE, enabled).apply()
@@ -71,6 +78,24 @@ class UserPreferences(context: Context) {
         saveProhibitedTags(current)
     }
 
+    fun setLogColor(level: LogLevel, color: Color) {
+        val current = _logColors.value.toMutableMap()
+        current[level] = color
+        _logColors.value = current
+        prefs.edit().putInt(getKeyForColor(level), color.toArgb()).apply()
+    }
+
+    fun resetLogColors() {
+        val editor = prefs.edit()
+        val defaultColors = mutableMapOf<LogLevel, Color>()
+        LogLevel.values().forEach { level ->
+            editor.remove(getKeyForColor(level))
+            defaultColors[level] = level.defaultColor
+        }
+        editor.apply()
+        _logColors.value = defaultColors
+    }
+
     private fun loadProhibitedTags(): Set<String> {
         return prefs.getStringSet(KEY_PROHIBITED_TAGS, emptySet()) ?: emptySet()
     }
@@ -79,14 +104,27 @@ class UserPreferences(context: Context) {
         prefs.edit().putStringSet(KEY_PROHIBITED_TAGS, tags).apply()
     }
 
+    private fun loadLogColors(): Map<LogLevel, Color> {
+        val colors = mutableMapOf<LogLevel, Color>()
+        LogLevel.values().forEach { level ->
+            val colorInt = prefs.getInt(getKeyForColor(level), level.defaultColor.toArgb())
+            colors[level] = Color(colorInt)
+        }
+        return colors
+    }
+
+    private fun getKeyForColor(level: LogLevel) = "color_${level.name}"
+
     // Export/Import functionality
     fun exportPreferences(): String {
+        val colorMap = _logColors.value.mapKeys { it.key.name }.mapValues { it.value.toArgb() }
         val exported = ExportedPreferences(
             contextMode = _isContextModeEnabled.value,
             customFilter = _customFilter.value,
             overlayOpacity = _overlayOpacity.value,
             isRootEnabled = _isRootEnabled.value,
-            prohibitedTags = _prohibitedTags.value.toList()
+            prohibitedTags = _prohibitedTags.value.toList(),
+            logColors = colorMap
         )
         return try {
             Json.encodeToString(exported)
@@ -106,6 +144,26 @@ class UserPreferences(context: Context) {
             val tags = imported.prohibitedTags.toSet()
             _prohibitedTags.value = tags
             saveProhibitedTags(tags)
+
+            // Import Colors
+            val editor = prefs.edit()
+            val newColors = mutableMapOf<LogLevel, Color>()
+            // Start with defaults to ensure we have all keys even if JSON is partial
+            LogLevel.values().forEach { newColors[it] = it.defaultColor }
+
+            imported.logColors.forEach { (levelName, colorInt) ->
+                try {
+                    val level = LogLevel.valueOf(levelName)
+                    val color = Color(colorInt)
+                    newColors[level] = color
+                    editor.putInt(getKeyForColor(level), colorInt)
+                } catch (e: IllegalArgumentException) {
+                    // Ignore invalid level names
+                }
+            }
+            editor.apply()
+            _logColors.value = newColors
+
         } catch (e: Exception) {
             e.printStackTrace()
         }

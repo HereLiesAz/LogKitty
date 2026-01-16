@@ -9,16 +9,20 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -59,9 +63,27 @@ fun SettingsScreen(
     val overlayOpacity = viewModel?.overlayOpacity?.collectAsState()
     val customFilter = viewModel?.customFilter?.collectAsState()
     val isRootEnabled = viewModel?.isRootEnabled?.collectAsState()
+    val logColors = viewModel?.logColors?.collectAsState()
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Color Picker State
+    var showColorPicker by remember { mutableStateOf<LogLevel?>(null) }
+
+    if (showColorPicker != null && viewModel != null && logColors != null) {
+        val level = showColorPicker!!
+        val currentColor = logColors.value[level] ?: level.defaultColor
+        ColorPickerDialog(
+            initialColor = currentColor,
+            onColorSelected = { newColor ->
+                viewModel.setLogColor(level, newColor)
+                showColorPicker = null
+            },
+            onDismissRequest = { showColorPicker = null }
+        )
+    }
+
 
     // Export/Import Launchers
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -123,7 +145,7 @@ fun SettingsScreen(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -214,11 +236,36 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Color customization placeholder (Requested: options to select schemes/customize colors)
-                // For now, we provide the Default scheme indicator, ensuring it's persistent (via hardcoded default in this version or could be extended)
-                Text("Log Color Scheme", style = MaterialTheme.typography.titleMedium)
-                Text("Currently using Default Android Studio colors.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // In future: Add ColorPicker or Dropdown here linking to UserPreferences
+                // Color Customization
+                Text("Log Colors", style = MaterialTheme.typography.titleMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    logColors?.value?.forEach { (level, color) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showColorPicker = level }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(level.name, style = MaterialTheme.typography.bodyMedium)
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                            )
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = { viewModel.resetLogColors() },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    ) {
+                        Text("Reset Colors to Default")
+                    }
+                }
+
+                HorizontalDivider()
 
                 Button(
                     onClick = { showProhibitedLogs = true },

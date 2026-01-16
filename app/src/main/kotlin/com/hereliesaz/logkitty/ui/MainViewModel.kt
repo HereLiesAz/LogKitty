@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hereliesaz.logkitty.services.LogKittyAccessibilityService
@@ -50,6 +51,7 @@ class MainViewModel(
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
     val isRootEnabled: StateFlow<Boolean> = userPreferences.isRootEnabled
     val prohibitedTags: StateFlow<Set<String>> = userPreferences.prohibitedTags
+    val logColors: StateFlow<Map<LogLevel, Color>> = userPreferences.logColors
 
     private val systemTab = LogTab("system", "System", TabType.SYSTEM)
     private val errorsTab = LogTab("errors", "Errors", TabType.ERRORS)
@@ -188,6 +190,14 @@ class MainViewModel(
 
     fun setRootEnabled(enabled: Boolean) {
         userPreferences.setRootEnabled(enabled)
+    }
+
+    fun setLogColor(level: LogLevel, color: Color) {
+        userPreferences.setLogColor(level, color)
+    }
+
+    fun resetLogColors() {
+        userPreferences.resetLogColors()
     }
 
     fun prohibitLog(logLine: String) {

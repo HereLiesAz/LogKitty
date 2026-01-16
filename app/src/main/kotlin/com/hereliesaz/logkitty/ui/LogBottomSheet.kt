@@ -86,6 +86,7 @@ fun LogBottomSheet(
     val overlayOpacity by viewModel.overlayOpacity.collectAsState()
     val tabs by viewModel.tabs.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
+    val logColors by viewModel.logColors.collectAsState()
 
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -316,7 +317,7 @@ fun LogBottomSheet(
                                         key = { index, _ -> index }
                                     ) { index, message ->
                                         val level = LogLevel.fromLine(message)
-                                        val color = level.defaultColor
+                                        val color = logColors[level] ?: level.defaultColor
                                         val isSelected = selectedLogIndex == index
 
                                         Column(
