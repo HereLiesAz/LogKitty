@@ -1,0 +1,50 @@
+name: Jules Issue Handler
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  handle-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Assign Jules
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const assignee = 'gemini-code-assist';
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                assignees: [assignee]
+              });
+            } catch (error) {
+              console.log(`Failed to assign ${assignee}: ${error.message}`);
+              // Continue even if assignment fails (e.g. if user doesn't exist or permissions issue)
+            }
+
+      - name: Invoke Jules
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are Jules, an expert software engineer and security agent.
+
+            Please address the following issue:
+
+            **Title:** ${{ github.event.issue.title }}
+            **Body:**
+            ${{ github.event.issue.body }}
+
+            **Instructions:**
+            1. Analyze the request. If this is a security issue, prioritize fixing vulnerabilities immediately.
+            2. Implement the necessary code changes.
+            3. Verify your changes.
+            4. Once the task is complete (and any necessary PRs are merged or changes applied), **you must close this issue**.
