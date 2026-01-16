@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
@@ -47,6 +49,7 @@ fun LogBottomSheet(
     fullyExpandedDetent: SheetDetent,
     screenHeight: Dp,
     onSendPrompt: (String) -> Unit,
+    onInteraction: (Boolean) -> Unit,
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -102,41 +105,61 @@ fun LogBottomSheet(
     }
 
     // Swiping side to side logic
-    var offsetX by remember { mutableStateOf(0f) }
-    val swipeThreshold = 200f // Higher threshold to avoid accidental swipes while scrolling log
+    val swipeThreshold = 100f
 
     BottomSheet(
         state = sheetState,
         modifier = Modifier.fillMaxSize()
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    var isInteracting = false
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val changes = event.changes
+                            if (changes.isNotEmpty()) {
+                                val pressed = changes.any { it.pressed }
+                                if (pressed != isInteracting) {
+                                    isInteracting = pressed
+                                    onInteraction(isInteracting)
+                                }
+                            }
+                        }
+                    }
+                }
+                .pointerInput(Unit) {
+                    var totalDrag = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { totalDrag = 0f },
+                        onDragEnd = {
+                             if (abs(totalDrag) > swipeThreshold) {
+                                 val currentIndex = tabs.indexOf(selectedTab)
+                                 if (totalDrag > 0) { // Swipe Right -> Previous Tab
+                                     if (currentIndex > 0) {
+                                         viewModel.selectTab(tabs[currentIndex - 1])
+                                     }
+                                 } else { // Swipe Left -> Next Tab
+                                     if (currentIndex < tabs.size - 1) {
+                                         viewModel.selectTab(tabs[currentIndex + 1])
+                                     }
+                                 }
+                             }
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        totalDrag += dragAmount
+                    }
+                }
+        ) {
 
                 if (contentHeight > 0.dp) {
                     Column(
                         modifier = Modifier
                             .height(contentHeight)
                             .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
-                            .draggable(
-                                orientation = Orientation.Horizontal,
-                                state = rememberDraggableState { delta ->
-                                    offsetX += delta
-                                },
-                                onDragStopped = {
-                                    if (abs(offsetX) > swipeThreshold) {
-                                        val currentIndex = tabs.indexOf(selectedTab)
-                                        if (offsetX > 0) { // Swipe Right -> Previous Tab
-                                            if (currentIndex > 0) {
-                                                viewModel.selectTab(tabs[currentIndex - 1])
-                                            }
-                                        } else { // Swipe Left -> Next Tab
-                                            if (currentIndex < tabs.size - 1) {
-                                                viewModel.selectTab(tabs[currentIndex + 1])
-                                            }
-                                        }
-                                    }
-                                    offsetX = 0f
-                                }
-                            )
                     ) {
 
                         // Handle
@@ -240,9 +263,7 @@ fun LogBottomSheet(
                         }
 
                         // Extended log display area: extended down until the bottom 10% of the screen.
-                        // Since the BottomSheet fills the area from the bottom, we add a bottom spacer
-                        // to effectively keep logs above the bottom 10% of the screen.
-                        Spacer(modifier = Modifier.height(screenHeight * 0.1f))
+                        // We removed the spacer to allow logs to extend further down.
                     }
                 }
 
