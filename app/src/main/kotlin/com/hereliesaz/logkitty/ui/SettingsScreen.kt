@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.hereliesaz.aznavrail.AzButton
+import com.hereliesaz.aznavrail.AzTextBox
+import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import kotlin.system.exitProcess
 import kotlinx.coroutines.Dispatchers
@@ -228,12 +231,12 @@ fun SettingsScreen(
                     )
                 }
 
-                OutlinedTextField(
+                AzTextBox(
                     value = customFilter?.value ?: "",
                     onValueChange = { viewModel.setCustomFilter(it) },
-                    label = { Text("Global Log Filter") },
-                    placeholder = { Text("Filter logs...") },
-                    modifier = Modifier.fillMaxWidth()
+                    hint = "Global Log Filter",
+                    modifier = Modifier.fillMaxWidth(),
+                    onSubmit = {}
                 )
 
                 // Color Customization
@@ -257,40 +260,40 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    OutlinedButton(
+                    AzButton(
                         onClick = { viewModel.resetLogColors() },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                    ) {
-                        Text("Reset Colors to Default")
-                    }
+                        text = "Reset Colors to Default",
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        shape = AzButtonShape.RECTANGLE
+                    )
                 }
 
                 HorizontalDivider()
 
-                Button(
+                AzButton(
                     onClick = { showProhibitedLogs = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Manage Prohibited Logs")
-                }
+                    text = "Manage Prohibited Logs",
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = AzButtonShape.RECTANGLE
+                )
 
                 Text("Backup & Restore", style = MaterialTheme.typography.titleMedium)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
+                    AzButton(
                         modifier = Modifier.weight(1f),
-                        onClick = { createDocumentLauncher.launch("logkitty_prefs.json") }
-                    ) {
-                        Text("Export Settings")
-                    }
-                    OutlinedButton(
+                        text = "Export Settings",
+                        onClick = { createDocumentLauncher.launch("logkitty_prefs.json") },
+                        shape = AzButtonShape.RECTANGLE
+                    )
+                    AzButton(
                         modifier = Modifier.weight(1f),
-                        onClick = { openDocumentLauncher.launch(arrayOf("application/json")) }
-                    ) {
-                        Text("Import Settings")
-                    }
+                        text = "Import Settings",
+                        onClick = { openDocumentLauncher.launch(arrayOf("application/json")) },
+                        shape = AzButtonShape.RECTANGLE
+                    )
                 }
 
                 HorizontalDivider()
@@ -298,27 +301,26 @@ fun SettingsScreen(
 
             Text("System", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
 
-            Button(
+            AzButton(
                 onClick = {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
                     context.startActivity(intent)
                 },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Open System App Info")
-            }
+                text = "Open System App Info",
+                modifier = Modifier.fillMaxWidth(),
+                shape = AzButtonShape.RECTANGLE
+            )
 
-            Button(
+            AzButton(
                 onClick = {
                     context.stopService(Intent(context, LogKittyOverlayService::class.java))
                     // We can't easily kill the accessibility service, but we can kill the process
                     exitProcess(0)
                 },
+                text = "Exit LogKitty",
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text("Exit LogKitty")
-            }
+                shape = AzButtonShape.RECTANGLE
+            )
         }
     }
 }

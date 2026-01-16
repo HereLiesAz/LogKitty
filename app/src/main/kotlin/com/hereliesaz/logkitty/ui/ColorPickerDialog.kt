@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.hereliesaz.aznavrail.AzButton
+import com.hereliesaz.aznavrail.AzTextBox
+import com.hereliesaz.aznavrail.model.AzButtonShape
 
 @Composable
 fun ColorPickerDialog(
@@ -54,7 +57,7 @@ fun ColorPickerDialog(
                 )
 
                 // Hex Input
-                OutlinedTextField(
+                AzTextBox(
                     value = hexText,
                     onValueChange = {
                         hexText = it
@@ -64,8 +67,9 @@ fun ColorPickerDialog(
                             // Invalid hex
                         }
                     },
-                    label = { Text("Hex Code") },
-                    modifier = Modifier.fillMaxWidth()
+                    hint = "Hex Code",
+                    modifier = Modifier.fillMaxWidth(),
+                    onSubmit = {}
                 )
 
                 // Presets
@@ -93,14 +97,20 @@ fun ColorPickerDialog(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = onDismissRequest) {
-                        Text("Cancel")
-                    }
-                    TextButton(onClick = { onColorSelected(currentColor) }) {
-                        Text("Select")
-                    }
+                    AzButton(
+                        onClick = onDismissRequest,
+                        text = "Cancel",
+                        shape = AzButtonShape.RECTANGLE,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    AzButton(
+                        onClick = { onColorSelected(currentColor) },
+                        text = "Select",
+                        shape = AzButtonShape.RECTANGLE
+                    )
                 }
             }
         }

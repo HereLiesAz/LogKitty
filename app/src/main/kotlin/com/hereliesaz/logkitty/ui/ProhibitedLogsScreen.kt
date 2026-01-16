@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -13,6 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.hereliesaz.aznavrail.AzButton
+import com.hereliesaz.aznavrail.model.AzButtonShape
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,13 +87,14 @@ fun ProhibitedTagItem(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Remove Filter",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
+            // Using AzButton instead of IconButton. AzButton usually needs text.
+            // We can use a small shape or look for an icon overload if available, but assuming text:
+            AzButton(
+                onClick = onDelete,
+                text = "Remove",
+                shape = AzButtonShape.RECTANGLE,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            )
         }
     }
 }

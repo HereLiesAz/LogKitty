@@ -112,12 +112,12 @@ fun LogBottomSheet(
     }
 
     val contentHeight = when (sheetState.currentDetent) {
-        fullyExpandedDetent -> screenHeight * 0.9f
-        halfwayDetent -> screenHeight * 0.6f
-        peekDetent -> screenHeight * 0.35f
-        hiddenDetent -> screenHeight * 0.12f
+        fullyExpandedDetent -> (screenHeight * 0.9f) - (screenHeight * 0.1f)
+        halfwayDetent -> (screenHeight * 0.6f) - (screenHeight * 0.1f)
+        peekDetent -> (screenHeight * 0.35f) - (screenHeight * 0.1f)
+        hiddenDetent -> (screenHeight * 0.12f) - (screenHeight * 0.1f)
         else -> 0.dp
-    }
+    }.coerceAtLeast(0.dp)
 
     // Swiping side to side logic
     val swipeThreshold = 100f
