@@ -20,6 +20,8 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
@@ -36,6 +38,8 @@ import com.composables.core.BottomSheetState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 
 class LogKittyOverlayService : Service() {
 
@@ -210,9 +214,10 @@ class LogKittyOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
+                val density = androidx.compose.ui.platform.LocalDensity.current
                 
                 val detents = remember(screenHeight) {
-                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.3f })
+                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.35f })
                     val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.6f })
                     val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.9f })
                     listOf(SheetDetent.Hidden, peek, halfway, fully)
@@ -229,6 +234,55 @@ class LogKittyOverlayService : Service() {
                     onDispose { bottomSheetState = null }
                 }
 
+                val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+                var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+                val updateWindowHeight = { isInteracting: Boolean ->
+                     val params = composeView?.layoutParams as? WindowManager.LayoutParams
+                     if (params != null) {
+                         if (isInteracting) {
+                             delayedShrinkJob?.cancel()
+                             delayedShrinkJob = null
+                             if (params.height != WindowManager.LayoutParams.MATCH_PARENT) {
+                                 params.height = WindowManager.LayoutParams.MATCH_PARENT
+                                 try {
+                                     windowManager.updateViewLayout(composeView, params)
+                                 } catch (e: Exception) {
+                                     e.printStackTrace()
+                                 }
+                             }
+                         } else {
+                             // Delay shrinking to allow animation to settle
+                             delayedShrinkJob?.cancel()
+                             delayedShrinkJob = coroutineScope.launch {
+                                 kotlinx.coroutines.delay(400) // Wait for settle
+                                 val currentDetent = sheetState.currentDetent
+                                 val heightFactor = when {
+                                     currentDetent == detents[0] -> 0f // Hidden
+                                     currentDetent == detents[1] -> 0.35f
+                                     currentDetent == detents[2] -> 0.6f
+                                     currentDetent == detents[3] -> 0.9f
+                                     else -> 0.35f
+                                 }
+                                 val heightPx = with(density) { (screenHeight * heightFactor).toPx() }.toInt()
+
+                                 // Check if we started interacting again during delay
+                                 if (isActive) {
+                                     val currentParams = composeView?.layoutParams as? WindowManager.LayoutParams
+                                     if (currentParams != null && currentParams.height != heightPx) {
+                                         currentParams.height = heightPx
+                                         try {
+                                             windowManager.updateViewLayout(composeView, currentParams)
+                                         } catch (e: Exception) {
+                                             e.printStackTrace()
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
+                }
+
                 LogKittyTheme {
                     LogBottomSheet(
                         sheetState = sheetState,
@@ -238,6 +292,9 @@ class LogKittyOverlayService : Service() {
                         fullyExpandedDetent = detents[3],
                         screenHeight = screenHeight,
                         onSendPrompt = { viewModel.sendPrompt(it) },
+                        onInteraction = { isInteracting ->
+                            updateWindowHeight(isInteracting)
+                        },
                         onSaveClick = {
                             val intent = Intent(this@LogKittyOverlayService, com.hereliesaz.logkitty.FileSaverActivity::class.java)
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -258,13 +315,18 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
+        // Initial height based on Peek (0.35f)
+        val initialHeight = (resources.displayMetrics.heightPixels * 0.35f).toInt()
+
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
+            initialHeight,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
-        )
+        ).apply {
+            gravity = android.view.Gravity.BOTTOM
+        }
 
         try {
             windowManager.addView(composeView, params)
