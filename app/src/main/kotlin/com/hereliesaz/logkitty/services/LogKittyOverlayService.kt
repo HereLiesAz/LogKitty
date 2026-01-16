@@ -20,6 +20,7 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
@@ -221,11 +222,11 @@ class LogKittyOverlayService : Service() {
                     val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.35f })
                     val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.6f })
                     val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.9f })
-                    listOf(SheetDetent.Hidden, peek, halfway, fully)
+                    listOf(hidden, peek, halfway, fully)
                 }
 
                 val sheetState = rememberBottomSheetState(
-                    initialDetent = detents[1], // peek
+                    initialDetent = detents[0], // hidden
                     detents = detents
                 )
 
@@ -237,6 +238,7 @@ class LogKittyOverlayService : Service() {
 
                 val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
                 var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
+                var isWindowExpanded by remember { mutableStateOf(false) }
 
                 val updateWindowHeight = { isInteracting: Boolean ->
                      val params = composeView?.layoutParams as? WindowManager.LayoutParams
@@ -244,8 +246,10 @@ class LogKittyOverlayService : Service() {
                          if (isInteracting) {
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = null
-                             if (params.height != WindowManager.LayoutParams.MATCH_PARENT) {
+                             isWindowExpanded = true
+                             if (params.height != WindowManager.LayoutParams.MATCH_PARENT || params.y != 0) {
                                  params.height = WindowManager.LayoutParams.MATCH_PARENT
+                                 params.y = 0
                                  try {
                                      windowManager.updateViewLayout(composeView, params)
                                  } catch (e: Exception) {
@@ -258,20 +262,29 @@ class LogKittyOverlayService : Service() {
                              delayedShrinkJob = coroutineScope.launch {
                                  kotlinx.coroutines.delay(400) // Wait for settle
                                  val currentDetent = sheetState.currentDetent
-                                 val heightFactor = when {
-                                     currentDetent == detents[0] -> 0f // Hidden
+                                 val detentHeightFactor = when {
+                                     currentDetent == detents[0] -> 0.12f // Hidden
                                      currentDetent == detents[1] -> 0.35f
                                      currentDetent == detents[2] -> 0.6f
                                      currentDetent == detents[3] -> 0.9f
                                      else -> 0.35f
                                  }
-                                 val heightPx = with(density) { (screenHeight * heightFactor).toPx() }.toInt()
+
+                                 // We subtract 10% (empty space) from the window height, and lift it by 10% (y offset)
+                                 // to allow pass-through in the bottom 10%.
+                                 val targetHeightFactor = (detentHeightFactor - 0.10f).coerceAtLeast(0f)
+                                 val targetYFactor = 0.10f
+
+                                 val heightPx = with(density) { (screenHeight * targetHeightFactor).toPx() }.toInt()
+                                 val yPx = with(density) { (screenHeight * targetYFactor).toPx() }.toInt()
 
                                  // Check if we started interacting again during delay
                                  if (isActive) {
+                                     isWindowExpanded = false
                                      val currentParams = composeView?.layoutParams as? WindowManager.LayoutParams
-                                     if (currentParams != null && currentParams.height != heightPx) {
+                                     if (currentParams != null && (currentParams.height != heightPx || currentParams.y != yPx)) {
                                          currentParams.height = heightPx
+                                         currentParams.y = yPx
                                          try {
                                              windowManager.updateViewLayout(composeView, currentParams)
                                          } catch (e: Exception) {
@@ -286,7 +299,7 @@ class LogKittyOverlayService : Service() {
 
                 // Update WindowManager flags based on sheet state to allow touch-through
                 DisposableEffect(sheetState.currentDetent) {
-                    updateWindowManagerFlags(sheetState.currentDetent == SheetDetent.Hidden)
+                    updateWindowManagerFlags()
                     onDispose { }
                 }
 
@@ -298,6 +311,7 @@ class LogKittyOverlayService : Service() {
                         halfwayDetent = detents[2],
                         fullyExpandedDetent = detents[3],
                         screenHeight = screenHeight,
+                        isWindowExpanded = isWindowExpanded,
                         onSendPrompt = { viewModel.sendPrompt(it) },
                         onInteraction = { isInteracting ->
                             updateWindowHeight(isInteracting)
@@ -345,24 +359,14 @@ class LogKittyOverlayService : Service() {
         }
     }
 
-    private fun updateWindowManagerFlags(isHidden: Boolean) {
+    private fun updateWindowManagerFlags() {
         val view = composeView ?: return
         val params = view.layoutParams as? WindowManager.LayoutParams ?: return
 
-        if (isHidden) {
-            // When hidden, make it touch-through completely
-            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            params.width = 0
-            params.height = 0
-        } else {
-            // When visible, allow touches but don't block entire screen if possible?
-            // Actually, ComposeView with BottomSheet needs to be full screen to handle gestures.
-            // BUT we can use FLAG_NOT_TOUCH_MODAL to allow touches outside the window.
-            // However, the window IS the whole screen.
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            params.width = WindowManager.LayoutParams.MATCH_PARENT
-            params.height = WindowManager.LayoutParams.MATCH_PARENT
-        }
+        // Always allow touches but let them pass through outside
+        params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        params.width = WindowManager.LayoutParams.MATCH_PARENT
+        // Height is managed by updateWindowHeight
 
         try {
             windowManager.updateViewLayout(view, params)

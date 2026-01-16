@@ -7,25 +7,38 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.hereliesaz.aznavrail.AzButton
+import com.hereliesaz.aznavrail.AzTextBox
+import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import kotlin.system.exitProcess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,15 +49,83 @@ fun SettingsScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    // State for managing sub-screens within settings
+    var showProhibitedLogs by remember { mutableStateOf(false) }
+
+    if (showProhibitedLogs && viewModel != null) {
+        ProhibitedLogsScreen(
+            viewModel = viewModel,
+            onBack = { showProhibitedLogs = false }
+        )
+        return
+    }
+
     var overlayGranted by remember { mutableStateOf(false) }
     var readLogsGranted by remember { mutableStateOf(false) }
 
     val overlayOpacity = viewModel?.overlayOpacity?.collectAsState()
     val customFilter = viewModel?.customFilter?.collectAsState()
     val isRootEnabled = viewModel?.isRootEnabled?.collectAsState()
+    val logColors = viewModel?.logColors?.collectAsState()
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Color Picker State
+    var showColorPicker by remember { mutableStateOf<LogLevel?>(null) }
+
+    if (showColorPicker != null && viewModel != null && logColors != null) {
+        val level = showColorPicker!!
+        val currentColor = logColors.value[level] ?: level.defaultColor
+        ColorPickerDialog(
+            initialColor = currentColor,
+            onColorSelected = { newColor ->
+                viewModel.setLogColor(level, newColor)
+                showColorPicker = null
+            },
+            onDismissRequest = { showColorPicker = null }
+        )
+    }
+
+
+    // Export/Import Launchers
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null && viewModel != null) {
+            scope.launch {
+                try {
+                    val json = viewModel.exportPreferences()
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(json.toByteArray())
+                    }
+                    snackbarHostState.showSnackbar("Preferences exported successfully.")
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("Export failed: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null && viewModel != null) {
+            scope.launch {
+                try {
+                    val json = context.contentResolver.openInputStream(uri)?.use { stream ->
+                        BufferedReader(InputStreamReader(stream)).readText()
+                    }
+                    if (json != null) {
+                        viewModel.importPreferences(json)
+                        snackbarHostState.showSnackbar("Preferences imported successfully.")
+                    }
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("Import failed: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
 
     // Check permissions on Resume
     DisposableEffect(lifecycleOwner) {
@@ -67,7 +148,7 @@ fun SettingsScreen(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -76,8 +157,9 @@ fun SettingsScreen(
         Column(
             modifier = Modifier
                 .padding(padding)
-                .padding(16.dp)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text("Permissions", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
@@ -135,7 +217,7 @@ fun SettingsScreen(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             if (viewModel != null) {
                 Text("Configuration", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
@@ -149,40 +231,96 @@ fun SettingsScreen(
                     )
                 }
 
-                OutlinedTextField(
+                AzTextBox(
                     value = customFilter?.value ?: "",
                     onValueChange = { viewModel.setCustomFilter(it) },
-                    label = { Text("Global Log Filter") },
-                    placeholder = { Text("Filter logs...") },
-                    modifier = Modifier.fillMaxWidth()
+                    hint = "Global Log Filter",
+                    modifier = Modifier.fillMaxWidth(),
+                    onSubmit = {}
                 )
 
-                Divider()
+                // Color Customization
+                Text("Log Colors", style = MaterialTheme.typography.titleMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    logColors?.value?.forEach { (level, color) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showColorPicker = level }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(level.name, style = MaterialTheme.typography.bodyMedium)
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                            )
+                        }
+                    }
+                    AzButton(
+                        onClick = { viewModel.resetLogColors() },
+                        text = "Reset Colors to Default",
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        shape = AzButtonShape.RECTANGLE
+                    )
+                }
+
+                HorizontalDivider()
+
+                AzButton(
+                    onClick = { showProhibitedLogs = true },
+                    text = "Manage Prohibited Logs",
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = AzButtonShape.RECTANGLE
+                )
+
+                Text("Backup & Restore", style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AzButton(
+                        modifier = Modifier.weight(1f),
+                        text = "Export Settings",
+                        onClick = { createDocumentLauncher.launch("logkitty_prefs.json") },
+                        shape = AzButtonShape.RECTANGLE
+                    )
+                    AzButton(
+                        modifier = Modifier.weight(1f),
+                        text = "Import Settings",
+                        onClick = { openDocumentLauncher.launch(arrayOf("application/json")) },
+                        shape = AzButtonShape.RECTANGLE
+                    )
+                }
+
+                HorizontalDivider()
             }
 
             Text("System", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
 
-            Button(
+            AzButton(
                 onClick = {
                     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
                     context.startActivity(intent)
                 },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Open System App Info")
-            }
+                text = "Open System App Info",
+                modifier = Modifier.fillMaxWidth(),
+                shape = AzButtonShape.RECTANGLE
+            )
 
-            Button(
+            AzButton(
                 onClick = {
                     context.stopService(Intent(context, LogKittyOverlayService::class.java))
                     // We can't easily kill the accessibility service, but we can kill the process
                     exitProcess(0)
                 },
+                text = "Exit LogKitty",
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text("Exit LogKitty")
-            }
+                shape = AzButtonShape.RECTANGLE
+            )
         }
     }
 }

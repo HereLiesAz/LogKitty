@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.hereliesaz.aznavrail.AzButton
+import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
@@ -106,8 +108,17 @@ fun MainScreenContent(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Replaced emoji text with image
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = R.drawable.logkitty),
+                contentDescription = "LogKitty Logo",
+                modifier = Modifier
+                    .size(120.dp)
+                    .padding(bottom = 16.dp)
+            )
+
             Text(
-                text = "🐱 LogKitty",
+                text = "LogKitty",
                 style = MaterialTheme.typography.displayMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -120,9 +131,11 @@ fun MainScreenContent(
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
-                Button(onClick = onGrantPermission) {
-                    Text("Grant Overlay Permission")
-                }
+                AzButton(
+                    onClick = onGrantPermission,
+                    text = "Grant Overlay Permission",
+                    shape = AzButtonShape.RECTANGLE
+                )
             } else {
                 Text(
                     text = "Permission Granted!",
@@ -130,23 +143,23 @@ fun MainScreenContent(
                     color = MaterialTheme.colorScheme.tertiary
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(
+                AzButton(
                     onClick = onStartOverlay,
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
-                ) {
-                    Text("Start Overlay")
-                }
+                    text = "Start Overlay",
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = AzButtonShape.RECTANGLE
+                )
             }
         }
 
-        Button(
+        AzButton(
             onClick = onOpenSettings,
+            text = "Settings",
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(32.dp)
-                .fillMaxWidth()
-        ) {
-             Text("Settings")
-        }
+                .fillMaxWidth(),
+            shape = AzButtonShape.RECTANGLE
+        )
     }
 }
