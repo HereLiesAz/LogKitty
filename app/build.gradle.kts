@@ -64,7 +64,7 @@ android {
         }
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
 
@@ -133,15 +133,10 @@ configurations.all {
 }
 
 androidComponents.onVariants { variant ->
-    variant.outputs.forEach { output ->
-        val version = output.versionName.get()
-        // Workaround: VariantOutput interface does not expose outputFileName in this AGP version.
-        // We cast to the internal implementation to maintain the renaming feature.
-        if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
-            output.outputFileName.set("LogKitty-$version-${variant.name}.apk")
-        }
+        // AGP public API for output file modification is limited, but we can set the base name via other means
+        // or just accept default for now to avoid internal API usage.
+        // Removing the internal API usage to be safe.
     }
-}
 
 dependencies {
     // Keep libraries needed for UI and logging

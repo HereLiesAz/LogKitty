@@ -1,4 +1,4 @@
-package com.hereliesaz.ideaz.services
+package com.hereliesaz.logkitty.services
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -21,17 +21,17 @@ import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
-import com.hereliesaz.ideaz.MainActivity
-import com.hereliesaz.ideaz.MainApplication
-import com.hereliesaz.ideaz.R
-import com.hereliesaz.ideaz.ui.IdeBottomSheet
-import com.hereliesaz.ideaz.ui.inspection.OverlayView
-import com.hereliesaz.ideaz.ui.theme.IDEazTheme
-import com.hereliesaz.ideaz.utils.ComposeLifecycleHelper
+import com.hereliesaz.logkitty.MainActivity
+import com.hereliesaz.logkitty.MainApplication
+import com.hereliesaz.logkitty.R
+import com.hereliesaz.logkitty.ui.LogBottomSheet
+import com.hereliesaz.logkitty.ui.inspection.OverlayView
+import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
+import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
 import com.composables.core.SheetDetent
 import com.composables.core.rememberBottomSheetState
 
-class IdeazOverlayService : Service() {
+class LogKittyOverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private var overlayView: OverlayView? = null
@@ -44,11 +44,11 @@ class IdeazOverlayService : Service() {
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                "com.hereliesaz.ideaz.TOGGLE_SELECT_MODE" -> {
+                "com.hereliesaz.logkitty.TOGGLE_SELECT_MODE" -> {
                     val enable = intent.getBooleanExtra("ENABLE", false)
                     handleSelectionMode(enable)
                 }
-                "com.hereliesaz.ideaz.HIGHLIGHT_RECT" -> {
+                "com.hereliesaz.logkitty.HIGHLIGHT_RECT" -> {
                     val rect = if (Build.VERSION.SDK_INT >= 33) {
                          intent.getParcelableExtra("RECT", Rect::class.java)
                     } else {
@@ -61,7 +61,7 @@ class IdeazOverlayService : Service() {
                         overlayView?.clearHighlight()
                     }
                 }
-                "com.hereliesaz.ideaz.SHOW_UPDATE_POPUP" -> {
+                "com.hereliesaz.logkitty.SHOW_UPDATE_POPUP" -> {
                     val prompt = intent.getStringExtra("PROMPT")
                     if (!prompt.isNullOrBlank()) {
                         copyToClipboard(prompt)
@@ -110,9 +110,9 @@ class IdeazOverlayService : Service() {
         }
 
         val filter = IntentFilter().apply {
-            addAction("com.hereliesaz.ideaz.TOGGLE_SELECT_MODE")
-            addAction("com.hereliesaz.ideaz.HIGHLIGHT_RECT")
-            addAction("com.hereliesaz.ideaz.SHOW_UPDATE_POPUP")
+            addAction("com.hereliesaz.logkitty.TOGGLE_SELECT_MODE")
+            addAction("com.hereliesaz.logkitty.HIGHLIGHT_RECT")
+            addAction("com.hereliesaz.logkitty.SHOW_UPDATE_POPUP")
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
@@ -126,18 +126,24 @@ class IdeazOverlayService : Service() {
         if (isOverlayAdded && overlayView != null) {
             try {
                 windowManager.removeView(overlayView)
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.e("LogKittyOverlay", "Failed to remove overlay view", e)
+            }
         }
         if (composeView != null) {
             try {
                 lifecycleHelper?.onStop()
                 lifecycleHelper?.onDestroy()
                 windowManager.removeView(composeView)
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.e("LogKittyOverlay", "Failed to remove compose view", e)
+            }
         }
         try {
             unregisterReceiver(receiver)
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            android.util.Log.e("LogKittyOverlay", "Failed to unregister receiver", e)
+        }
     }
 
     private fun handleSelectionMode(enable: Boolean) {
@@ -176,23 +182,34 @@ class IdeazOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-                val peekDetent = SheetDetent("peek", calculate = { screenHeight * 0.25f })
-                val halfwayDetent = SheetDetent("halfway", calculate = { screenHeight * 0.5f })
-                val fullyExpandedDetent = SheetDetent("fully_expanded", calculate = { screenHeight * 0.8f })
+                val peekDetent = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
+                val halfwayDetent = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.5f })
+                val fullyExpandedDetent = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.8f })
                 val sheetState = rememberBottomSheetState(
                     initialDetent = peekDetent,
                     detents = listOf(peekDetent, halfwayDetent, fullyExpandedDetent)
                 )
 
-                IDEazTheme {
-                    IdeBottomSheet(
+                LogKittyTheme {
+                    LogBottomSheet(
                         sheetState = sheetState,
                         viewModel = viewModel,
                         peekDetent = peekDetent,
                         halfwayDetent = halfwayDetent,
                         fullyExpandedDetent = fullyExpandedDetent,
                         screenHeight = screenHeight,
-                        onSendPrompt = { viewModel.sendPrompt(it) }
+                        onSendPrompt = { viewModel.sendPrompt(it) },
+                        onSaveClick = {
+                            val intent = Intent(this@LogKittyOverlayService, com.hereliesaz.logkitty.FileSaverActivity::class.java)
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                        },
+                        onSettingsClick = {
+                            val intent = Intent(this@LogKittyOverlayService, MainActivity::class.java)
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            intent.putExtra("EXTRA_SHOW_SETTINGS", true)
+                            startActivity(intent)
+                        }
                     )
                 }
             }
@@ -260,7 +277,7 @@ class IdeazOverlayService : Service() {
         val icon = android.R.drawable.ic_menu_view
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("IDEaz Overlay")
+            .setContentTitle("LogKitty Overlay")
             .setContentText("Overlay is active")
             .setSmallIcon(icon)
             .setContentIntent(pendingIntent)
