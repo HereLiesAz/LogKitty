@@ -20,6 +20,8 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
@@ -229,6 +231,12 @@ class LogKittyOverlayService : Service() {
                     onDispose { bottomSheetState = null }
                 }
 
+                // Update WindowManager flags based on sheet state to allow touch-through
+                DisposableEffect(sheetState.currentDetent) {
+                    updateWindowManagerFlags(sheetState.currentDetent == SheetDetent.Hidden)
+                    onDispose { }
+                }
+
                 LogKittyTheme {
                     LogBottomSheet(
                         sheetState = sheetState,
@@ -258,16 +266,45 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
+        // Initial params: Full screen to allow bottom sheet to slide up from bottom,
+        // but FLAG_NOT_TOUCH_MODAL + FLAG_WATCH_OUTSIDE or just proper layout.
+        // We start with NOT_FOCUSABLE.
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         )
 
         try {
             windowManager.addView(composeView, params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun updateWindowManagerFlags(isHidden: Boolean) {
+        val view = composeView ?: return
+        val params = view.layoutParams as? WindowManager.LayoutParams ?: return
+        
+        if (isHidden) {
+            // When hidden, make it touch-through completely
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            params.width = 0
+            params.height = 0
+        } else {
+            // When visible, allow touches but don't block entire screen if possible?
+            // Actually, ComposeView with BottomSheet needs to be full screen to handle gestures.
+            // BUT we can use FLAG_NOT_TOUCH_MODAL to allow touches outside the window.
+            // However, the window IS the whole screen.
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            params.width = WindowManager.LayoutParams.MATCH_PARENT
+            params.height = WindowManager.LayoutParams.MATCH_PARENT
+        }
+        
+        try {
+            windowManager.updateViewLayout(view, params)
         } catch (e: Exception) {
             e.printStackTrace()
         }
