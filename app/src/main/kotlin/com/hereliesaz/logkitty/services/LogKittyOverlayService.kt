@@ -18,10 +18,13 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.view.WindowManager
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
@@ -40,6 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.delay
 
 class LogKittyOverlayService : Service() {
 
@@ -213,14 +217,16 @@ class LogKittyOverlayService : Service() {
 
         composeView = ComposeView(this).apply {
             setContent {
-                val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
                 val density = androidx.compose.ui.platform.LocalDensity.current
+                // Use resources.displayMetrics to get the real screen height, independent of window size
+                val displayMetrics = resources.displayMetrics
+                val screenHeight = (displayMetrics.heightPixels / density.density).dp
 
                 val detents = remember(screenHeight) {
-                    val hidden = SheetDetent("hidden", calculateDetentHeight = {_, _ -> screenHeight * 0.12f })
-                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.35f })
-                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.6f })
-                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.9f })
+                    val hidden = SheetDetent("hidden", calculateDetentHeight = {_, _ -> screenHeight * 0.02f })
+                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
+                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.50f })
+                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.80f })
                     listOf(hidden, peek, halfway, fully)
                 }
 
@@ -237,6 +243,7 @@ class LogKittyOverlayService : Service() {
 
                 val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
                 var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
+                var isWindowExpanded by remember { mutableStateOf(false) }
 
                 val updateWindowHeight = { isInteracting: Boolean ->
                      val params = composeView?.layoutParams as? WindowManager.LayoutParams
@@ -244,6 +251,7 @@ class LogKittyOverlayService : Service() {
                          if (isInteracting) {
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = null
+                             isWindowExpanded = true
                              if (params.height != WindowManager.LayoutParams.MATCH_PARENT || params.y != 0) {
                                  params.height = WindowManager.LayoutParams.MATCH_PARENT
                                  params.y = 0
@@ -257,19 +265,26 @@ class LogKittyOverlayService : Service() {
                              // Delay shrinking to allow animation to settle
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = coroutineScope.launch {
-                                 kotlinx.coroutines.delay(400) // Wait for settle
+                                 delay(400) // Wait for settle
+
+                                 // First remove padding to drop the sheet visually to bottom (0%)
+                                 isWindowExpanded = false
+
+                                 // Wait for recomposition/layout
+                                 delay(50)
+
                                  val currentDetent = sheetState.currentDetent
                                  val detentHeightFactor = when {
-                                     currentDetent == detents[0] -> 0.12f // Hidden
-                                     currentDetent == detents[1] -> 0.35f
-                                     currentDetent == detents[2] -> 0.6f
-                                     currentDetent == detents[3] -> 0.9f
-                                     else -> 0.35f
+                                     currentDetent == detents[0] -> 0.02f // Hidden
+                                     currentDetent == detents[1] -> 0.25f
+                                     currentDetent == detents[2] -> 0.50f
+                                     currentDetent == detents[3] -> 0.80f
+                                     else -> 0.25f
                                  }
 
-                                 // We subtract 10% (empty space) from the window height, and lift it by 10% (y offset)
-                                 // to allow pass-through in the bottom 10%.
-                                 val targetHeightFactor = (detentHeightFactor - 0.10f).coerceAtLeast(0f)
+                                 // We lift the window by 10% (y offset) to allow pass-through in the bottom 10%.
+                                 // The window height is the content height (detentHeightFactor).
+                                 val targetHeightFactor = detentHeightFactor
                                  val targetYFactor = 0.10f
 
                                  val heightPx = with(density) { (screenHeight * targetHeightFactor).toPx() }.toInt()
@@ -299,6 +314,8 @@ class LogKittyOverlayService : Service() {
                     onDispose { }
                 }
 
+                val bottomPadding = if (isWindowExpanded) screenHeight * 0.10f else 0.dp
+
                 LogKittyTheme {
                     LogBottomSheet(
                         sheetState = sheetState,
@@ -307,6 +324,7 @@ class LogKittyOverlayService : Service() {
                         halfwayDetent = detents[2],
                         fullyExpandedDetent = detents[3],
                         screenHeight = screenHeight,
+                        bottomPadding = bottomPadding,
                         onSendPrompt = { viewModel.sendPrompt(it) },
                         onInteraction = { isInteracting ->
                             updateWindowHeight(isInteracting)
@@ -334,8 +352,8 @@ class LogKittyOverlayService : Service() {
         // Initial params: Full screen to allow bottom sheet to slide up from bottom,
         // but FLAG_NOT_TOUCH_MODAL + FLAG_WATCH_OUTSIDE or just proper layout.
         // We start with NOT_FOCUSABLE.
-        // Initial height based on Peek (0.35f)
-        val initialHeight = (resources.displayMetrics.heightPixels * 0.35f).toInt()
+        // Initial height based on Peek (0.25f)
+        val initialHeight = (resources.displayMetrics.heightPixels * 0.25f).toInt()
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
