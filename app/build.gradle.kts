@@ -89,7 +89,7 @@ android {
     defaultConfig {
         buildConfigField("String", "BUILD_TOOLS_OWNER", "\"$toolsOwner\"")
         buildConfigField("String", "BUILD_TOOLS_REPO", "\"$toolsRepo\"")
-        buildConfigField("String", "GITHUB_TOKEN", "\"${System.getenv("GITHUB_TOKEN") ?: ""}\"")
+        buildConfigField("String", "GH_TOKEN", "\"${System.getenv("GH_TOKEN") ?: ""}\"")
         buildConfigField("String", "REPO_OWNER", "\"HereLiesAz\"")
         buildConfigField("String", "REPO_NAME", "\"LogKitty\"")
     }

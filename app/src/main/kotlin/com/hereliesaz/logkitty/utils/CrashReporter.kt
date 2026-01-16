@@ -67,9 +67,9 @@ class CrashReporter(private val context: Context) : Thread.UncaughtExceptionHand
 
         if (crashFiles.isEmpty()) return@withContext
 
-        val token = BuildConfig.GITHUB_TOKEN
+        val token = BuildConfig.GH_TOKEN
         if (token.isEmpty()) {
-            Log.w("CrashReporter", "GITHUB_TOKEN is empty. Cannot upload crash reports.")
+            Log.w("CrashReporter", "GH_TOKEN is empty. Cannot upload crash reports.")
             return@withContext
         }
 
