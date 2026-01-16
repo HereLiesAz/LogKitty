@@ -16,9 +16,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 data class LogTab(
     val id: String,
@@ -46,6 +48,7 @@ class MainViewModel(
     val isContextModeEnabled: StateFlow<Boolean> = userPreferences.isContextModeEnabled
     val customFilter: StateFlow<String> = userPreferences.customFilter
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
+    val isRootEnabled: StateFlow<Boolean> = userPreferences.isRootEnabled
 
     private val systemTab = LogTab("system", "System", TabType.SYSTEM)
     private val errorsTab = LogTab("errors", "Errors", TabType.ERRORS)
@@ -103,10 +106,19 @@ class MainViewModel(
         }
     }
 
+    private var logJob: Job? = null
+
     init {
+        // Observe root setting and restart log collection when it changes
         viewModelScope.launch {
-            LogcatReader.observe().collect {
-                stateDelegate.appendSystemLog(it)
+            isRootEnabled.collect { useRoot ->
+                logJob?.cancel()
+                stateDelegate.clearLog()
+                logJob = launch {
+                    LogcatReader.observe(useRoot).collect {
+                        stateDelegate.appendSystemLog(it)
+                    }
+                }
             }
         }
 
@@ -163,6 +175,10 @@ class MainViewModel(
 
     fun setOverlayOpacity(opacity: Float) {
         userPreferences.setOverlayOpacity(opacity)
+    }
+
+    fun setRootEnabled(enabled: Boolean) {
+        userPreferences.setRootEnabled(enabled)
     }
 
     /** Sends a prompt (stub for now). */

@@ -10,9 +10,10 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 object LogcatReader {
-    fun observe(): Flow<String> = flow {
+    fun observe(useRoot: Boolean): Flow<String> = flow {
         // -v time to show timestamp
-        val process = Runtime.getRuntime().exec("logcat -v time")
+        val cmd = if (useRoot) "su -c logcat -v time" else "logcat -v time"
+        val process = Runtime.getRuntime().exec(cmd)
         val reader = BufferedReader(InputStreamReader(process.inputStream))
 
         try {

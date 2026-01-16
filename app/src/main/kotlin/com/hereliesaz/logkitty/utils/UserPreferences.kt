@@ -19,9 +19,17 @@ class UserPreferences(context: Context) {
     private val _overlayOpacity = MutableStateFlow(prefs.getFloat(KEY_OVERLAY_OPACITY, 1.0f))
     val overlayOpacity: StateFlow<Float> = _overlayOpacity.asStateFlow()
 
+    private val _isRootEnabled = MutableStateFlow(prefs.getBoolean(KEY_IS_ROOT_ENABLED, false))
+    val isRootEnabled: StateFlow<Boolean> = _isRootEnabled.asStateFlow()
+
     fun setContextModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_CONTEXT_MODE, enabled).apply()
         _isContextModeEnabled.value = enabled
+    }
+
+    fun setRootEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_ROOT_ENABLED, enabled).apply()
+        _isRootEnabled.value = enabled
     }
 
     fun setCustomFilter(filter: String) {
@@ -39,5 +47,6 @@ class UserPreferences(context: Context) {
         private const val KEY_CONTEXT_MODE = "context_mode"
         private const val KEY_CUSTOM_FILTER = "custom_filter"
         private const val KEY_OVERLAY_OPACITY = "overlay_opacity"
+        private const val KEY_IS_ROOT_ENABLED = "is_root_enabled"
     }
 }
