@@ -89,6 +89,9 @@ android {
     defaultConfig {
         buildConfigField("String", "BUILD_TOOLS_OWNER", "\"$toolsOwner\"")
         buildConfigField("String", "BUILD_TOOLS_REPO", "\"$toolsRepo\"")
+        buildConfigField("String", "GITHUB_TOKEN", "\"${System.getenv("GITHUB_TOKEN") ?: ""}\"")
+        buildConfigField("String", "REPO_OWNER", "\"HereLiesAz\"")
+        buildConfigField("String", "REPO_NAME", "\"LogKitty\"")
     }
 
     packaging {
@@ -175,6 +178,8 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okhttp)
 
     // Tests
     testImplementation(libs.junit)
