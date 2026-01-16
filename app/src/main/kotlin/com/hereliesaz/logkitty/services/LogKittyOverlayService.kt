@@ -301,6 +301,7 @@ class LogKittyOverlayService : Service() {
                                          } catch (e: Exception) {
                                              e.printStackTrace()
                                          }
+                                         isWindowExpanded = false
                                      }
                                  }
                              }
