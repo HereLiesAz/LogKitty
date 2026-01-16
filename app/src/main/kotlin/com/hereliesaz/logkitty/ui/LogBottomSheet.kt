@@ -190,9 +190,9 @@ fun LogBottomSheet(
         }
     }
 
-    LaunchedEffect(systemLogMessages.size) {
+    LaunchedEffect(systemLogMessages.size, isLogReversed) {
         if (autoScrollEnabled && systemLogMessages.isNotEmpty() && selectedLogIndex == null) {
-            listState.scrollToItem(systemLogMessages.size - 1)
+             listState.scrollToItem(systemLogMessages.size - 1)
         }
     }
 
@@ -204,35 +204,21 @@ fun LogBottomSheet(
     // We also need to apply bottomPadding to the content to avoid the 10% gap if expanded.
 
     val contentHeight = when (sheetState.currentDetent) {
-        fullyExpandedDetent -> screenHeight * 0.9f
-        halfwayDetent -> screenHeight * 0.6f
-        peekDetent -> screenHeight * 0.35f
-        hiddenDetent -> screenHeight * 0.12f
+        fullyExpandedDetent -> (screenHeight * 0.80f)
+        halfwayDetent -> (screenHeight * 0.50f)
+        peekDetent -> (screenHeight * 0.25f)
+        hiddenDetent -> (screenHeight * 0.02f)
         else -> 0.dp
     }.coerceAtLeast(0.dp)
 
     // Swiping side to side logic
     val swipeThreshold = 100f
 
-    // Blocking connection for LazyColumn to prevent sheet drag on overscroll
+    // Blocking connection for LazyColumn
     val blockingNestedScrollConnection = remember {
         object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                // Consume all available scroll to prevent parent (BottomSheet) from getting it
-                return available
-            }
-
-            override suspend fun onPostFling(
-                consumed: Velocity,
-                available: Velocity
-            ): Velocity {
-                // Consume all available fling
-                return available
-            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
         }
     }
 
@@ -284,190 +270,188 @@ fun LogBottomSheet(
                 }
         ) {
 
-                if (contentHeight > 0.dp) {
-                    Column(
-                        modifier = Modifier.height(contentHeight)
-                    ) {
-                        Column(
+            if (contentHeight > 0.dp) {
+                Column(
+                    modifier = Modifier
+                        .height(contentHeight)
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
+                ) {
+                    // Handle (Only visible if not hidden)
+                    if (!isHidden) {
+                         Box(
                             modifier = Modifier
-                                .weight(1f)
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
-                                .pointerInput(Unit) {
-                                    detectHorizontalDragGestures(
-                                        onDragEnd = { /* Handled by scrollable tab row or custom logic if needed */ }
-                                    ) { change, dragAmount ->
-                                        if (abs(dragAmount) > swipeThreshold) {
-                                            val currentIndex = tabs.indexOf(selectedTab)
-                                            if (dragAmount > 0) { // Swipe Right -> Previous Tab
-                                                if (currentIndex > 0) {
-                                                    viewModel.selectTab(tabs[currentIndex - 1])
-                                                }
-                                            } else { // Swipe Left -> Next Tab
-                                                if (currentIndex < tabs.size - 1) {
-                                                    viewModel.selectTab(tabs[currentIndex + 1])
-                                                }
-                                            }
-                                            change.consume()
-                                        }
-                                    }
-                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            // Handle
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(32.dp)
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp))
-                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                                )
-                            }
+                                    .width(32.dp)
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                            )
+                        }
+                    }
 
-                            // Tab Row
-                            ScrollableTabRow(
-                                selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
-                                edgePadding = 16.dp,
-                                containerColor = Color.Transparent,
-                                contentColor = MaterialTheme.colorScheme.primary,
-                                divider = {},
-                                indicator = { tabPositions ->
-                                    if (tabs.isNotEmpty()) {
-                                        val index = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
-                                        TabRowDefaults.SecondaryIndicator(
-                                            Modifier.tabIndicatorOffset(tabPositions[index])
-                                        )
-                                    }
-                                }
-                            ) {
-                                tabs.forEach { tab ->
-                                    Tab(
-                                        selected = selectedTab == tab,
-                                        onClick = { viewModel.selectTab(tab) },
-                                        text = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(tab.title)
-                                                if (tab.type == TabType.APP) {
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Icon(
-                                                        imageVector = Icons.Default.Close,
-                                                        contentDescription = "Close Tab",
-                                                        modifier = Modifier
-                                                            .size(16.dp)
-                                                            .clickable { viewModel.closeTab(tab) },
-                                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                                    )
-                                                }
-                                            }
-                                        }
+                    if (isHidden) {
+                        // HIDDEN DETENT CONTENT: Single latest log line
+                        val latestLog = systemLogMessages.lastOrNull() ?: "No logs"
+                        val level = LogLevel.fromLine(latestLog)
+                        val color = logColors[level] ?: level.defaultColor
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = latestLog,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = color,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                    } else {
+                        // EXPANDED CONTENT
+                        // Tab Row
+                        ScrollableTabRow(
+                            selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
+                            edgePadding = 16.dp,
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            divider = {},
+                            indicator = { tabPositions ->
+                                if (tabs.isNotEmpty()) {
+                                    val index = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
+                                    TabRowDefaults.SecondaryIndicator(
+                                        Modifier.tabIndicatorOffset(tabPositions[index])
                                     )
                                 }
                             }
-
-                            if (systemLogMessages.isEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f)
-                                        .padding(horizontal = 16.dp)
-                                        .pointerInput(Unit) {
-                                            detectVerticalDragGestures { _, _ -> /* Consume to block sheet drag */ }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(
-                                            imageVector = Icons.Default.Info,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            modifier = Modifier.padding(bottom = 8.dp)
-                                        )
-                                        Text(
-                                            text = "No log messages yet",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
-                            } else {
-                                LazyColumn(
-                                    state = listState,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f)
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                        .nestedScroll(blockingNestedScrollConnection)
-                                ) {
-                                    itemsIndexed(
-                                        items = systemLogMessages,
-                                        key = { index, _ -> index }
-                                    ) { index, message ->
-                                        val level = LogLevel.fromLine(message)
-                                        val color = logColors[level] ?: level.defaultColor
-                                        val isSelected = selectedLogIndex == index
-
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent)
-                                                .clickable {
-                                                    selectedLogIndex = if (isSelected) null else index
-                                                    if (!isSelected) autoScrollEnabled = false
-                                                }
-                                                .padding(vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = message,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = color
-                                            )
-                                            if (isSelected) {
-                                                Row(
+                        ) {
+                            tabs.forEach { tab ->
+                                Tab(
+                                    selected = selectedTab == tab,
+                                    onClick = { viewModel.selectTab(tab) },
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(tab.title)
+                                            if (tab.type == TabType.APP) {
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Close Tab",
                                                     modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(top = 4.dp),
-                                                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
-                                                ) {
-                                                    // Copy
-                                                    IconButton(onClick = {
-                                                        clipboardManager.setText(AnnotatedString(message))
-                                                        selectedLogIndex = null
-                                                    }) {
-                                                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary)
-                                                    }
-                                                    // Search
-                                                    IconButton(onClick = {
-                                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${Uri.encode(message)}"))
-                                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                        context.startActivity(intent)
-                                                        selectedLogIndex = null
-                                                    }) {
-                                                        Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
-                                                    }
-                                                    // Prohibit
-                                                    IconButton(onClick = {
-                                                        viewModel.prohibitLog(message)
-                                                        selectedLogIndex = null
-                                                    }) {
-                                                        Icon(Icons.Default.Block, contentDescription = "Prohibit", tint = MaterialTheme.colorScheme.error)
-                                                    }
+                                                        .size(16.dp)
+                                                        .clickable { viewModel.closeTab(tab) },
+                                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+
+                        if (systemLogMessages.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .padding(horizontal = 16.dp)
+                                    .pointerInput(Unit) {
+                                        detectVerticalDragGestures { _, _ -> /* Consume to block sheet drag */ }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                    Text(
+                                        text = "No log messages yet",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                reverseLayout = isLogReversed,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .nestedScroll(blockingNestedScrollConnection)
+                            ) {
+                                itemsIndexed(
+                                    items = systemLogMessages,
+                                    key = { index, _ -> index }
+                                ) { index, message ->
+                                    val level = LogLevel.fromLine(message)
+                                    val color = logColors[level] ?: level.defaultColor
+                                    val isSelected = selectedLogIndex == index
+
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent)
+                                            .clickable {
+                                                selectedLogIndex = if (isSelected) null else index
+                                                if (!isSelected) autoScrollEnabled = false
+                                            }
+                                            .padding(vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = color
+                                        )
+                                        if (isSelected) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 4.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
+                                            ) {
+                                                // Copy
+                                                IconButton(onClick = {
+                                                    clipboardManager.setText(AnnotatedString(message))
+                                                    selectedLogIndex = null
+                                                }) {
+                                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary)
+                                                }
+                                                // Search
+                                                IconButton(onClick = {
+                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${Uri.encode(message)}"))
+                                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    context.startActivity(intent)
+                                                    selectedLogIndex = null
+                                                }) {
+                                                    Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
+                                                }
+                                                // Prohibit
+                                                IconButton(onClick = {
+                                                    viewModel.prohibitLog(message)
+                                                    selectedLogIndex = null
+                                                }) {
+                                                    Icon(Icons.Default.Block, contentDescription = "Prohibit", tint = MaterialTheme.colorScheme.error)
                                                 }
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-
-                        // Conditional spacer to shift content up when window expands to full screen (y=0)
-                        if (isWindowExpanded) {
-                            Spacer(modifier = Modifier.height(screenHeight * 0.1f))
                         }
                     }
                 }

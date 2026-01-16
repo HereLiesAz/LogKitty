@@ -18,6 +18,7 @@ data class ExportedPreferences(
     val customFilter: String,
     val overlayOpacity: Float,
     val isRootEnabled: Boolean,
+    val isLogReversed: Boolean, // Added
     val prohibitedTags: List<String>,
     val logColors: Map<String, Int> // Store colors as ARGB Ints, keyed by LogLevel.name
 )
@@ -37,6 +38,9 @@ class UserPreferences(context: Context) {
 
     private val _isRootEnabled = MutableStateFlow(prefs.getBoolean(KEY_IS_ROOT_ENABLED, false))
     val isRootEnabled: StateFlow<Boolean> = _isRootEnabled.asStateFlow()
+
+    private val _isLogReversed = MutableStateFlow(prefs.getBoolean(KEY_IS_LOG_REVERSED, false))
+    val isLogReversed: StateFlow<Boolean> = _isLogReversed.asStateFlow()
 
     private val _prohibitedTags = MutableStateFlow(loadProhibitedTags())
     val prohibitedTags: StateFlow<Set<String>> = _prohibitedTags.asStateFlow()
@@ -128,6 +132,7 @@ class UserPreferences(context: Context) {
             customFilter = _customFilter.value,
             overlayOpacity = _overlayOpacity.value,
             isRootEnabled = _isRootEnabled.value,
+            isLogReversed = _isLogReversed.value,
             prohibitedTags = _prohibitedTags.value.toList(),
             logColors = colorMap
         )
@@ -145,6 +150,7 @@ class UserPreferences(context: Context) {
             setCustomFilter(imported.customFilter)
             setOverlayOpacity(imported.overlayOpacity)
             setRootEnabled(imported.isRootEnabled)
+            setLogReversed(imported.isLogReversed)
 
             val tags = imported.prohibitedTags.toSet()
             _prohibitedTags.value = tags
@@ -180,6 +186,7 @@ class UserPreferences(context: Context) {
         private const val KEY_CUSTOM_FILTER = "custom_filter"
         private const val KEY_OVERLAY_OPACITY = "overlay_opacity"
         private const val KEY_IS_ROOT_ENABLED = "is_root_enabled"
+        private const val KEY_IS_LOG_REVERSED = "is_log_reversed"
         private const val KEY_PROHIBITED_TAGS = "prohibited_tags"
     }
 }

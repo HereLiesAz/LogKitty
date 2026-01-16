@@ -239,11 +239,24 @@ class LogKittyOverlayService : Service() {
                 }
                 val screenHeight = (screenHeightPx / density.density).dp
 
+                // Robust screen height calculation
+                val screenHeightPx = remember {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        windowManager.currentWindowMetrics.bounds.height()
+                    } else {
+                        val metrics = DisplayMetrics()
+                        @Suppress("DEPRECATION")
+                        windowManager.defaultDisplay.getRealMetrics(metrics)
+                        metrics.heightPixels
+                    }
+                }
+                val screenHeight = (screenHeightPx / density.density).dp
+
                 val detents = remember(screenHeight) {
-                    val hidden = SheetDetent("hidden", calculateDetentHeight = {_, _ -> screenHeight * 0.12f })
-                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.35f })
-                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.6f })
-                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.9f })
+                    val hidden = SheetDetent("hidden", calculateDetentHeight = {_, _ -> screenHeight * 0.02f })
+                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
+                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.50f })
+                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.80f })
                     listOf(hidden, peek, halfway, fully)
                 }
 
@@ -262,16 +275,24 @@ class LogKittyOverlayService : Service() {
                 var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
                 var isWindowExpanded by remember { mutableStateOf(false) }
 
+                // Fixed Anchor: 10% of screen height from bottom
+                val anchorYPx = (screenHeightPx * 0.10f).toInt()
+                val expandedHeightPx = (screenHeightPx * 0.90f).toInt()
+
                 val updateWindowHeight = { isInteracting: Boolean ->
                      val params = composeView?.layoutParams as? WindowManager.LayoutParams
                      if (params != null) {
+                         // Always ensure Y anchor is maintained and Gravity is BOTTOM
+                         params.y = anchorYPx
+                         params.gravity = Gravity.BOTTOM
+
                          if (isInteracting) {
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = null
-                             isWindowExpanded = true
-                             if (params.height != WindowManager.LayoutParams.MATCH_PARENT || params.y != 0) {
-                                 params.height = WindowManager.LayoutParams.MATCH_PARENT
-                                 params.y = 0
+
+                             // Expand window upwards to allow full interaction
+                             if (params.height != expandedHeightPx) {
+                                 params.height = expandedHeightPx
                                  try {
                                      windowManager.updateViewLayout(composeView, params)
                                  } catch (e: Exception) {
@@ -284,36 +305,27 @@ class LogKittyOverlayService : Service() {
                              delayedShrinkJob = coroutineScope.launch {
                                  delay(400) // Wait for settle
 
-                                 // First remove padding to drop the sheet visually to bottom (0%)
-                                 isWindowExpanded = false
-
-                                 // Wait for recomposition/layout
-                                 delay(50)
-
+                                 // Determine current detent height
                                  val currentDetent = sheetState.currentDetent
                                  val detentHeightFactor = when {
-                                     currentDetent == detents[0] -> 0.12f // Hidden
-                                     currentDetent == detents[1] -> 0.35f
-                                     currentDetent == detents[2] -> 0.6f
-                                     currentDetent == detents[3] -> 0.9f
-                                     else -> 0.35f
+                                     currentDetent == detents[0] -> 0.02f // Hidden
+                                     currentDetent == detents[1] -> 0.25f
+                                     currentDetent == detents[2] -> 0.50f
+                                     currentDetent == detents[3] -> 0.80f
+                                     else -> 0.25f
                                  }
 
-                                 // We subtract 10% (empty space) from the window height, and lift it by 10% (y offset)
-                                 // to allow pass-through in the bottom 10%.
-                                 val targetHeightFactor = (detentHeightFactor - 0.10f).coerceAtLeast(0f)
-                                 val targetYFactor = 0.10f
-
-                                 val heightPx = with(density) { (screenHeight * targetHeightFactor).toPx() }.toInt()
-                                 val yPx = with(density) { (screenHeight * targetYFactor).toPx() }.toInt()
+                                 val targetHeightPx = (screenHeightPx * detentHeightFactor).toInt()
 
                                  // Check if we started interacting again during delay
                                  if (isActive) {
                                      isWindowExpanded = false
                                      val currentParams = composeView?.layoutParams as? WindowManager.LayoutParams
-                                     if (currentParams != null && (currentParams.height != heightPx || currentParams.y != yPx)) {
-                                         currentParams.height = heightPx
-                                         currentParams.y = yPx
+                                     if (currentParams != null && (currentParams.height != targetHeightPx)) {
+                                         currentParams.height = targetHeightPx
+                                         // Y anchor remains constant
+                                         currentParams.y = anchorYPx
+                                         currentParams.gravity = Gravity.BOTTOM
                                          try {
                                              windowManager.updateViewLayout(composeView, currentParams)
                                          } catch (e: Exception) {
@@ -329,8 +341,7 @@ class LogKittyOverlayService : Service() {
 
                 // Monitor detent changes to trigger resize if needed (even without interaction)
                 LaunchedEffect(sheetState.currentDetent) {
-                    // Force a settled update if we are not currently interacting (assumed false here since this is triggered by state change)
-                    // We call updateWindowHeight(false) to enforce the "settled" size for the new detent.
+                    // Force a settled update if we are not currently interacting
                     updateWindowHeight(false)
                 }
 
@@ -375,11 +386,9 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
-        // Initial params: Full screen to allow bottom sheet to slide up from bottom,
-        // but FLAG_NOT_TOUCH_MODAL + FLAG_WATCH_OUTSIDE or just proper layout.
-        // We start with NOT_FOCUSABLE.
-        // Initial height based on Peek (0.25f)
+        // Initial params: Height = Peek (25%), Anchor = 10%
         val initialHeight = (resources.displayMetrics.heightPixels * 0.25f).toInt()
+        val initialY = (resources.displayMetrics.heightPixels * 0.10f).toInt()
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -389,6 +398,7 @@ class LogKittyOverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM
+            y = initialY
         }
 
         try {
