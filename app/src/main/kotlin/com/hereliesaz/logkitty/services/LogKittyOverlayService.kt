@@ -234,27 +234,6 @@ class LogKittyOverlayService : Service() {
                 }
                 val screenHeight = (screenHeightPx / density.density).dp
 
-                // Robust screen height calculation
-                val screenHeightPx = remember {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        windowManager.currentWindowMetrics.bounds.height()
-                    } else {
-                        val metrics = DisplayMetrics()
-                        @Suppress("DEPRECATION")
-                        windowManager.defaultDisplay.getRealMetrics(metrics)
-                        metrics.heightPixels
-                    }
-                }
-                val screenHeight = (screenHeightPx / density.density).dp
-
-                val detents = remember(screenHeight) {
-                    val hidden = SheetDetent("hidden", calculateDetentHeight = {_, _ -> screenHeight * 0.02f })
-                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
-                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.50f })
-                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.80f })
-                    listOf(hidden, peek, halfway, fully)
-                }
-
                 val sheetState = rememberBottomSheetState(
                     initialValue = BottomSheetValue.Collapsed
                 )
@@ -268,10 +247,6 @@ class LogKittyOverlayService : Service() {
                 val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
                 var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
                 var isWindowExpanded by remember { mutableStateOf(false) }
-
-                // Fixed Anchor: 10% of screen height from bottom
-                val anchorYPx = (screenHeightPx * 0.10f).toInt()
-                val expandedHeightPx = (screenHeightPx * 0.90f).toInt()
 
                 // Fixed Anchor: 10% of screen height from bottom
                 val anchorYPx = (screenHeightPx * 0.10f).toInt()
