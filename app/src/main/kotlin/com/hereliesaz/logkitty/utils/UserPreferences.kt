@@ -54,6 +54,11 @@ class UserPreferences(context: Context) {
         _isRootEnabled.value = enabled
     }
 
+    fun setLogReversed(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_LOG_REVERSED, enabled).apply()
+        _isLogReversed.value = enabled
+    }
+
     fun setCustomFilter(filter: String) {
         prefs.edit().putString(KEY_CUSTOM_FILTER, filter).apply()
         _customFilter.value = filter

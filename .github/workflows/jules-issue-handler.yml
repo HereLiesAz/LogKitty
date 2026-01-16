@@ -31,20 +31,26 @@ jobs:
             }
 
       - name: Invoke Jules
+        if: contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association)
         uses: google-labs-code/jules-invoke@v1
         with:
           jules_api_key: ${{ secrets.JULES_API_KEY }}
           prompt: |
             You are Jules, an expert software engineer and security agent.
+            Your task is to resolve the reported issue by analyzing the codebase, implementing changes, and verifying them.
 
-            Please address the following issue:
-
+            **Issue Details**
             **Title:** ${{ github.event.issue.title }}
             **Body:**
             ${{ github.event.issue.body }}
 
-            **Instructions:**
-            1. Analyze the request. If this is a security issue, prioritize fixing vulnerabilities immediately.
-            2. Implement the necessary code changes.
-            3. Verify your changes.
-            4. Once the task is complete (and any necessary PRs are merged or changes applied), **you must close this issue**.
+            **Plan**
+            1. **Analyze**: Understand the issue and identify the root cause or feature requirements.
+            2. **Implement**: Make necessary code changes. Ensure they are minimal and focused.
+            3. **Verify**: Run relevant tests or verification steps to ensure the fix works and causes no regressions.
+            4. **Finalize**: Once verified, close the issue.
+
+            **Constraints**
+            - Prioritize security fixes immediately.
+            - Do not introduce regressions.
+            - Follow existing coding style and conventions.
