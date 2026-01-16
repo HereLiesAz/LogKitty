@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.hereliesaz.logkitty.services.LogKittyAccessibilityService
 import com.hereliesaz.logkitty.ui.delegates.StateDelegate
 import com.hereliesaz.logkitty.utils.LogcatReader
+import com.hereliesaz.logkitty.utils.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,25 +23,31 @@ class MainViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
+    private val userPreferences = UserPreferences(application)
     val stateDelegate = StateDelegate(viewModelScope)
 
     private val _currentForegroundApp = MutableStateFlow<String?>(null)
     val currentForegroundApp: StateFlow<String?> = _currentForegroundApp
 
-    private val _isContextModeEnabled = MutableStateFlow(false)
-    val isContextModeEnabled: StateFlow<Boolean> = _isContextModeEnabled
+    val isContextModeEnabled: StateFlow<Boolean> = userPreferences.isContextModeEnabled
+    val customFilter: StateFlow<String> = userPreferences.customFilter
+    val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
 
     // Derived state for filtered logs
     val filteredSystemLog = combine(
         stateDelegate.systemLog,
         _currentForegroundApp,
-        _isContextModeEnabled
-    ) { logs, app, enabled ->
+        isContextModeEnabled,
+        customFilter
+    ) { logs, app, enabled, filter ->
+        var result = logs
         if (enabled && !app.isNullOrBlank()) {
-            logs.filter { it.contains(app, ignoreCase = true) }
-        } else {
-            logs
+            result = result.filter { it.contains(app, ignoreCase = true) }
         }
+        if (filter.isNotBlank()) {
+            result = result.filter { it.contains(filter, ignoreCase = true) }
+        }
+        result
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val receiver = object : BroadcastReceiver() {
@@ -80,7 +87,15 @@ class MainViewModel(
     fun clearLog() = stateDelegate.clearLog()
 
     fun toggleContextMode() {
-        _isContextModeEnabled.value = !_isContextModeEnabled.value
+        userPreferences.setContextModeEnabled(!isContextModeEnabled.value)
+    }
+
+    fun setCustomFilter(filter: String) {
+        userPreferences.setCustomFilter(filter)
+    }
+
+    fun setOverlayOpacity(opacity: Float) {
+        userPreferences.setOverlayOpacity(opacity)
     }
 
     /** Sends a prompt (stub for now). */

@@ -44,7 +44,10 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     if (showSettings) {
-                        SettingsScreen(onBack = { showSettings = false })
+                        SettingsScreen(
+                            onBack = { showSettings = false },
+                            viewModel = (application as MainApplication).mainViewModel
+                        )
                     } else {
                         MainScreenContent(
                             isOverlayGranted = isOverlayGranted,
