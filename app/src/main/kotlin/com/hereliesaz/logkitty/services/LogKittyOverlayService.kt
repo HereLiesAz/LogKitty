@@ -165,7 +165,8 @@ class LogKittyOverlayService : Service() {
          if (bottomSheetState != null) {
              CoroutineScope(Dispatchers.Main).launch {
                  try {
-                     bottomSheetState?.jumpTo(SheetDetent.Hidden)
+                     val hiddenDetent = bottomSheetState?.detents?.find { it.toString().contains("hidden", ignoreCase = true) } ?: SheetDetent.Hidden
+                     bottomSheetState?.jumpTo(hiddenDetent)
                  } catch (e: Exception) {
                      android.util.Log.e("LogKittyOverlay", "Failed to collapse bottom sheet", e)
                  }
@@ -211,9 +212,9 @@ class LogKittyOverlayService : Service() {
                 val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
                 
                 val detents = remember(screenHeight) {
-                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
-                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.5f })
-                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.8f })
+                    val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.3f })
+                    val halfway = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.6f })
+                    val fully = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.9f })
                     listOf(SheetDetent.Hidden, peek, halfway, fully)
                 }
 

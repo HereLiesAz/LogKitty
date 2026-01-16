@@ -3,7 +3,9 @@ package com.hereliesaz.logkitty.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -34,8 +36,7 @@ import com.composables.core.BottomSheet
 import com.composables.core.BottomSheetState
 import com.composables.core.SheetDetent
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 @Composable
 fun LogBottomSheet(
@@ -94,13 +95,15 @@ fun LogBottomSheet(
     }
 
     val contentHeight = when (sheetState.currentDetent) {
-        fullyExpandedDetent -> screenHeight * 0.8f
-        halfwayDetent -> screenHeight * 0.5f
-        peekDetent -> screenHeight * 0.25f
+        fullyExpandedDetent -> screenHeight * 0.9f
+        halfwayDetent -> screenHeight * 0.6f
+        peekDetent -> screenHeight * 0.35f
         else -> 0.dp
     }
 
-    val bottomBufferHeight = screenHeight * 0.075f
+    // Swiping side to side logic
+    var offsetX by remember { mutableStateOf(0f) }
+    val swipeThreshold = 200f // Higher threshold to avoid accidental swipes while scrolling log
 
     BottomSheet(
         state = sheetState,
@@ -113,6 +116,27 @@ fun LogBottomSheet(
                         modifier = Modifier
                             .height(contentHeight)
                             .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
+                            .draggable(
+                                orientation = Orientation.Horizontal,
+                                state = rememberDraggableState { delta ->
+                                    offsetX += delta
+                                },
+                                onDragStopped = {
+                                    if (abs(offsetX) > swipeThreshold) {
+                                        val currentIndex = tabs.indexOf(selectedTab)
+                                        if (offsetX > 0) { // Swipe Right -> Previous Tab
+                                            if (currentIndex > 0) {
+                                                viewModel.selectTab(tabs[currentIndex - 1])
+                                            }
+                                        } else { // Swipe Left -> Next Tab
+                                            if (currentIndex < tabs.size - 1) {
+                                                viewModel.selectTab(tabs[currentIndex + 1])
+                                            }
+                                        }
+                                    }
+                                    offsetX = 0f
+                                }
+                            )
                     ) {
 
                         // Handle
@@ -215,7 +239,10 @@ fun LogBottomSheet(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(bottomBufferHeight))
+                        // Extended log display area: extended down until the bottom 10% of the screen.
+                        // Since the BottomSheet fills the area from the bottom, we add a bottom spacer
+                        // to effectively keep logs above the bottom 10% of the screen.
+                        Spacer(modifier = Modifier.height(screenHeight * 0.1f))
                     }
                 }
 
