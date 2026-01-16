@@ -54,3 +54,4 @@ test-log*.txt
 gha-creds-*.json
 /.vscode/
 *.log
+*.keystore
