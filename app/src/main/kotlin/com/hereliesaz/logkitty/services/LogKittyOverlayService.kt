@@ -17,6 +17,8 @@ import android.graphics.Rect
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.util.DisplayMetrics
+import android.view.Gravity
 import android.view.WindowManager
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.DisposableEffect
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
@@ -222,6 +225,19 @@ class LogKittyOverlayService : Service() {
                 val displayMetrics = resources.displayMetrics
                 val screenHeight = (displayMetrics.heightPixels / density.density).dp
 
+                // Robust screen height calculation using RealMetrics or WindowMetrics
+                val screenHeightPx = remember {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        windowManager.currentWindowMetrics.bounds.height()
+                    } else {
+                        val metrics = DisplayMetrics()
+                        @Suppress("DEPRECATION")
+                        windowManager.defaultDisplay.getRealMetrics(metrics)
+                        metrics.heightPixels
+                    }
+                }
+                val screenHeight = (screenHeightPx / density.density).dp
+
                 val detents = remember(screenHeight) {
                     val hidden = SheetDetent("hidden", calculateDetentHeight = {_, _ -> screenHeight * 0.02f })
                     val peek = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
@@ -255,6 +271,7 @@ class LogKittyOverlayService : Service() {
                              if (params.height != WindowManager.LayoutParams.MATCH_PARENT || params.y != 0) {
                                  params.height = WindowManager.LayoutParams.MATCH_PARENT
                                  params.y = 0
+                                 params.gravity = Gravity.BOTTOM
                                  try {
                                      windowManager.updateViewLayout(composeView, params)
                                  } catch (e: Exception) {
@@ -287,8 +304,8 @@ class LogKittyOverlayService : Service() {
                                  val targetHeightFactor = detentHeightFactor
                                  val targetYFactor = 0.10f
 
-                                 val heightPx = with(density) { (screenHeight * targetHeightFactor).toPx() }.toInt()
-                                 val yPx = with(density) { (screenHeight * targetYFactor).toPx() }.toInt()
+                                 val heightPx = (screenHeightPx * targetHeightFactor).toInt()
+                                 val yPx = (screenHeightPx * targetYFactor).toInt()
 
                                  // Check if we started interacting again during delay
                                  if (isActive) {
@@ -296,6 +313,7 @@ class LogKittyOverlayService : Service() {
                                      if (currentParams != null && (currentParams.height != heightPx || currentParams.y != yPx)) {
                                          currentParams.height = heightPx
                                          currentParams.y = yPx
+                                         currentParams.gravity = Gravity.BOTTOM
                                          try {
                                              windowManager.updateViewLayout(composeView, currentParams)
                                          } catch (e: Exception) {
@@ -307,6 +325,13 @@ class LogKittyOverlayService : Service() {
                              }
                          }
                      }
+                }
+
+                // Monitor detent changes to trigger resize if needed (even without interaction)
+                LaunchedEffect(sheetState.currentDetent) {
+                    // Force a settled update if we are not currently interacting (assumed false here since this is triggered by state change)
+                    // We call updateWindowHeight(false) to enforce the "settled" size for the new detent.
+                    updateWindowHeight(false)
                 }
 
                 // Update WindowManager flags based on sheet state to allow touch-through
@@ -363,7 +388,7 @@ class LogKittyOverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = android.view.Gravity.BOTTOM
+            gravity = Gravity.BOTTOM
         }
 
         try {
