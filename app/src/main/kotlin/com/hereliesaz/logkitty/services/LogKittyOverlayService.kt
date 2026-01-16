@@ -221,6 +221,9 @@ class LogKittyOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val density = androidx.compose.ui.platform.LocalDensity.current
+                // Use resources.displayMetrics to get the real screen height, independent of window size
+                val displayMetrics = resources.displayMetrics
+                val screenHeight = (displayMetrics.heightPixels / density.density).dp
 
                 // Robust screen height calculation using RealMetrics or WindowMetrics
                 val screenHeightPx = remember {
@@ -316,6 +319,7 @@ class LogKittyOverlayService : Service() {
                                          } catch (e: Exception) {
                                              e.printStackTrace()
                                          }
+                                         isWindowExpanded = false
                                      }
                                  }
                              }
