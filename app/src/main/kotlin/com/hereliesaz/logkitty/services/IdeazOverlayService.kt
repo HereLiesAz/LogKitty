@@ -176,9 +176,9 @@ class IdeazOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-                val peekDetent = SheetDetent("peek", calculate = { screenHeight * 0.25f })
-                val halfwayDetent = SheetDetent("halfway", calculate = { screenHeight * 0.5f })
-                val fullyExpandedDetent = SheetDetent("fully_expanded", calculate = { screenHeight * 0.8f })
+                val peekDetent = SheetDetent("peek", calculateDetentHeight = { _, _ -> screenHeight * 0.25f })
+                val halfwayDetent = SheetDetent("halfway", calculateDetentHeight = { _, _ -> screenHeight * 0.5f })
+                val fullyExpandedDetent = SheetDetent("fully_expanded", calculateDetentHeight = { _, _ -> screenHeight * 0.8f })
                 val sheetState = rememberBottomSheetState(
                     initialDetent = peekDetent,
                     detents = listOf(peekDetent, halfwayDetent, fullyExpandedDetent)
@@ -192,7 +192,18 @@ class IdeazOverlayService : Service() {
                         halfwayDetent = halfwayDetent,
                         fullyExpandedDetent = fullyExpandedDetent,
                         screenHeight = screenHeight,
-                        onSendPrompt = { viewModel.sendPrompt(it) }
+                        onSendPrompt = { viewModel.sendPrompt(it) },
+                        onSaveClick = {
+                            val intent = Intent(this@IdeazOverlayService, com.hereliesaz.logkitty.FileSaverActivity::class.java)
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                        },
+                        onSettingsClick = {
+                            val intent = Intent(this@IdeazOverlayService, MainActivity::class.java)
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            intent.putExtra("EXTRA_SHOW_SETTINGS", true)
+                            startActivity(intent)
+                        }
                     )
                 }
             }
