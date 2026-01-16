@@ -1,13 +1,17 @@
 package com.hereliesaz.logkitty.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Save
@@ -15,9 +19,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -45,10 +51,37 @@ fun LogBottomSheet(
 ) {
     val isHalfwayExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
 
+    // Back Handler: If expanded, collapse to hidden (or peek if preferred, user said "collapse")
+    // Assuming "collapse" means minimal state. The user said "Pressing the x again should completely collapse".
+    // We will assume jumping to Hidden or Peek. Let's use Hidden as per "completely collapse".
+    val isExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
+
+    BackHandler(enabled = isExpanded) {
+        // We need a coroutine scope to launch the suspend function
+        // However, BackHandler callback is not suspend. We need a scope available.
+        // We can't launch from here easily without a scope.
+        // But we have coroutineScope defined below.
+        // Wait, we can't use `coroutineScope` inside `BackHandler` lambda if it's not captured correctly?
+        // It is captured.
+        // But `jumpTo` is suspend.
+        // Wait, `BackHandler` takes `onBack: () -> Unit`.
+        // We need to launch a coroutine.
+    }
+
+    // Proper BackHandler implementation with scope
+    val scope = rememberCoroutineScope()
+    BackHandler(enabled = isExpanded) {
+        scope.launch {
+            sheetState.jumpTo(SheetDetent.Hidden)
+        }
+    }
+
     val systemLogMessages by viewModel.filteredSystemLog.collectAsState()
     val isContextModeEnabled by viewModel.isContextModeEnabled.collectAsState()
     val currentApp by viewModel.currentForegroundApp.collectAsState()
     val overlayOpacity by viewModel.overlayOpacity.collectAsState()
+    val tabs by viewModel.tabs.collectAsState()
+    val selectedTab by viewModel.selectedTab.collectAsState()
 
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -84,14 +117,73 @@ fun LogBottomSheet(
     // Theme is provided by parent (LogKittyTheme)
     BottomSheet(
         state = sheetState,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
+        modifier = Modifier.fillMaxSize()
+        // REMOVED background here to prevent blocking touches on the rest of the screen
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
 
                 if (contentHeight > 0.dp) {
-                    Column(modifier = Modifier.height(contentHeight)) {
+                    Column(
+                        modifier = Modifier
+                            .height(contentHeight)
+                            .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity)) // Moved background here
+                    ) {
+
+                        // Handle
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(32.dp)
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                            )
+                        }
+
+                        // Tab Row
+                        ScrollableTabRow(
+                            selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
+                            edgePadding = 16.dp,
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            divider = {},
+                            indicator = { tabPositions ->
+                                if (tabs.isNotEmpty()) {
+                                    val index = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
+                                    TabRowDefaults.SecondaryIndicator(
+                                        Modifier.tabIndicatorOffset(tabPositions[index])
+                                    )
+                                }
+                            }
+                        ) {
+                            tabs.forEach { tab ->
+                                Tab(
+                                    selected = selectedTab == tab,
+                                    onClick = { viewModel.selectTab(tab) },
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(tab.title)
+                                            if (tab.type == TabType.APP) {
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Close Tab",
+                                                    modifier = Modifier
+                                                        .size(16.dp)
+                                                        .clickable { viewModel.closeTab(tab) },
+                                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
 
                         if (systemLogMessages.isEmpty()) {
                             Box(
@@ -137,11 +229,6 @@ fun LogBottomSheet(
                             }
                         }
 
-                        ContextlessChatInput(
-                            modifier = Modifier.fillMaxWidth(),
-                            onSend = onSendPrompt
-                        )
-
                         Spacer(modifier = Modifier.height(bottomBufferHeight))
                     }
                 }
@@ -159,14 +246,24 @@ fun LogBottomSheet(
                                  tint = if (isContextModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                              )
                         }
-                        IconButton(onClick = onSaveClick) {
+                        IconButton(onClick = {
+                            onSaveClick()
+                            coroutineScope.launch {
+                                sheetState.jumpTo(SheetDetent.Hidden)
+                            }
+                        }) {
                              Icon(
                                  imageVector = Icons.Default.Save,
                                  contentDescription = "Save Log",
                                  tint = MaterialTheme.colorScheme.onSurface
                              )
                         }
-                        IconButton(onClick = onSettingsClick) {
+                        IconButton(onClick = {
+                            onSettingsClick()
+                            coroutineScope.launch {
+                                sheetState.jumpTo(SheetDetent.Hidden)
+                            }
+                        }) {
                              Icon(
                                  imageVector = Icons.Default.Settings,
                                  contentDescription = "Settings",
@@ -184,7 +281,15 @@ fun LogBottomSheet(
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                        IconButton(onClick = { viewModel.clearLog() }) {
+                        IconButton(onClick = {
+                            if (systemLogMessages.isNotEmpty()) {
+                                viewModel.clearLog()
+                            } else {
+                                coroutineScope.launch {
+                                    sheetState.jumpTo(SheetDetent.Hidden)
+                                }
+                            }
+                        }) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
                                 contentDescription = "Clear Log",
