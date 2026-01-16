@@ -61,6 +61,7 @@ fun LogBottomSheet(
     fullyExpandedDetent: SheetDetent,
     screenHeight: Dp,
     isWindowExpanded: Boolean,
+    bottomPadding: Dp,
     onSendPrompt: (String) -> Unit,
     onInteraction: (Boolean) -> Unit,
     onSaveClick: () -> Unit,
