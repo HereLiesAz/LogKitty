@@ -66,6 +66,7 @@ fun SettingsScreen(
     val overlayOpacity = viewModel?.overlayOpacity?.collectAsState()
     val customFilter = viewModel?.customFilter?.collectAsState()
     val isRootEnabled = viewModel?.isRootEnabled?.collectAsState()
+    val isLogReversed = viewModel?.isLogReversed?.collectAsState()
     val logColors = viewModel?.logColors?.collectAsState()
 
     val scope = rememberCoroutineScope()
@@ -228,6 +229,18 @@ fun SettingsScreen(
                         value = overlayOpacity?.value ?: 1f,
                         onValueChange = { viewModel.setOverlayOpacity(it) },
                         valueRange = 0.1f..1f
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Reverse Log Direction", style = MaterialTheme.typography.titleMedium)
+                    Switch(
+                        checked = isLogReversed?.value ?: false,
+                        onCheckedChange = { viewModel.setLogReversed(it) }
                     )
                 }
 
