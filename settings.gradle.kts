@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "IDEaz"
+rootProject.name = "LogKitty"
 include(":app")

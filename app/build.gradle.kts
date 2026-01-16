@@ -21,11 +21,11 @@ val patch = versionProps.getProperty("patch").toInt()
 val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
 
 android {
-    namespace = "com.hereliesaz.ideaz"
+    namespace = "com.hereliesaz.logkitty"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.hereliesaz.ideaz"
+        applicationId = "com.hereliesaz.logkitty"
         minSdk = 30
 
         targetSdk = 36
