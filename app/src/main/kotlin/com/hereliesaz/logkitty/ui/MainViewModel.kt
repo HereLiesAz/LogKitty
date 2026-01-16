@@ -49,6 +49,7 @@ class MainViewModel(
     val customFilter: StateFlow<String> = userPreferences.customFilter
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
     val isRootEnabled: StateFlow<Boolean> = userPreferences.isRootEnabled
+    val prohibitedTags: StateFlow<Set<String>> = userPreferences.prohibitedTags
 
     private val systemTab = LogTab("system", "System", TabType.SYSTEM)
     private val errorsTab = LogTab("errors", "Errors", TabType.ERRORS)
@@ -63,9 +64,17 @@ class MainViewModel(
     val filteredSystemLog = combine(
         stateDelegate.systemLog,
         _selectedTab,
-        customFilter
-    ) { logs, tab, userFilter ->
+        customFilter,
+        prohibitedTags
+    ) { logs, tab, userFilter, prohibited ->
         var result = logs
+
+        // 0. Filter prohibited tags (heuristic: check if log contains any prohibited string)
+        if (prohibited.isNotEmpty()) {
+            result = result.filter { logLine ->
+                prohibited.none { tag -> logLine.contains(tag, ignoreCase = true) }
+            }
+        }
 
         // 1. Tab-based filtering
         when (tab.type) {
@@ -180,6 +189,34 @@ class MainViewModel(
     fun setRootEnabled(enabled: Boolean) {
         userPreferences.setRootEnabled(enabled)
     }
+
+    fun prohibitLog(logLine: String) {
+        // Simplified prohibition: extract tag or just use the whole line?
+        // User requested "filter out log items of that kind".
+        // Usually "tag" is the kind.
+        // Format: "MM-DD HH:MM:SS.mmm PID-TID/Package L/Tag: Message"
+        // Let's try to extract "Tag".
+        // Regex for standard time format: \S+\s+\S+\s+\S+\s+\S+\s+\S+/(\S+):
+
+        // Fallback: Prohibit the exact exact message is too specific, prohibiting tag is better.
+        // Let's try to find " L/" and take the word after it until colon.
+        // Or just allow user to manage it.
+        // For now, let's prohibit the "Tag" if possible, else the line.
+
+        val tagRegex = Regex("""[VDIWEA]/([^:]+):""")
+        val match = tagRegex.find(logLine)
+        val tag = match?.groupValues?.get(1)?.trim() ?: logLine.take(50) // Fallback to start of line if no tag found
+
+        userPreferences.addProhibitedTag(tag)
+    }
+
+    fun removeProhibitedTag(tag: String) {
+        userPreferences.removeProhibitedTag(tag)
+    }
+
+    // Export/Import wrappers
+    fun exportPreferences() = userPreferences.exportPreferences()
+    fun importPreferences(json: String) = userPreferences.importPreferences(json)
 
     /** Sends a prompt (stub for now). */
     fun sendPrompt(p: String?) {
