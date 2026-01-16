@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,7 +45,9 @@ fun LogBottomSheet(
 ) {
     val isHalfwayExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
 
-    val systemLogMessages by viewModel.systemLog.collectAsState()
+    val systemLogMessages by viewModel.filteredSystemLog.collectAsState()
+    val isContextModeEnabled by viewModel.isContextModeEnabled.collectAsState()
+    val currentApp by viewModel.currentForegroundApp.collectAsState()
 
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -147,6 +151,13 @@ fun LogBottomSheet(
                             .align(Alignment.TopEnd)
                             .padding(top = 48.dp, end = 16.dp)
                     ) {
+                        IconButton(onClick = { viewModel.toggleContextMode() }) {
+                             Icon(
+                                 imageVector = if (isContextModeEnabled) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                 contentDescription = if (isContextModeEnabled) "Context Mode On ($currentApp)" else "Context Mode Off",
+                                 tint = if (isContextModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                             )
+                        }
                         IconButton(onClick = onSaveClick) {
                              Icon(
                                  imageVector = Icons.Default.Save,

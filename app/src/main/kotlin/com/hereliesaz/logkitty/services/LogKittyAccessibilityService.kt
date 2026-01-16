@@ -23,6 +23,7 @@ class LogKittyAccessibilityService : AccessibilityService() {
     companion object {
         const val ACTION_INTERNAL_TAP_DETECTED = "com.hereliesaz.logkitty.INTERNAL_TAP_DETECTED"
         const val ACTION_PROMPT_SUBMITTED_NODE = "com.hereliesaz.logkitty.PROMPT_SUBMITTED_NODE"
+        const val ACTION_FOREGROUND_APP_CHANGED = "com.hereliesaz.logkitty.FOREGROUND_APP_CHANGED"
     }
 
     private val tapReceiver = object : BroadcastReceiver() {
@@ -59,7 +60,16 @@ class LogKittyAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We only care about explicit inspection via tap
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val packageName = event.packageName?.toString()
+            if (!packageName.isNullOrBlank()) {
+                val intent = Intent(ACTION_FOREGROUND_APP_CHANGED).apply {
+                    putExtra("PACKAGE_NAME", packageName)
+                    setPackage(this@LogKittyAccessibilityService.packageName)
+                }
+                sendBroadcast(intent)
+            }
+        }
     }
 
     override fun onInterrupt() {

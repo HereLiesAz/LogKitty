@@ -1,56 +1,31 @@
-*.iml
-.gradle
+# IntelliJ / Android Studio
+.idea/
 .gradle/
-/local.properties
-.DS_Store
-/build
 build/
-/captures
-.externalNativeBuild
-.cxx
+*.iml
 local.properties
-.qodo
-/.qudo/*
-*/peridium/ide/
-*/peridium.ide/
-*/srcs/
-/project_backup_full_*
-/backup.ps1
-/.kotlin/errors/errors-1763681705690.log
-kotlin-compiler-*.salive
-/.idea/
-minapp/build/
-minapp/app/build/
-minapp/.gradle/
-minapp/local.properties
-minapp/.DS_Store
-minapp/build
-minapp/captures
-minapp/.externalNativeBuild
-minapp/.cxx
-minapp/.qodo
-minapp/.qudo/*
-minapp/*/peridium/ide/
-minapp/*/peridium.ide/
-minapp/*/srcs/
-minapp/project_backup_full_*
-min-app/backup.ps1
-minapp/.kotlin/errors/errors-1763681705690.log
-minapp/kotlin-compiler-*.salive
-minapp/.idea/
-/build.log
 
-.gemini/
-gha-creds-*.json
-# gemini-cli settings
-.gemini/
-test-output*.txt
-test_output*.txt
-test_log*.txt
-test-log*.txt
-*log.txt
+# Kotlin / Java
+.kotlin/
+*.class
+*.jar
+*.war
 
-# GitHub App credentials
+# Android
+.DS_Store
+*.apk
+*.ap_
+captures/
+.externalNativeBuild
+.cxx/
+
+# Python / Chaquopy
+__pycache__/
+*.pyc
+app/src/main/python/site-packages/
+
+# Misc
+.gemini/
 gha-creds-*.json
 /.vscode/
 *.log
