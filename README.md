@@ -1,4 +1,4 @@
-# LogKitty 🐱
+# LogKitty 
 
 **The Always-On Logcat Overlay for Android.**
 
