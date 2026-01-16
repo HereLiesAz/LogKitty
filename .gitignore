@@ -27,3 +27,6 @@ app/src/main/python/site-packages/
 # Misc
 .gemini/
 gha-creds-*.json
+/.vscode/
+*.log
+*.keystore
