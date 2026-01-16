@@ -1,4 +1,4 @@
-package com.hereliesaz.ideaz.ui
+package com.hereliesaz.logkitty.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -10,6 +10,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,20 +28,26 @@ import com.composables.core.BottomSheet
 import com.composables.core.BottomSheetState
 import com.composables.core.SheetDetent
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
-fun IdeBottomSheet(
+fun LogBottomSheet(
     sheetState: BottomSheetState,
     viewModel: MainViewModel,
     peekDetent: SheetDetent,
     halfwayDetent: SheetDetent,
     fullyExpandedDetent: SheetDetent,
     screenHeight: Dp,
-    onSendPrompt: (String) -> Unit
+    onSendPrompt: (String) -> Unit,
+    onSaveClick: () -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     val isHalfwayExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
 
-    val systemLogMessages by viewModel.systemLog.collectAsState()
+    val systemLogMessages by viewModel.filteredSystemLog.collectAsState()
+    val isContextModeEnabled by viewModel.isContextModeEnabled.collectAsState()
+    val currentApp by viewModel.currentForegroundApp.collectAsState()
 
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -61,24 +71,6 @@ fun IdeBottomSheet(
         }
     }
 
-    // Theming Logic (Simplified to dark theme by default for now, or use system)
-    val isSystemDark = isSystemInDarkTheme()
-    val customColorScheme = if (isSystemDark) {
-        darkColorScheme(
-            surface = Color(0xFF1E1E1E),
-            onSurface = Color.White,
-            background = Color(0xFF1E1E1E),
-            onBackground = Color.White
-        )
-    } else {
-        lightColorScheme(
-            surface = Color(0xFFEEEEEE),
-            onSurface = Color.Black,
-            background = Color(0xFFEEEEEE),
-            onBackground = Color.Black
-        )
-    }
-
     val contentHeight = when (sheetState.currentDetent) {
         fullyExpandedDetent -> screenHeight * 0.8f
         halfwayDetent -> screenHeight * 0.5f
@@ -88,14 +80,14 @@ fun IdeBottomSheet(
 
     val bottomBufferHeight = screenHeight * 0.075f
 
-    MaterialTheme(colorScheme = customColorScheme) {
-        BottomSheet(
-            state = sheetState,
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+    // Theme is provided by parent (LogKittyTheme)
+    BottomSheet(
+        state = sheetState,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
 
                 if (contentHeight > 0.dp) {
                     Column(modifier = Modifier.height(contentHeight)) {
@@ -159,6 +151,27 @@ fun IdeBottomSheet(
                             .align(Alignment.TopEnd)
                             .padding(top = 48.dp, end = 16.dp)
                     ) {
+                        IconButton(onClick = { viewModel.toggleContextMode() }) {
+                             Icon(
+                                 imageVector = if (isContextModeEnabled) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                 contentDescription = if (isContextModeEnabled) "Context Mode On ($currentApp)" else "Context Mode Off",
+                                 tint = if (isContextModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                             )
+                        }
+                        IconButton(onClick = onSaveClick) {
+                             Icon(
+                                 imageVector = Icons.Default.Save,
+                                 contentDescription = "Save Log",
+                                 tint = MaterialTheme.colorScheme.onSurface
+                             )
+                        }
+                        IconButton(onClick = onSettingsClick) {
+                             Icon(
+                                 imageVector = Icons.Default.Settings,
+                                 contentDescription = "Settings",
+                                 tint = MaterialTheme.colorScheme.onSurface
+                             )
+                        }
                         IconButton(onClick = {
                             coroutineScope.launch {
                                 clipboardManager.setText(AnnotatedString(systemLogMessages.joinToString("\n")))
@@ -182,4 +195,3 @@ fun IdeBottomSheet(
             }
         }
     }
-}

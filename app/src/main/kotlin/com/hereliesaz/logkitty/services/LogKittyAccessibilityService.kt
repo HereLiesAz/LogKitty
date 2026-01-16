@@ -1,4 +1,4 @@
-package com.hereliesaz.ideaz.services
+package com.hereliesaz.logkitty.services
 
 import android.accessibilityservice.AccessibilityService
 import android.content.BroadcastReceiver
@@ -16,13 +16,19 @@ import android.view.accessibility.AccessibilityNodeInfo
  * It listens for tap events broadcast by the OverlayView, finds the
  * UI element under the tap, and reports it back to the main app.
  */
-class IdeazAccessibilityService : AccessibilityService() {
+class LogKittyAccessibilityService : AccessibilityService() {
 
-    private val TAG = "IdeazAccessibility"
+    private val TAG = "LogKittyAccessibility"
+
+    companion object {
+        const val ACTION_INTERNAL_TAP_DETECTED = "com.hereliesaz.logkitty.INTERNAL_TAP_DETECTED"
+        const val ACTION_PROMPT_SUBMITTED_NODE = "com.hereliesaz.logkitty.PROMPT_SUBMITTED_NODE"
+        const val ACTION_FOREGROUND_APP_CHANGED = "com.hereliesaz.logkitty.FOREGROUND_APP_CHANGED"
+    }
 
     private val tapReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "com.hereliesaz.ideaz.INTERNAL_TAP_DETECTED") {
+            if (intent?.action == ACTION_INTERNAL_TAP_DETECTED) {
                 val x = intent.getIntExtra("X", -1)
                 val y = intent.getIntExtra("Y", -1)
                 if (x != -1 && y != -1) {
@@ -36,7 +42,7 @@ class IdeazAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         Log.d(TAG, "Accessibility Service Connected")
 
-        val filter = IntentFilter("com.hereliesaz.ideaz.INTERNAL_TAP_DETECTED")
+        val filter = IntentFilter(ACTION_INTERNAL_TAP_DETECTED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(tapReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -54,7 +60,16 @@ class IdeazAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We only care about explicit inspection via tap
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val packageName = event.packageName?.toString()
+            if (!packageName.isNullOrBlank()) {
+                val intent = Intent(ACTION_FOREGROUND_APP_CHANGED).apply {
+                    putExtra("PACKAGE_NAME", packageName)
+                    setPackage(this@LogKittyAccessibilityService.packageName)
+                }
+                sendBroadcast(intent)
+            }
+        }
     }
 
     override fun onInterrupt() {
@@ -75,7 +90,7 @@ class IdeazAccessibilityService : AccessibilityService() {
 
             Log.d(TAG, "Found Node: $resourceId at $bounds")
 
-            val intent = Intent("com.hereliesaz.ideaz.PROMPT_SUBMITTED_NODE").apply {
+            val intent = Intent(ACTION_PROMPT_SUBMITTED_NODE).apply {
                 putExtra("BOUNDS", bounds)
                 if (resourceId != null) {
                     putExtra("RESOURCE_ID", resourceId)
