@@ -60,6 +60,8 @@ fun LogBottomSheet(
     halfwayDetent: SheetDetent,
     fullyExpandedDetent: SheetDetent,
     screenHeight: Dp,
+    isWindowExpanded: Boolean,
+    bottomPadding: Dp,
     onSendPrompt: (String) -> Unit,
     onInteraction: (Boolean) -> Unit,
     onSaveClick: () -> Unit,
@@ -223,7 +225,7 @@ fun LogBottomSheet(
 
     BottomSheet(
         state = sheetState,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().padding(bottom = bottomPadding)
     ) {
         Box(
             modifier = Modifier
