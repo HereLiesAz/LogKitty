@@ -266,6 +266,13 @@ class LogKittyOverlayService : Service() {
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = coroutineScope.launch {
                                  delay(400) // Wait for settle
+
+                                 // First remove padding to drop the sheet visually to bottom (0%)
+                                 isWindowExpanded = false
+
+                                 // Wait for recomposition/layout
+                                 delay(50)
+
                                  val currentDetent = sheetState.currentDetent
                                  val detentHeightFactor = when {
                                      currentDetent == detents[0] -> 0.02f // Hidden
