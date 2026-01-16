@@ -18,6 +18,7 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.view.WindowManager
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
@@ -30,6 +31,10 @@ import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
 import com.composables.core.SheetDetent
 import com.composables.core.rememberBottomSheetState
+import com.composables.core.BottomSheetState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class LogKittyOverlayService : Service() {
 
@@ -40,6 +45,7 @@ class LogKittyOverlayService : Service() {
     // Bottom Sheet Overlay
     private var composeView: ComposeView? = null
     private var lifecycleHelper: ComposeLifecycleHelper? = null
+    private var bottomSheetState: BottomSheetState? = null // To control sheet externally
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -68,6 +74,9 @@ class LogKittyOverlayService : Service() {
                     }
                     overlayView?.showUpdateSplash()
                 }
+                LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY -> {
+                    collapseBottomSheet()
+                }
             }
         }
     }
@@ -75,6 +84,10 @@ class LogKittyOverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_SERVICE) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent != null) {
             if (intent.hasExtra("ENABLE")) {
                  val enable = intent.getBooleanExtra("ENABLE", false)
@@ -113,6 +126,7 @@ class LogKittyOverlayService : Service() {
             addAction("com.hereliesaz.logkitty.TOGGLE_SELECT_MODE")
             addAction("com.hereliesaz.logkitty.HIGHLIGHT_RECT")
             addAction("com.hereliesaz.logkitty.SHOW_UPDATE_POPUP")
+            addAction(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
@@ -144,6 +158,27 @@ class LogKittyOverlayService : Service() {
         } catch (e: Exception) {
             android.util.Log.e("LogKittyOverlay", "Failed to unregister receiver", e)
         }
+    }
+
+    private fun collapseBottomSheet() {
+         // Needs to be run on main thread if modifying UI state,
+         // though bottomSheetState is SnapshotState, changes should be safe if done correctly.
+         // However, `jumpTo` is suspend.
+         // We can use the view's scope or Main scope.
+         if (bottomSheetState != null) {
+             CoroutineScope(Dispatchers.Main).launch {
+                 try {
+                     // Check if it's already hidden or peeked to avoid unnecessary jumps?
+                     // Or just force it.
+                     // User said: "For the home and recents buttons, the bottom sheet should collapse"
+                     // We'll jump to hidden as per previous "complete collapse" logic, or Peek?
+                     // Let's assume Hidden for "collapse".
+                     bottomSheetState?.jumpTo(SheetDetent.Hidden)
+                 } catch (e: Exception) {
+                     e.printStackTrace()
+                 }
+             }
+         }
     }
 
     private fun handleSelectionMode(enable: Boolean) {
@@ -189,6 +224,12 @@ class LogKittyOverlayService : Service() {
                     initialDetent = peekDetent,
                     detents = listOf(peekDetent, halfwayDetent, fullyExpandedDetent)
                 )
+
+                // Expose state to service
+                DisposableEffect(sheetState) {
+                    bottomSheetState = sheetState
+                    onDispose { bottomSheetState = null }
+                }
 
                 LogKittyTheme {
                     LogBottomSheet(
@@ -274,6 +315,13 @@ class LogKittyOverlayService : Service() {
             this, 0, intent, PendingIntent.FLAG_IMMUTABLE
         )
 
+        val stopIntent = Intent(this, LogKittyOverlayService::class.java).apply {
+            action = ACTION_STOP_SERVICE
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
+        )
+
         val icon = android.R.drawable.ic_menu_view
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -281,6 +329,7 @@ class LogKittyOverlayService : Service() {
             .setContentText("Overlay is active")
             .setSmallIcon(icon)
             .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Service", stopPendingIntent)
             .setOngoing(true)
             .build()
     }
@@ -298,5 +347,6 @@ class LogKittyOverlayService : Service() {
     companion object {
         private const val CHANNEL_ID = "ideaz_overlay_channel"
         private const val SERVICE_ID = 1001
+        private const val ACTION_STOP_SERVICE = "com.hereliesaz.logkitty.STOP_SERVICE"
     }
 }
