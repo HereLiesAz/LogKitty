@@ -1,22 +1,46 @@
-<h1 style="text-align:center"><b>[</b>oo<b>]</b> <br>IDEaz</h1>
+# LogKitty 🐱
 
-This isn't no-code. This is not vibe coding. And this sure as hell ain't straight-up coding.
-This is what every emulator, visual preview, drag and drop WYSIWYG environment was leading up to.
+**The Always-On Logcat Overlay for Android.**
 
-### Development that feels like it's just you and your IDEaz -- The Post-Code IDE for Android.
+LogKitty is a developer tool that puts your system logs right where you need them: floating above your target app. No more switching back and forth between your device and Android Studio.
 
-**Philosophy:**
-IDEaz adopts a "Post-Code" philosophy. The primary workflow is visual: Interact with your running app, select what you want to change, and prompt the AI to make it happen. The IDE handles the code generation, git operations, and build process in the background.
+## Features
 
-*   **Primary Workflow (Post-Code):** Run App -> Visual Select -> AI Prompt -> AI Edit -> Compile -> Run.
-*   **Auxiliary Tools (Escape Hatches):** While the goal is to never touch code, we acknowledge reality. A full **File Explorer** and **Code Editor** are included for debugging, verification, or manual intervention when the AI gets stuck. These are tools, not the workspace.
+*   **Always-On Overlay:** A persistent bottom sheet that floats over other apps.
+*   **Real-Time Logs:** Streams `logcat` output directly to the overlay.
+*   **Peek & Expand:**
+    *   **Peek:** See the latest log line without obstruction.
+    *   **Half:** Scroll through recent logs.
+    *   **Full:** Deep dive into stack traces.
+*   **Copy to Clipboard:** Quickly grab logs to share or analyze.
+*   **Context Aware (Beta):** Includes accessibility integration for future foreground app filtering.
 
-**Architecture:**
-IDEaz uses a **Hybrid Host** architecture.
-*   **Host Mode (Primary):** The target app (Android or Web) runs *inside* the IDE window (using VirtualDisplay or WebView). The "Overlay" is a Composable layer drawn on top of this host.
-*   **System Overlay (Legacy/Fallback):** The traditional System Alert Window overlay (`IdeazOverlayService`) is available for specific use cases or external app inspection but is secondary to the integrated Host experience.
+## Installation
 
-**Key Features:**
-*   **Repository-Based:** Every project is a Git repository.
-*   **Local & Remote Builds:** "Race to Build" strategy uses local toolchain (`aapt2`, `d8`) and remote GitHub Actions simultaneously.
-*   **AI Integrated:** Built-in AI agents (Jules/Gemini) drive development.
+1.  Download the latest APK from Releases.
+2.  Install on your Android device.
+3.  **Grant Permissions:**
+    *   Follow the in-app prompt to grant "Display Over Other Apps".
+    *   **Required:** Grant the `READ_LOGS` permission via ADB:
+        ```bash
+        adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
+        ```
+
+## Usage
+
+1.  Open **LogKitty**.
+2.  Tap "Start Overlay".
+3.  Navigate to the app you want to debug.
+4.  Watch the logs roll in!
+
+## Development
+
+LogKitty was originally forked from the **IDEaz** project, stripping away the IDE functionality to focus purely on the logcat overlay experience.
+
+### Build
+```bash
+./gradlew :app:assembleDebug
+```
+
+### Documentation
+See the `docs/` directory for detailed architecture, design, and contribution guidelines.

@@ -3,7 +3,7 @@
 ## Local Build
 The project uses Gradle for building.
 *   **Command:** `./gradlew :app:assembleDebug`
-*   **Artifact:** `app/build/outputs/apk/debug/IDEaz-*-debug.apk` (Note: APK name configuration might need updating to `LogKitty`).
+*   **Artifact:** `app/build/outputs/apk/debug/LogKitty-*-debug.apk` (Note: APK name configuration might need updating to `LogKitty`).
 
 ## CI/CD (GitHub Actions)
 *   **Trigger:** Push to `main`.

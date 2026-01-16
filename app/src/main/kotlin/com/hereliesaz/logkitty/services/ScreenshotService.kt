@@ -63,7 +63,7 @@ class ScreenshotService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification: Notification = Notification.Builder(this, "screenshot_service")
-            .setContentTitle("IDEaz")
+            .setContentTitle("LogKitty")
             .setContentText("Selection service is active.")
             .setSmallIcon(R.mipmap.ic_launcher) // Make sure you have this
             .build()

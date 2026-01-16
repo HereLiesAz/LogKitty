@@ -26,7 +26,7 @@ import com.hereliesaz.logkitty.MainApplication
 import com.hereliesaz.logkitty.R
 import com.hereliesaz.logkitty.ui.IdeBottomSheet
 import com.hereliesaz.logkitty.ui.inspection.OverlayView
-import com.hereliesaz.logkitty.ui.theme.IDEazTheme
+import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
 import com.composables.core.SheetDetent
 import com.composables.core.rememberBottomSheetState
@@ -184,7 +184,7 @@ class IdeazOverlayService : Service() {
                     detents = listOf(peekDetent, halfwayDetent, fullyExpandedDetent)
                 )
 
-                IDEazTheme {
+                LogKittyTheme {
                     IdeBottomSheet(
                         sheetState = sheetState,
                         viewModel = viewModel,
@@ -260,7 +260,7 @@ class IdeazOverlayService : Service() {
         val icon = android.R.drawable.ic_menu_view
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("IDEaz Overlay")
+            .setContentTitle("LogKitty Overlay")
             .setContentText("Overlay is active")
             .setSmallIcon(icon)
             .setContentIntent(pendingIntent)

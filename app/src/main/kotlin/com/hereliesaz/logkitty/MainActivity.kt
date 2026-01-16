@@ -1,54 +1,118 @@
 package com.hereliesaz.logkitty
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.composables.core.SheetDetent
-import com.composables.core.rememberBottomSheetState
-import com.hereliesaz.logkitty.ui.IdeBottomSheet
-import com.hereliesaz.logkitty.ui.theme.IDEazTheme
+import com.hereliesaz.logkitty.services.IdeazOverlayService
+import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 
 class MainActivity : ComponentActivity() {
 
+    private var isOverlayGranted by mutableStateOf(false)
+
+    private val overlayPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        checkOverlayPermission()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val app = application as MainApplication
-        val viewModel = app.mainViewModel
+        checkOverlayPermission()
 
         setContent {
-            IDEazTheme {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val screenHeight = maxHeight
-
-                    val peekDetent = SheetDetent("peek", calculate = { screenHeight * 0.25f })
-                    val halfwayDetent = SheetDetent("halfway", calculate = { screenHeight * 0.5f })
-                    val fullyExpandedDetent = SheetDetent("fully_expanded", calculate = { screenHeight * 0.8f })
-
-                    val sheetState = rememberBottomSheetState(
-                        initialDetent = fullyExpandedDetent,
-                        detents = listOf(peekDetent, halfwayDetent, fullyExpandedDetent)
-                    )
-
-                    // Ensure bottom sheet state is synced (optional, but good for tracking)
-                    viewModel.stateDelegate.setBottomSheetState(sheetState.currentDetent)
-
-                    IdeBottomSheet(
-                        sheetState = sheetState,
-                        viewModel = viewModel,
-                        peekDetent = peekDetent,
-                        halfwayDetent = halfwayDetent,
-                        fullyExpandedDetent = fullyExpandedDetent,
-                        screenHeight = screenHeight,
-                        onSendPrompt = { viewModel.sendPrompt(it) }
+            LogKittyTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainScreenContent(
+                        isOverlayGranted = isOverlayGranted,
+                        onGrantPermission = { requestOverlayPermission() },
+                        onStartOverlay = { startOverlayService() }
                     )
                 }
+            }
+        }
+    }
+
+    private fun checkOverlayPermission() {
+        isOverlayGranted = Settings.canDrawOverlays(this)
+    }
+
+    private fun requestOverlayPermission() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")
+        )
+        overlayPermissionLauncher.launch(intent)
+    }
+
+    private fun startOverlayService() {
+        val intent = Intent(this, IdeazOverlayService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        finish() // Close activity after starting service
+    }
+}
+
+@Composable
+fun MainScreenContent(
+    isOverlayGranted: Boolean,
+    onGrantPermission: () -> Unit,
+    onStartOverlay: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "🐱 LogKitty",
+            style = MaterialTheme.typography.displayMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        if (!isOverlayGranted) {
+            Text(
+                text = "To float above other apps, LogKitty needs permission to display over other apps.",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            Button(onClick = onGrantPermission) {
+                Text("Grant Overlay Permission")
+            }
+        } else {
+            Text(
+                text = "Permission Granted!",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.tertiary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onStartOverlay,
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Text("Start Overlay")
             }
         }
     }

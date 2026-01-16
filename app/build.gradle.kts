@@ -90,7 +90,7 @@ android {
 
     // Configurable fields for Build Tools repository
     val toolsOwner = project.findProperty("build.tools.owner") as? String ?: "HereLiesAz"
-    val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "IDEaz-buildtools"
+    val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "LogKitty-buildtools"
 
     defaultConfig {
         buildConfigField("String", "BUILD_TOOLS_OWNER", "\"$toolsOwner\"")
@@ -138,7 +138,7 @@ androidComponents.onVariants { variant ->
         // Workaround: VariantOutput interface does not expose outputFileName in this AGP version.
         // We cast to the internal implementation to maintain the renaming feature.
         if (output is com.android.build.api.variant.impl.VariantOutputImpl) {
-            output.outputFileName.set("IDEaz-$version-${variant.name}.apk")
+            output.outputFileName.set("LogKitty-$version-${variant.name}.apk")
         }
     }
 }
