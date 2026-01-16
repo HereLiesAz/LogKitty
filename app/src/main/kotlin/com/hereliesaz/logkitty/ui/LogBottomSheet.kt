@@ -1,5 +1,7 @@
 package com.hereliesaz.logkitty.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,11 +14,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -29,7 +33,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -53,6 +64,7 @@ fun LogBottomSheet(
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val isHalfwayExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
     val isExpanded = sheetState.currentDetent == halfwayDetent || sheetState.currentDetent == fullyExpandedDetent
 
@@ -81,6 +93,7 @@ fun LogBottomSheet(
 
     // --- OPTIMIZED AUTO-SCROLL ---
     var autoScrollEnabled by remember { mutableStateOf(true) }
+    var selectedLogIndex by remember { mutableStateOf<Int?>(null) }
 
     // Detect if user scrolled up manually
     LaunchedEffect(listState.isScrollInProgress) {
@@ -92,7 +105,7 @@ fun LogBottomSheet(
     }
 
     LaunchedEffect(systemLogMessages.size) {
-        if (autoScrollEnabled && systemLogMessages.isNotEmpty()) {
+        if (autoScrollEnabled && systemLogMessages.isNotEmpty() && selectedLogIndex == null) {
             listState.scrollToItem(systemLogMessages.size - 1)
         }
     }
@@ -101,11 +114,34 @@ fun LogBottomSheet(
         fullyExpandedDetent -> screenHeight * 0.9f
         halfwayDetent -> screenHeight * 0.6f
         peekDetent -> screenHeight * 0.35f
+        hiddenDetent -> screenHeight * 0.12f
         else -> 0.dp
     }
 
     // Swiping side to side logic
     val swipeThreshold = 100f
+
+    // Blocking connection for LazyColumn to prevent sheet drag on overscroll
+    val blockingNestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // Consume all available scroll to prevent parent (BottomSheet) from getting it
+                return available
+            }
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity
+            ): Velocity {
+                // Consume all available fling
+                return available
+            }
+        }
+    }
 
     BottomSheet(
         state = sheetState,
@@ -157,113 +193,185 @@ fun LogBottomSheet(
 
                 if (contentHeight > 0.dp) {
                     Column(
-                        modifier = Modifier
-                            .height(contentHeight)
-                            .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
+                        modifier = Modifier.height(contentHeight)
                     ) {
-
-                        // Handle
-                        Box(
+                        Column(
                             modifier = Modifier
+                                .weight(1f)
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                                .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
+                                .pointerInput(Unit) {
+                                    detectHorizontalDragGestures(
+                                        onDragEnd = { /* Handled by scrollable tab row or custom logic if needed */ }
+                                    ) { change, dragAmount ->
+                                        if (abs(dragAmount) > swipeThreshold) {
+                                            val currentIndex = tabs.indexOf(selectedTab)
+                                            if (dragAmount > 0) { // Swipe Right -> Previous Tab
+                                                if (currentIndex > 0) {
+                                                    viewModel.selectTab(tabs[currentIndex - 1])
+                                                }
+                                            } else { // Swipe Left -> Next Tab
+                                                if (currentIndex < tabs.size - 1) {
+                                                    viewModel.selectTab(tabs[currentIndex + 1])
+                                                }
+                                            }
+                                            change.consume()
+                                        }
+                                    }
+                                }
                         ) {
+                            // Handle
                             Box(
                                 modifier = Modifier
-                                    .width(32.dp)
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
-                            )
-                        }
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(32.dp)
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                                )
+                            }
 
-                        // Tab Row
-                        ScrollableTabRow(
-                            selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
-                            edgePadding = 16.dp,
-                            containerColor = Color.Transparent,
-                            contentColor = MaterialTheme.colorScheme.primary,
-                            divider = {},
-                            indicator = { tabPositions ->
-                                if (tabs.isNotEmpty()) {
-                                    val index = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
-                                    TabRowDefaults.SecondaryIndicator(
-                                        Modifier.tabIndicatorOffset(tabPositions[index])
+                            // Tab Row
+                            ScrollableTabRow(
+                                selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
+                                edgePadding = 16.dp,
+                                containerColor = Color.Transparent,
+                                contentColor = MaterialTheme.colorScheme.primary,
+                                divider = {},
+                                indicator = { tabPositions ->
+                                    if (tabs.isNotEmpty()) {
+                                        val index = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0
+                                        TabRowDefaults.SecondaryIndicator(
+                                            Modifier.tabIndicatorOffset(tabPositions[index])
+                                        )
+                                    }
+                                }
+                            ) {
+                                tabs.forEach { tab ->
+                                    Tab(
+                                        selected = selectedTab == tab,
+                                        onClick = { viewModel.selectTab(tab) },
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(tab.title)
+                                                if (tab.type == TabType.APP) {
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Close Tab",
+                                                        modifier = Modifier
+                                                            .size(16.dp)
+                                                            .clickable { viewModel.closeTab(tab) },
+                                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                                    )
+                                                }
+                                            }
+                                        }
                                     )
                                 }
                             }
-                        ) {
-                            tabs.forEach { tab ->
-                                Tab(
-                                    selected = selectedTab == tab,
-                                    onClick = { viewModel.selectTab(tab) },
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(tab.title)
-                                            if (tab.type == TabType.APP) {
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "Close Tab",
+
+                            if (systemLogMessages.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                        .padding(horizontal = 16.dp)
+                                        .pointerInput(Unit) {
+                                            detectVerticalDragGestures { _, _ -> /* Consume to block sheet drag */ }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        )
+                                        Text(
+                                            text = "No log messages yet",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            } else {
+                                LazyColumn(
+                                    state = listState,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .nestedScroll(blockingNestedScrollConnection)
+                                ) {
+                                    itemsIndexed(
+                                        items = systemLogMessages,
+                                        key = { index, _ -> index }
+                                    ) { index, message ->
+                                        val level = LogLevel.fromLine(message)
+                                        val color = level.defaultColor
+                                        val isSelected = selectedLogIndex == index
+
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent)
+                                                .clickable {
+                                                    selectedLogIndex = if (isSelected) null else index
+                                                    if (!isSelected) autoScrollEnabled = false
+                                                }
+                                                .padding(vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = message,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = color
+                                            )
+                                            if (isSelected) {
+                                                Row(
                                                     modifier = Modifier
-                                                        .size(16.dp)
-                                                        .clickable { viewModel.closeTab(tab) },
-                                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                                )
+                                                        .fillMaxWidth()
+                                                        .padding(top = 4.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
+                                                ) {
+                                                    // Copy
+                                                    IconButton(onClick = {
+                                                        clipboardManager.setText(AnnotatedString(message))
+                                                        selectedLogIndex = null
+                                                    }) {
+                                                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = MaterialTheme.colorScheme.primary)
+                                                    }
+                                                    // Search
+                                                    IconButton(onClick = {
+                                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${Uri.encode(message)}"))
+                                                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                        context.startActivity(intent)
+                                                        selectedLogIndex = null
+                                                    }) {
+                                                        Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
+                                                    }
+                                                    // Prohibit
+                                                    IconButton(onClick = {
+                                                        viewModel.prohibitLog(message)
+                                                        selectedLogIndex = null
+                                                    }) {
+                                                        Icon(Icons.Default.Block, contentDescription = "Prohibit", tint = MaterialTheme.colorScheme.error)
+                                                    }
+                                                }
                                             }
                                         }
                                     }
-                                )
-                            }
-                        }
-
-                        if (systemLogMessages.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
-                                    .padding(horizontal = 16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        imageVector = Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        modifier = Modifier.padding(bottom = 8.dp)
-                                    )
-                                    Text(
-                                        text = "No log messages yet",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                        } else {
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                itemsIndexed(
-                                    items = systemLogMessages,
-                                    key = { index, _ -> index }
-                                ) { _, message ->
-                                    Text(
-                                        text = message,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
                                 }
                             }
                         }
 
-                        // Extended log display area: extended down until the bottom 10% of the screen.
-                        // We removed the spacer to allow logs to extend further down.
                     }
                 }
 

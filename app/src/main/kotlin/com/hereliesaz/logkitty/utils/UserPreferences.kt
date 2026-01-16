@@ -5,6 +5,18 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+@Serializable
+data class ExportedPreferences(
+    val contextMode: Boolean,
+    val customFilter: String,
+    val overlayOpacity: Float,
+    val isRootEnabled: Boolean,
+    val prohibitedTags: List<String>
+)
 
 class UserPreferences(context: Context) {
 
@@ -21,6 +33,9 @@ class UserPreferences(context: Context) {
 
     private val _isRootEnabled = MutableStateFlow(prefs.getBoolean(KEY_IS_ROOT_ENABLED, false))
     val isRootEnabled: StateFlow<Boolean> = _isRootEnabled.asStateFlow()
+
+    private val _prohibitedTags = MutableStateFlow(loadProhibitedTags())
+    val prohibitedTags: StateFlow<Set<String>> = _prohibitedTags.asStateFlow()
 
     fun setContextModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_CONTEXT_MODE, enabled).apply()
@@ -42,11 +57,66 @@ class UserPreferences(context: Context) {
         _overlayOpacity.value = opacity
     }
 
+    fun addProhibitedTag(tag: String) {
+        val current = _prohibitedTags.value.toMutableSet()
+        current.add(tag)
+        _prohibitedTags.value = current
+        saveProhibitedTags(current)
+    }
+
+    fun removeProhibitedTag(tag: String) {
+        val current = _prohibitedTags.value.toMutableSet()
+        current.remove(tag)
+        _prohibitedTags.value = current
+        saveProhibitedTags(current)
+    }
+
+    private fun loadProhibitedTags(): Set<String> {
+        return prefs.getStringSet(KEY_PROHIBITED_TAGS, emptySet()) ?: emptySet()
+    }
+
+    private fun saveProhibitedTags(tags: Set<String>) {
+        prefs.edit().putStringSet(KEY_PROHIBITED_TAGS, tags).apply()
+    }
+
+    // Export/Import functionality
+    fun exportPreferences(): String {
+        val exported = ExportedPreferences(
+            contextMode = _isContextModeEnabled.value,
+            customFilter = _customFilter.value,
+            overlayOpacity = _overlayOpacity.value,
+            isRootEnabled = _isRootEnabled.value,
+            prohibitedTags = _prohibitedTags.value.toList()
+        )
+        return try {
+            Json.encodeToString(exported)
+        } catch (e: Exception) {
+            "{}"
+        }
+    }
+
+    fun importPreferences(jsonString: String) {
+        try {
+            val imported = Json.decodeFromString<ExportedPreferences>(jsonString)
+            setContextModeEnabled(imported.contextMode)
+            setCustomFilter(imported.customFilter)
+            setOverlayOpacity(imported.overlayOpacity)
+            setRootEnabled(imported.isRootEnabled)
+
+            val tags = imported.prohibitedTags.toSet()
+            _prohibitedTags.value = tags
+            saveProhibitedTags(tags)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     companion object {
         private const val PREFS_NAME = "logkitty_user_prefs"
         private const val KEY_CONTEXT_MODE = "context_mode"
         private const val KEY_CUSTOM_FILTER = "custom_filter"
         private const val KEY_OVERLAY_OPACITY = "overlay_opacity"
         private const val KEY_IS_ROOT_ENABLED = "is_root_enabled"
+        private const val KEY_PROHIBITED_TAGS = "prohibited_tags"
     }
 }
