@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkOverlayPermission()
+        requestRootAccess()
 
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
             showSettings = true
@@ -90,6 +91,23 @@ class MainActivity : ComponentActivity() {
             startService(intent)
         }
         finish() // Close activity after starting service
+    }
+
+    private fun requestRootAccess() {
+        Thread {
+            try {
+                val process = Runtime.getRuntime().exec("su -c exit")
+                val exitCode = process.waitFor()
+                if (exitCode == 0) {
+                    runOnUiThread {
+                         (application as MainApplication).mainViewModel.setRootEnabled(true)
+                    }
+                }
+            } catch (e: Exception) {
+                // Root not available or denied
+                e.printStackTrace()
+            }
+        }.start()
     }
 }
 
