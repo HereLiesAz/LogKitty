@@ -20,7 +20,7 @@ runtimeLivedata = "1.10.0"
 slf4jAndroid = "2.0.17-0"
 slf4jApi = "2.0.17"
 slf4jSimple = "2.0.17"
-composeUnstyledCore = "1.49.3"
+dokar3Sheets = "0.6.0-alpha05"
 documentfile = "1.1.0"
 r8 = "8.13.17"
 
@@ -45,7 +45,7 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconsExtended" }
-compose-unstyled-core = { module = "com.composables:core", version.ref = "composeUnstyledCore" }
+dokar3-sheets-m3 = { module = "io.github.dokar3:sheets-m3", version.ref = "dokar3Sheets" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 slf4j-android = { module = "uk.uuid.slf4j:slf4j-android", version.ref = "slf4jAndroid" }
