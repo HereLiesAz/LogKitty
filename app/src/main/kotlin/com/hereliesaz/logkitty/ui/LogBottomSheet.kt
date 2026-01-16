@@ -48,6 +48,7 @@ fun LogBottomSheet(
     val systemLogMessages by viewModel.filteredSystemLog.collectAsState()
     val isContextModeEnabled by viewModel.isContextModeEnabled.collectAsState()
     val currentApp by viewModel.currentForegroundApp.collectAsState()
+    val overlayOpacity by viewModel.overlayOpacity.collectAsState()
 
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -85,7 +86,7 @@ fun LogBottomSheet(
         state = sheetState,
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
 

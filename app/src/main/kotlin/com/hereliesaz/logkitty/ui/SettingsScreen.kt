@@ -27,13 +27,17 @@ import kotlin.system.exitProcess
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: MainViewModel? = null
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var overlayGranted by remember { mutableStateOf(false) }
     var readLogsGranted by remember { mutableStateOf(false) }
+
+    val overlayOpacity = viewModel?.overlayOpacity?.collectAsState()
+    val customFilter = viewModel?.customFilter?.collectAsState()
 
     // Check permissions on Resume
     DisposableEffect(lifecycleOwner) {
@@ -93,6 +97,29 @@ fun SettingsScreen(
             )
 
             Divider()
+
+            if (viewModel != null) {
+                Text("Configuration", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Overlay Transparency", style = MaterialTheme.typography.titleMedium)
+                    Slider(
+                        value = overlayOpacity?.value ?: 1f,
+                        onValueChange = { viewModel.setOverlayOpacity(it) },
+                        valueRange = 0.1f..1f
+                    )
+                }
+
+                OutlinedTextField(
+                    value = customFilter?.value ?: "",
+                    onValueChange = { viewModel.setCustomFilter(it) },
+                    label = { Text("Global Log Filter") },
+                    placeholder = { Text("Filter logs...") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Divider()
+            }
 
             Text("System", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
 
