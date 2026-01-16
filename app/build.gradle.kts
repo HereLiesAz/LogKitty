@@ -173,7 +173,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
     // Custom UI components we kept
-    implementation(libs.compose.unstyled.core)
+    implementation(libs.dokar3.sheets.m3)
     implementation(libs.aznavrail)
 
     // Coroutines

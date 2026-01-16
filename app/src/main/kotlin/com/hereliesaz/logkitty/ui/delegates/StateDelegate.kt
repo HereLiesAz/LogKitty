@@ -81,10 +81,6 @@ class StateDelegate(
     /** The system logcat stream. Capped at [MAX_LOG_SIZE] lines. */
     val systemLog = _systemLog.asStateFlow()
 
-    private val _bottomSheetState = MutableStateFlow<com.composables.core.SheetDetent>(com.composables.core.SheetDetent.Hidden)
-    val bottomSheetState = _bottomSheetState.asStateFlow()
-    fun setBottomSheetState(s: com.composables.core.SheetDetent) { _bottomSheetState.value = s }
-
     fun appendSystemLog(msg: String) {
         logChannel.trySend(LogEvent.System(msg))
     }
