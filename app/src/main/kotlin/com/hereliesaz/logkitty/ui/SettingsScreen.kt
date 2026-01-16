@@ -23,6 +23,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import kotlin.system.exitProcess
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +41,10 @@ fun SettingsScreen(
 
     val overlayOpacity = viewModel?.overlayOpacity?.collectAsState()
     val customFilter = viewModel?.customFilter?.collectAsState()
+    val isRootEnabled = viewModel?.isRootEnabled?.collectAsState()
+
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Check permissions on Resume
     DisposableEffect(lifecycleOwner) {
@@ -54,6 +61,7 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
@@ -95,6 +103,37 @@ fun SettingsScreen(
                      Toast.makeText(context, "ADB command copied to clipboard", Toast.LENGTH_SHORT).show()
                 }
             )
+
+            if (viewModel != null) {
+                PermissionItem(
+                    title = "Root Access",
+                    description = "Use root access to read logs (Alternative to ADB permission).",
+                    isGranted = isRootEnabled?.value ?: false,
+                    onClick = {
+                        val currentValue = isRootEnabled?.value ?: false
+                        if (!currentValue) {
+                            // Try to enable
+                            scope.launch {
+                                val success = withContext(Dispatchers.IO) {
+                                    try {
+                                        Runtime.getRuntime().exec("su -c ls").waitFor() == 0
+                                    } catch (e: Exception) {
+                                        false
+                                    }
+                                }
+                                if (success) {
+                                    viewModel.setRootEnabled(true)
+                                } else {
+                                    snackbarHostState.showSnackbar("Root access denied or not available.")
+                                }
+                            }
+                        } else {
+                            // Disable
+                            viewModel.setRootEnabled(false)
+                        }
+                    }
+                )
+            }
 
             Divider()
 

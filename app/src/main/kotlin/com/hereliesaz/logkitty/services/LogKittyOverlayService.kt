@@ -84,6 +84,10 @@ class LogKittyOverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_SERVICE) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (intent != null) {
             if (intent.hasExtra("ENABLE")) {
                  val enable = intent.getBooleanExtra("ENABLE", false)
@@ -311,6 +315,13 @@ class LogKittyOverlayService : Service() {
             this, 0, intent, PendingIntent.FLAG_IMMUTABLE
         )
 
+        val stopIntent = Intent(this, LogKittyOverlayService::class.java).apply {
+            action = ACTION_STOP_SERVICE
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
+        )
+
         val icon = android.R.drawable.ic_menu_view
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -318,6 +329,7 @@ class LogKittyOverlayService : Service() {
             .setContentText("Overlay is active")
             .setSmallIcon(icon)
             .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Service", stopPendingIntent)
             .setOngoing(true)
             .build()
     }
@@ -335,5 +347,6 @@ class LogKittyOverlayService : Service() {
     companion object {
         private const val CHANNEL_ID = "ideaz_overlay_channel"
         private const val SERVICE_ID = 1001
+        private const val ACTION_STOP_SERVICE = "com.hereliesaz.logkitty.STOP_SERVICE"
     }
 }
