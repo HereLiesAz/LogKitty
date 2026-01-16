@@ -24,6 +24,7 @@ class LogKittyAccessibilityService : AccessibilityService() {
         const val ACTION_INTERNAL_TAP_DETECTED = "com.hereliesaz.logkitty.INTERNAL_TAP_DETECTED"
         const val ACTION_PROMPT_SUBMITTED_NODE = "com.hereliesaz.logkitty.PROMPT_SUBMITTED_NODE"
         const val ACTION_FOREGROUND_APP_CHANGED = "com.hereliesaz.logkitty.FOREGROUND_APP_CHANGED"
+        const val ACTION_COLLAPSE_OVERLAY = "com.hereliesaz.logkitty.COLLAPSE_OVERLAY"
     }
 
     private val tapReceiver = object : BroadcastReceiver() {
@@ -68,8 +69,23 @@ class LogKittyAccessibilityService : AccessibilityService() {
                     setPackage(this@LogKittyAccessibilityService.packageName)
                 }
                 sendBroadcast(intent)
+
+                // Check for Home or Recents to collapse overlay
+                if (isSystemNavPackage(packageName)) {
+                    val collapseIntent = Intent(ACTION_COLLAPSE_OVERLAY).apply {
+                        setPackage(this@LogKittyAccessibilityService.packageName)
+                    }
+                    sendBroadcast(collapseIntent)
+                }
             }
         }
+    }
+
+    private fun isSystemNavPackage(pkg: String): Boolean {
+        return pkg.contains("launcher", ignoreCase = true) || // Common launcher
+               pkg == "com.android.systemui" || // System UI (Recents, Notification Shade)
+               pkg == "com.google.android.apps.nexuslauncher" || // Pixel Launcher
+               pkg == "com.sec.android.app.launcher" // Samsung One UI Home
     }
 
     override fun onInterrupt() {
