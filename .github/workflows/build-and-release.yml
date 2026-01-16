@@ -79,7 +79,7 @@ jobs:
              # Attempt to handle encrypted private key if KEY_PASSWORD is set
              PASSIN_ARG=""
              if [ -n "$KEY_PASSWORD" ]; then
-                PASSIN_ARG="-passin pass:$KEY_PASSWORD"
+                PASSIN_ARG="-passin env:KEY_PASSWORD"
              fi
 
              openssl pkcs12 -export -in chain.crt -inkey private.key -out release.keystore \
@@ -90,7 +90,7 @@ jobs:
 
              # Verify the keystore immediately to catch password/format issues
              echo "Verifying generated keystore..."
-             keytool -list -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" -v
+             keytool -list -keystore release.keystore -storepass:env KEYSTORE_PASSWORD -v
 
              echo "KEYSTORE_FILE=$(pwd)/release.keystore" >> $GITHUB_ENV
              # Ensure Gradle uses the same password for the key as the store (OpenSSL default behavior)

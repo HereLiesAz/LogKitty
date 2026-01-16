@@ -35,19 +35,6 @@ enum class TabType {
     APP
 }
 
-data class LogTab(
-    val id: String,
-    val title: String,
-    val type: TabType,
-    val filterValue: String? = null
-)
-
-enum class TabType {
-    SYSTEM,
-    ERRORS,
-    APP
-}
-
 class MainViewModel(
     application: Application
 ) : AndroidViewModel(application) {
