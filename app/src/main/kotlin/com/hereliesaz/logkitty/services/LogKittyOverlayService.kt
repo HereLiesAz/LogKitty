@@ -23,6 +23,7 @@ import android.view.WindowManager
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -221,6 +222,22 @@ class LogKittyOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val density = androidx.compose.ui.platform.LocalDensity.current
+                // Use resources.displayMetrics to get the real screen height, independent of window size
+                val displayMetrics = resources.displayMetrics
+                val screenHeight = (displayMetrics.heightPixels / density.density).dp
+
+                // Robust screen height calculation using RealMetrics or WindowMetrics
+                val screenHeightPx = remember {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        windowManager.currentWindowMetrics.bounds.height()
+                    } else {
+                        val metrics = DisplayMetrics()
+                        @Suppress("DEPRECATION")
+                        windowManager.defaultDisplay.getRealMetrics(metrics)
+                        metrics.heightPixels
+                    }
+                }
+                val screenHeight = (screenHeightPx / density.density).dp
 
                 // Robust screen height calculation
                 val screenHeightPx = remember {
@@ -256,6 +273,7 @@ class LogKittyOverlayService : Service() {
 
                 val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
                 var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
+                var isWindowExpanded by remember { mutableStateOf(false) }
 
                 // Fixed Anchor: 10% of screen height from bottom
                 val anchorYPx = (screenHeightPx * 0.10f).toInt()
@@ -301,6 +319,7 @@ class LogKittyOverlayService : Service() {
 
                                  // Check if we started interacting again during delay
                                  if (isActive) {
+                                     isWindowExpanded = false
                                      val currentParams = composeView?.layoutParams as? WindowManager.LayoutParams
                                      if (currentParams != null && (currentParams.height != targetHeightPx)) {
                                          currentParams.height = targetHeightPx
@@ -312,6 +331,7 @@ class LogKittyOverlayService : Service() {
                                          } catch (e: Exception) {
                                              e.printStackTrace()
                                          }
+                                         isWindowExpanded = false
                                      }
                                  }
                              }
@@ -331,6 +351,8 @@ class LogKittyOverlayService : Service() {
                     onDispose { }
                 }
 
+                val bottomPadding = if (isWindowExpanded) screenHeight * 0.10f else 0.dp
+
                 LogKittyTheme {
                     LogBottomSheet(
                         sheetState = sheetState,
@@ -339,6 +361,7 @@ class LogKittyOverlayService : Service() {
                         halfwayDetent = detents[2],
                         fullyExpandedDetent = detents[3],
                         screenHeight = screenHeight,
+                        isWindowExpanded = isWindowExpanded,
                         onSendPrompt = { viewModel.sendPrompt(it) },
                         onInteraction = { isInteracting ->
                             updateWindowHeight(isInteracting)
