@@ -21,15 +21,10 @@ class FileSaverActivity : ComponentActivity() {
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
                     val app = application as MainApplication
-                    // Use filtered logs if context mode is on, or raw logs?
-                    // Usually "Save" saves what you see, or everything?
-                    // Let's save what is visible (filtered) to be consistent with WYSIWYG,
-                    // or maybe provide an option? For now, let's access the raw systemLog from stateDelegate
-                    // because MainViewModel doesn't expose systemLog directly anymore in the previous read?
-                    // Ah, in the read of MainViewModel above, 'val systemLog' was NOT present!
-                    // It only has 'val filteredSystemLog'.
-                    // But 'stateDelegate' is public.
-                    val logs = app.mainViewModel.stateDelegate.systemLog.value.joinToString("\n")
+                    
+                    // We now capture the FILTERED logs (what the user sees)
+                    // rather than the raw firehose.
+                    val logs = app.mainViewModel.filteredSystemLog.value.joinToString("\n")
 
                     contentResolver.openOutputStream(uri)?.use { output ->
                         output.write(logs.toByteArray())
@@ -56,9 +51,6 @@ class FileSaverActivity : ComponentActivity() {
 
         val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
         val fileName = "logkitty_$timestamp.txt"
-        // Explicitly specify the input type for launch to help type inference if needed,
-        // though typically it should be inferred. The error was 'Cannot infer type for type parameter R'.
-        // ActivityResultContracts.CreateDocument takes a String (initial name) and returns a Uri?.
         createDocumentLauncher.launch(fileName)
     }
 }
