@@ -159,11 +159,10 @@ class LogKittyOverlayService : Service() {
                 val screenHeight = (screenHeightPx / density.density).dp
                 val navBarHeight = with(density) { navBarHeightPx.toDp() }
 
-                // --- AUTOMATIC DETENT ADJUSTMENT ---
-                // We calculate how tall the window needs to be to show ONE line of text.
-                // 1.5 multiplier gives rough line height + some air.
-                // 24dp covers the padding/drag handle.
+                // --- DETENT ADJUSTMENT ---
                 val fontSizePx = with(density) { fontSizeSp.sp.toPx() }
+                
+                // Height = NavBar + Padding + Text Line
                 val collapsedContentHeightPx = (fontSizePx * 1.5f) + with(density) { 24.dp.toPx() }
                 val collapsedTotalHeightPx = (collapsedContentHeightPx + navBarHeightPx).toInt()
                 val collapsedHeightDp = with(density) { collapsedTotalHeightPx.toDp() }
@@ -192,11 +191,10 @@ class LogKittyOverlayService : Service() {
                                  if (isInteractingRaw) return@launch
 
                                  val targetHeightPx = when (sheetState.value) {
-                                     // USE DYNAMIC CALCULATION HERE
                                      BottomSheetValue.Collapsed -> collapsedTotalHeightPx
-                                     
                                      BottomSheetValue.Peeked -> (screenHeightPx * currentPeekFraction + navBarHeightPx).toInt()
-                                     BottomSheetValue.Expanded -> WindowManager.LayoutParams.MATCH_PARENT
+                                     // Ensure MATCH_PARENT explicitly covers full screen height including navbar area
+                                     BottomSheetValue.Expanded -> screenHeightPx
                                  }
 
                                  if (params.height != targetHeightPx) {
@@ -227,7 +225,7 @@ class LogKittyOverlayService : Service() {
                         viewModel = viewModel,
                         screenHeight = screenHeight,
                         navBarHeight = navBarHeight,
-                        collapsedHeightDp = collapsedHeightDp, // Pass calculated height
+                        collapsedHeightDp = collapsedHeightDp,
                         currentPeekFraction = currentPeekFraction,
                         onPeekFractionChange = { currentPeekFraction = it },
                         onSaveClick = {
