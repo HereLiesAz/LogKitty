@@ -1,5 +1,7 @@
 package com.hereliesaz.logkitty
 
+import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -13,7 +15,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
@@ -23,6 +28,7 @@ import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 class MainActivity : ComponentActivity() {
 
     private var isOverlayGranted by mutableStateOf(false)
+    private var isServiceRunning by mutableStateOf(false)
     private var showSettings by mutableStateOf(false)
 
     private val overlayPermissionLauncher = registerForActivityResult(
@@ -34,6 +40,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         checkOverlayPermission()
+        checkServiceStatus()
         requestRootAccess()
 
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -42,6 +49,19 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LogKittyTheme {
+                // Monitor lifecycle to refresh service status on resume
+                val lifecycle = LocalLifecycleOwner.current.lifecycle
+                DisposableEffect(lifecycle) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            checkServiceStatus()
+                            checkOverlayPermission()
+                        }
+                    }
+                    lifecycle.addObserver(observer)
+                    onDispose { lifecycle.removeObserver(observer) }
+                }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -54,8 +74,9 @@ class MainActivity : ComponentActivity() {
                     } else {
                         MainScreenContent(
                             isOverlayGranted = isOverlayGranted,
+                            isServiceRunning = isServiceRunning,
                             onGrantPermission = { requestOverlayPermission() },
-                            onStartOverlay = { startOverlayService() },
+                            onToggleService = { toggleOverlayService() },
                             onOpenSettings = { showSettings = true }
                         )
                     }
@@ -74,6 +95,18 @@ class MainActivity : ComponentActivity() {
     private fun checkOverlayPermission() {
         isOverlayGranted = Settings.canDrawOverlays(this)
     }
+    
+    @Suppress("DEPRECATION")
+    private fun checkServiceStatus() {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        isServiceRunning = false
+        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+            if (LogKittyOverlayService::class.java.name == service.service.className) {
+                isServiceRunning = true
+                break
+            }
+        }
+    }
 
     private fun requestOverlayPermission() {
         val intent = Intent(
@@ -83,14 +116,22 @@ class MainActivity : ComponentActivity() {
         overlayPermissionLauncher.launch(intent)
     }
 
-    private fun startOverlayService() {
+    private fun toggleOverlayService() {
         val intent = Intent(this, LogKittyOverlayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
+        if (isServiceRunning) {
+            intent.action = "com.hereliesaz.logkitty.STOP_SERVICE" // Match the constant in Service
+            startService(intent) // Sending stop command
+            isServiceRunning = false
         } else {
-            startService(intent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            // We assume it starts successfully; the lifecycle observer will confirm on next resume
+            isServiceRunning = true
+            finish()
         }
-        finish() // Close activity after starting service
     }
 
     private fun requestRootAccess() {
@@ -104,7 +145,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             } catch (e: Exception) {
-                // Root not available or denied
                 e.printStackTrace()
             }
         }.start()
@@ -114,8 +154,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreenContent(
     isOverlayGranted: Boolean,
+    isServiceRunning: Boolean,
     onGrantPermission: () -> Unit,
-    onStartOverlay: () -> Unit,
+    onToggleService: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -126,7 +167,6 @@ fun MainScreenContent(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Replaced emoji text with image
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = R.drawable.logkitty),
                 contentDescription = "LogKitty Logo",
@@ -145,7 +185,7 @@ fun MainScreenContent(
 
             if (!isOverlayGranted) {
                 Text(
-                    text = "To float above other apps, LogKitty needs permission to display over other apps.",
+                    text = "LogKitty needs permission to display over other apps.",
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
@@ -156,16 +196,19 @@ fun MainScreenContent(
                 )
             } else {
                 Text(
-                    text = "Permission Granted!",
+                    text = "Ready to Purr",
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.tertiary
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+                
+                // Toggle Button
                 AzButton(
-                    onClick = onStartOverlay,
-                    text = "Start Overlay",
+                    onClick = onToggleService,
+                    text = if (isServiceRunning) "Stop Service" else "Start Service",
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = AzButtonShape.RECTANGLE
+                    shape = AzButtonShape.RECTANGLE,
+                    colors = if (isServiceRunning) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
                 )
             }
 
