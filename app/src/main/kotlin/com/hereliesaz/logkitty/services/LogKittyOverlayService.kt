@@ -219,6 +219,9 @@ class LogKittyOverlayService : Service() {
         val app = applicationContext as MainApplication
         val viewModel = app.mainViewModel
 
+        val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
+        val navBarHeightPx = if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
+
         composeView = ComposeView(this).apply {
             setContent {
                 val density = androidx.compose.ui.platform.LocalDensity.current
@@ -234,9 +237,6 @@ class LogKittyOverlayService : Service() {
                     }
                 }
                 val screenHeight = (screenHeightPx / density.density).dp
-
-                val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-                val navBarHeightPx = if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
                 val navBarHeight = with(density) { navBarHeightPx.toDp() }
 
                 val sheetState = rememberBottomSheetState(
@@ -263,6 +263,7 @@ class LogKittyOverlayService : Service() {
                          // Always ensure Y anchor is maintained and Gravity is BOTTOM
                          params.y = anchorYPx
                          params.gravity = Gravity.BOTTOM
+                         params.flags = params.flags or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
                          if (isInteracting) {
                              delayedShrinkJob?.cancel()
@@ -300,6 +301,7 @@ class LogKittyOverlayService : Service() {
                                          // Y anchor remains constant
                                          currentParams.y = anchorYPx
                                          currentParams.gravity = Gravity.BOTTOM
+                                         currentParams.flags = currentParams.flags or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                                          try {
                                              windowManager.updateViewLayout(composeView, currentParams)
                                          } catch (e: Exception) {
@@ -357,8 +359,6 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onStart()
 
         // Initial params: Height = Hidden (2%) or Peek (25%)? Initial state is Collapsed (Hidden)
-        val navBarResourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        val navBarHeightPx = if (navBarResourceId > 0) resources.getDimensionPixelSize(navBarResourceId) else 0
         val initialHeight = (resources.displayMetrics.heightPixels * 0.02f + navBarHeightPx).toInt()
         val initialY = 0
 
