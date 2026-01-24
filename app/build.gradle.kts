@@ -46,7 +46,8 @@ android {
         // Inject API Key
         val apiKey = getLocalProperty("FONTS_API_KEY", rootProject.projectDir)
         buildConfigField("String", "FONTS_API_KEY", "\"$apiKey\"")
-        
+        manifestPlaceholders["FONTS_API_KEY"] = apiKey // THIS WAS THE MISSING LINE
+
         // Build Tools Config
         val toolsOwner = project.findProperty("build.tools.owner") as? String ?: "HereLiesAz"
         val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "LogKitty-buildtools"
