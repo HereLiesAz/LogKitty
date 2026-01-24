@@ -8,15 +8,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -25,8 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,18 +42,18 @@ fun LogBottomSheet(
     val isHidden = sheetState.value == BottomSheetValue.Collapsed
 
     val systemLogMessages by viewModel.filteredSystemLog.collectAsState()
-    val isContextModeEnabled by viewModel.isContextModeEnabled.collectAsState()
-    val currentApp by viewModel.currentForegroundApp.collectAsState()
     val overlayOpacity by viewModel.overlayOpacity.collectAsState()
-    val isLogReversed by viewModel.isLogReversed.collectAsState()
+    val backgroundColorInt by viewModel.backgroundColor.collectAsState() // New
     val tabs by viewModel.tabs.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val logColors by viewModel.logColors.collectAsState()
+    val isLogReversed by viewModel.isLogReversed.collectAsState()
 
-    val clipboardManager = LocalClipboardManager.current
     val listState = rememberLazyListState()
+    
+    // Combine User Color with User Opacity
+    val sheetBackgroundColor = Color(backgroundColorInt).copy(alpha = overlayOpacity)
 
-    // Peek Logic (Simplified)
     LaunchedEffect(sheetState.dragProgress) {
         if (sheetState.dragProgress > 0.45f && currentPeekFraction != 0.50f) {
             onPeekFractionChange(0.50f)
@@ -71,28 +62,22 @@ fun LogBottomSheet(
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Collapsed "Handle" area (Visible when collapsed)
+    Box(modifier = Modifier.fillMaxSize()) {
         if (isHidden) {
             val latestLog = systemLogMessages.lastOrNull() ?: "LogKitty Ready"
             
-            // This Box draws BEHIND the navbar because the window is NO_LIMITS
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Height includes navbar to ensure we cover the bottom edge
-                    .height((screenHeight * 0.05f) + navBarHeight) 
+                    .height((screenHeight * 0.05f) + navBarHeight)
                     .align(Alignment.BottomCenter)
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
+                    .background(sheetBackgroundColor) // Applied here
                     .clickable { scope.launch { sheetState.peek() } }
             ) {
-                // Content sits ABOVE navbar
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = navBarHeight) // Respect navbar for text
+                        .padding(bottom = navBarHeight)
                         .height(screenHeight * 0.05f),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -101,9 +86,9 @@ fun LogBottomSheet(
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 8.dp),
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.White // Text remains opaque white (or system contrast)
                     )
-                    // Drag Indicator
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
@@ -111,29 +96,24 @@ fun LogBottomSheet(
                             .height(4.dp)
                             .padding(top = 2.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Color.Gray.copy(alpha = 0.5f))
+                            .background(Color.Gray.copy(alpha = 0.8f))
                     )
                 }
             }
         }
 
-        // The Sheet
         BottomSheetLayout(
             state = sheetState,
             peekHeight = PeekHeight.dp((screenHeight * currentPeekFraction + navBarHeight).value),
             modifier = Modifier.fillMaxSize(),
         ) {
-            // Main Content Area
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = overlayOpacity))
+                    .background(sheetBackgroundColor) // Applied here
             ) {
-                // Expanded Drag Handle
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -145,7 +125,6 @@ fun LogBottomSheet(
                     )
                 }
 
-                // Tabs
                 ScrollableTabRow(
                     selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
                     edgePadding = 16.dp,
@@ -167,7 +146,6 @@ fun LogBottomSheet(
                     }
                 }
 
-                // Log List
                 if (systemLogMessages.isEmpty()) {
                     Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text("No logs", color = Color.Gray)
@@ -176,14 +154,13 @@ fun LogBottomSheet(
                     LazyColumn(
                         state = listState,
                         reverseLayout = isLogReversed,
-                        contentPadding = PaddingValues(bottom = navBarHeight + 16.dp), // Add extra padding
+                        contentPadding = PaddingValues(bottom = navBarHeight + 16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
                             .padding(horizontal = 8.dp)
                     ) {
                         itemsIndexed(systemLogMessages) { index, message ->
-                            // Simplified for brevity - reuse your item composable
                             Text(
                                 text = message,
                                 style = MaterialTheme.typography.bodySmall,
@@ -196,14 +173,12 @@ fun LogBottomSheet(
             }
         }
         
-        // Header Actions (Settings, Clear, etc) - Copied from previous logic
         if (!isHidden) {
              Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 48.dp, end = 16.dp)
             ) {
-                // ... (Keep existing buttons: Settings, Save, Copy, Clear)
                 IconButton(onClick = onSettingsClick) {
                      Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface)
                 }
