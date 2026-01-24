@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
+import com.hereliesaz.logkitty.ui.theme.CodingFont
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,12 +29,13 @@ fun SettingsScreen(
 ) {
     val scrollState = rememberScrollState()
     
-    // Preferences Observables
     val overlayOpacity by viewModel.overlayOpacity.collectAsState()
     val backgroundColorInt by viewModel.backgroundColor.collectAsState()
     val isContextMode by viewModel.isContextModeEnabled.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
     val isLogReversed by viewModel.isLogReversed.collectAsState()
+    val fontSize by viewModel.fontSize.collectAsState()
+    val fontFamilyName by viewModel.fontFamily.collectAsState()
     
     var showColorPicker by remember { mutableStateOf(false) }
 
@@ -69,7 +71,7 @@ fun SettingsScreen(
         ) {
             SettingsSectionHeader("Appearance")
             
-            // Background Color Picker
+            // Background Color
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -78,10 +80,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Background Color",
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Text("Background Color", style = MaterialTheme.typography.bodyLarge)
                 Box(
                     modifier = Modifier
                         .size(32.dp)
@@ -93,7 +92,7 @@ fun SettingsScreen(
             
             HorizontalDivider()
 
-            // Opacity Slider
+            // Opacity
             Text(
                 text = "Background Opacity: ${(overlayOpacity * 100).toInt()}%",
                 style = MaterialTheme.typography.bodyLarge,
@@ -105,27 +104,61 @@ fun SettingsScreen(
                 valueRange = 0.1f..1.0f,
                 steps = 9
             )
-            Text(
-                text = "Adjusts the transparency of the background sheet only.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            SettingsSectionHeader("Typography")
+            
+            // Font Size
+            Text("Font Size: ${fontSize}sp", style = MaterialTheme.typography.bodyLarge)
+            Slider(
+                value = fontSize.toFloat(),
+                onValueChange = { viewModel.setFontSize(it.toInt()) },
+                valueRange = 8f..24f,
+                steps = 15
             )
+
+            // Font Family Dropdown
+            var fontExpanded by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                OutlinedButton(
+                    onClick = { fontExpanded = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = AzButtonShape.RECTANGLE.toShape()
+                ) {
+                    Text(text = "Font: $fontFamilyName")
+                }
+                DropdownMenu(
+                    expanded = fontExpanded,
+                    onDismissRequest = { fontExpanded = false }
+                ) {
+                    CodingFont.values().forEach { font ->
+                        DropdownMenuItem(
+                            text = { Text(font.displayName) },
+                            onClick = {
+                                viewModel.setFontFamily(font)
+                                fontExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             SettingsSectionHeader("Behavior")
 
-            // Context Mode Toggle
+            // Context Mode
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Context Mode (Auto-Filter by App)", style = MaterialTheme.typography.bodyLarge)
+                Text("Context Mode (Auto-Filter)", style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = isContextMode, onCheckedChange = { viewModel.toggleContextMode() })
             }
 
-            // Root Mode Toggle
+            // Root Mode
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -133,24 +166,21 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Root Access", style = MaterialTheme.typography.bodyLarge)
-                    Text("Allows reading all system logs", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
             }
 
-            // Reverse Log Toggle
+            // Reverse Log
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Reverse Log Order (Newest First)", style = MaterialTheme.typography.bodyLarge)
+                Text("Reverse Log Order", style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = isLogReversed, onCheckedChange = { viewModel.setLogReversed(it) })
             }
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-            
-            SettingsSectionHeader("Data")
             
             AzButton(
                 onClick = { viewModel.clearLog() },
