@@ -56,6 +56,11 @@ class MainViewModel(
     val isLogReversed: StateFlow<Boolean> = userPreferences.isLogReversed
     val prohibitedTags: StateFlow<Set<String>> = userPreferences.prohibitedTags
     val logColors: StateFlow<Map<LogLevel, Color>> = userPreferences.logColors
+    
+    // NEW
+    val showTimestamp: StateFlow<Boolean> = userPreferences.showTimestamp
+    val bufferSize: StateFlow<Int> = userPreferences.bufferSize
+    val activeLogLevels: StateFlow<Set<String>> = userPreferences.activeLogLevels
 
     private val systemTab = LogTab("system", "System", TabType.SYSTEM)
     private val errorsTab = LogTab("errors", "Errors", TabType.ERRORS)
@@ -70,16 +75,27 @@ class MainViewModel(
         stateDelegate.systemLog,
         _selectedTab,
         customFilter,
-        prohibitedTags
-    ) { logs, tab, userFilter, prohibited ->
+        prohibitedTags,
+        activeLogLevels
+    ) { logs, tab, userFilter, prohibited, levels ->
         var result = logs
 
+        // 1. Filter Log Levels
+        if (levels.size < LogLevel.values().size) {
+            result = result.filter { line ->
+                val level = LogLevel.fromLine(line)
+                levels.contains(level.name)
+            }
+        }
+
+        // 2. Filter prohibited tags
         if (prohibited.isNotEmpty()) {
             result = result.filter { logLine ->
                 prohibited.none { tag -> logLine.contains(tag, ignoreCase = true) }
             }
         }
 
+        // 3. Tab-based filtering
         when (tab.type) {
             TabType.SYSTEM -> { }
             TabType.ERRORS -> {
@@ -93,6 +109,7 @@ class MainViewModel(
             }
         }
 
+        // 4. User custom text filter
         if (userFilter.isNotBlank()) {
             result = result.filter { it.contains(userFilter, ignoreCase = true) }
         }
@@ -200,6 +217,18 @@ class MainViewModel(
 
     fun setLogReversed(enabled: Boolean) {
         userPreferences.setLogReversed(enabled)
+    }
+    
+    fun setShowTimestamp(enabled: Boolean) {
+        userPreferences.setShowTimestamp(enabled)
+    }
+    
+    fun setBufferSize(size: Int) {
+        userPreferences.setBufferSize(size)
+    }
+    
+    fun toggleLogLevel(level: LogLevel, enabled: Boolean) {
+        userPreferences.toggleLogLevel(level.name, enabled)
     }
 
     fun setLogColor(level: LogLevel, color: Color) {
