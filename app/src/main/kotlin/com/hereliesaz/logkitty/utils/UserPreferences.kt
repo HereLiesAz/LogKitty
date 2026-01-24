@@ -17,10 +17,11 @@ data class ExportedPreferences(
     val contextMode: Boolean,
     val customFilter: String,
     val overlayOpacity: Float,
+    val backgroundColor: Int, // Added
     val isRootEnabled: Boolean,
-    val isLogReversed: Boolean, // Added
+    val isLogReversed: Boolean,
     val prohibitedTags: List<String>,
-    val logColors: Map<String, Int> // Store colors as ARGB Ints, keyed by LogLevel.name
+    val logColors: Map<String, Int>
 )
 
 class UserPreferences(context: Context) {
@@ -33,8 +34,12 @@ class UserPreferences(context: Context) {
     private val _customFilter = MutableStateFlow(prefs.getString(KEY_CUSTOM_FILTER, "") ?: "")
     val customFilter: StateFlow<String> = _customFilter.asStateFlow()
 
-    private val _overlayOpacity = MutableStateFlow(prefs.getFloat(KEY_OVERLAY_OPACITY, 1.0f))
+    private val _overlayOpacity = MutableStateFlow(prefs.getFloat(KEY_OVERLAY_OPACITY, 0.9f))
     val overlayOpacity: StateFlow<Float> = _overlayOpacity.asStateFlow()
+
+    // Default to Black (ARGB integer)
+    private val _backgroundColor = MutableStateFlow(prefs.getInt(KEY_BACKGROUND_COLOR, android.graphics.Color.BLACK))
+    val backgroundColor: StateFlow<Int> = _backgroundColor.asStateFlow()
 
     private val _isRootEnabled = MutableStateFlow(prefs.getBoolean(KEY_IS_ROOT_ENABLED, false))
     val isRootEnabled: StateFlow<Boolean> = _isRootEnabled.asStateFlow()
@@ -71,6 +76,11 @@ class UserPreferences(context: Context) {
     fun setOverlayOpacity(opacity: Float) {
         prefs.edit().putFloat(KEY_OVERLAY_OPACITY, opacity).apply()
         _overlayOpacity.value = opacity
+    }
+
+    fun setBackgroundColor(color: Int) {
+        prefs.edit().putInt(KEY_BACKGROUND_COLOR, color).apply()
+        _backgroundColor.value = color
     }
 
     fun addProhibitedTag(tag: String) {
@@ -131,6 +141,7 @@ class UserPreferences(context: Context) {
             contextMode = _isContextModeEnabled.value,
             customFilter = _customFilter.value,
             overlayOpacity = _overlayOpacity.value,
+            backgroundColor = _backgroundColor.value,
             isRootEnabled = _isRootEnabled.value,
             isLogReversed = _isLogReversed.value,
             prohibitedTags = _prohibitedTags.value.toList(),
@@ -149,6 +160,7 @@ class UserPreferences(context: Context) {
             setContextModeEnabled(imported.contextMode)
             setCustomFilter(imported.customFilter)
             setOverlayOpacity(imported.overlayOpacity)
+            setBackgroundColor(imported.backgroundColor)
             setRootEnabled(imported.isRootEnabled)
             setLogReversed(imported.isLogReversed)
 
@@ -156,10 +168,8 @@ class UserPreferences(context: Context) {
             _prohibitedTags.value = tags
             saveProhibitedTags(tags)
 
-            // Import Colors
             val editor = prefs.edit()
             val newColors = mutableMapOf<LogLevel, Color>()
-            // Start with defaults to ensure we have all keys even if JSON is partial
             LogLevel.values().forEach { newColors[it] = it.defaultColor }
 
             imported.logColors.forEach { (levelName, colorInt) ->
@@ -168,9 +178,7 @@ class UserPreferences(context: Context) {
                     val color = Color(colorInt)
                     newColors[level] = color
                     editor.putInt(getKeyForColor(level), colorInt)
-                } catch (e: IllegalArgumentException) {
-                    // Ignore invalid level names
-                }
+                } catch (e: IllegalArgumentException) { }
             }
             editor.apply()
             _logColors.value = newColors
@@ -185,6 +193,7 @@ class UserPreferences(context: Context) {
         private const val KEY_CONTEXT_MODE = "context_mode"
         private const val KEY_CUSTOM_FILTER = "custom_filter"
         private const val KEY_OVERLAY_OPACITY = "overlay_opacity"
+        private const val KEY_BACKGROUND_COLOR = "background_color"
         private const val KEY_IS_ROOT_ENABLED = "is_root_enabled"
         private const val KEY_IS_LOG_REVERSED = "is_log_reversed"
         private const val KEY_PROHIBITED_TAGS = "prohibited_tags"
