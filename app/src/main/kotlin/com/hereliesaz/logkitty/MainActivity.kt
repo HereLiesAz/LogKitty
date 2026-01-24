@@ -18,7 +18,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
@@ -51,6 +50,7 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
         checkServiceStatus()
         
+        // Initial Root Check
         requestRootAccess()
 
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -118,6 +118,7 @@ class MainActivity : ComponentActivity() {
     private fun checkServiceStatus() {
         val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         isServiceRunning = false
+        // Check running services to see if Overlay is active
         for (service in manager.getRunningServices(Int.MAX_VALUE)) {
             if (LogKittyOverlayService::class.java.name == service.service.className) {
                 isServiceRunning = true
@@ -137,10 +138,12 @@ class MainActivity : ComponentActivity() {
     private fun toggleOverlayService() {
         val intent = Intent(this, LogKittyOverlayService::class.java)
         if (isServiceRunning) {
+            // STOP
             intent.action = "com.hereliesaz.logkitty.STOP_SERVICE"
             startService(intent)
             isServiceRunning = false
         } else {
+            // START
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 try {
                     startForegroundService(intent)
@@ -222,58 +225,48 @@ fun MainScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            if (!isReadLogsGranted) {
-                val cardAlpha = if (isRootEnabled) 0.5f else 1.0f
-                val cardColor = if (isRootEnabled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
-                
+            // Only show ADB card if we don't have permission AND don't have root
+            if (!isReadLogsGranted && !isRootEnabled) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = cardColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = if (isRootEnabled) 0.dp else 4.dp)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Column(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .alpha(cardAlpha),
+                        modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (isRootEnabled) "Standard Permission (Bypassed)" else "Standard Permission Required",
+                            text = "Standard Permission Required",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (isRootEnabled) 
-                                "Root access is enabled, so manual ADB permission is not required." 
-                            else 
-                                "Android requires a special permission to read logs. You must grant this via ADB:",
+                            text = "Android requires a special permission to read logs. You must grant this via ADB:",
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center
                         )
-                        
-                        if (!isRootEnabled) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            val command = "adb shell pm grant ${BuildConfig.APPLICATION_ID} android.permission.READ_LOGS"
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = command,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(8.dp),
-                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            AzButton(
-                                onClick = { clipboardManager.setText(AnnotatedString(command)) },
-                                text = "Copy Command",
-                                shape = AzButtonShape.RECTANGLE,
-                                modifier = Modifier.fillMaxWidth()
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val command = "adb shell pm grant ${BuildConfig.APPLICATION_ID} android.permission.READ_LOGS"
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = command,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(8.dp),
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                             )
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        AzButton(
+                            onClick = { clipboardManager.setText(AnnotatedString(command)) },
+                            text = "Copy Command",
+                            shape = AzButtonShape.RECTANGLE,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -294,10 +287,6 @@ fun MainScreenContent(
                     shape = AzButtonShape.RECTANGLE,
                     colors = if (isServiceRunning) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
                 )
-            } else if (isRootEnabled) {
-                if (isOverlayGranted) {
-                     // Should be covered by canStart
-                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
