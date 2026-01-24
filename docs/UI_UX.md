@@ -10,8 +10,8 @@ LogKitty is a developer tool designed to be unobtrusive yet instantly accessible
 
 ## Components
 - **Bottom Sheet:** The primary interaction point. It supports three states (heights include the system navigation bar area):
+    - **Hidden (Collapsed):** Small strip at the bottom (2% of screen height + Nav Bar).
     - **Peek:** Small strip at the bottom, showing the last log line or status (25% of screen height + Nav Bar).
-    - **Half-Expanded:** Covers 50% of the screen + Nav Bar, allows scrolling.
     - **Fully-Expanded:** Covers 80% of the screen + Nav Bar for deep debugging.
 - **Overlay:** A transparent touch-through layer that allows interaction with the app below when the sheet is collapsed.
 

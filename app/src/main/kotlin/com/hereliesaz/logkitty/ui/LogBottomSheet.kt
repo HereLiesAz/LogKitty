@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,7 +56,6 @@ fun LogBottomSheet(
     screenHeight: Dp,
     navBarHeight: Dp,
     isWindowExpanded: Boolean,
-    bottomPadding: Dp,
     onSendPrompt: (String) -> Unit,
     onInteraction: (Boolean) -> Unit,
     onSaveClick: () -> Unit,
@@ -180,39 +178,12 @@ fun LogBottomSheet(
             state = sheetState,
             peekHeight = PeekHeight.dp((screenHeight * 0.25f + navBarHeight).value),
             modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = bottomPadding),
+                .fillMaxSize(),
             skipPeeked = false,
         ) {
              Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
-                        var totalDragX = 0f
-                        detectDragGestures(
-                            onDragStart = { totalDragX = 0f },
-                            onDragEnd = {
-                                 if (abs(totalDragX) > swipeThreshold) {
-                                     val currentIndex = tabs.indexOf(selectedTab)
-                                     if (totalDragX > 0) { // Swipe Right -> Previous Tab
-                                         if (currentIndex > 0) {
-                                             viewModel.selectTab(tabs[currentIndex - 1])
-                                         }
-                                     } else { // Swipe Left -> Next Tab
-                                         if (currentIndex < tabs.size - 1) {
-                                             viewModel.selectTab(tabs[currentIndex + 1])
-                                         }
-                                     }
-                                 }
-                            }
-                        ) { change, dragAmount ->
-                            val (x, y) = dragAmount
-                            if (abs(x) > abs(y)) {
-                                change.consume()
-                                totalDragX += x
-                            }
-                        }
-                    }
             ) {
                 Column(
                     modifier = Modifier
