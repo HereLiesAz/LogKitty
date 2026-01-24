@@ -3,6 +3,7 @@ package com.hereliesaz.logkitty
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -11,12 +12,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.hereliesaz.aznavrail.AzButton
@@ -28,19 +35,22 @@ import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 class MainActivity : ComponentActivity() {
 
     private var isOverlayGranted by mutableStateOf(false)
+    private var isReadLogsGranted by mutableStateOf(false)
     private var isServiceRunning by mutableStateOf(false)
     private var showSettings by mutableStateOf(false)
 
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        checkOverlayPermission()
+        checkPermissions()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        checkOverlayPermission()
+        checkPermissions()
         checkServiceStatus()
+        
+        // Initial Root Check (Silent)
         requestRootAccess()
 
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -49,13 +59,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LogKittyTheme {
-                // Monitor lifecycle to refresh service status on resume
                 val lifecycle = LocalLifecycleOwner.current.lifecycle
                 DisposableEffect(lifecycle) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
                             checkServiceStatus()
-                            checkOverlayPermission()
+                            checkPermissions()
                         }
                     }
                     lifecycle.addObserver(observer)
@@ -72,10 +81,16 @@ class MainActivity : ComponentActivity() {
                             viewModel = (application as MainApplication).mainViewModel
                         )
                     } else {
+                        // Observe Root State from ViewModel
+                        val viewModel = (application as MainApplication).mainViewModel
+                        val isRootEnabled by viewModel.isRootEnabled.collectAsState()
+
                         MainScreenContent(
                             isOverlayGranted = isOverlayGranted,
+                            isReadLogsGranted = isReadLogsGranted,
+                            isRootEnabled = isRootEnabled,
                             isServiceRunning = isServiceRunning,
-                            onGrantPermission = { requestOverlayPermission() },
+                            onGrantOverlay = { requestOverlayPermission() },
                             onToggleService = { toggleOverlayService() },
                             onOpenSettings = { showSettings = true }
                         )
@@ -92,8 +107,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkOverlayPermission() {
+    private fun checkPermissions() {
         isOverlayGranted = Settings.canDrawOverlays(this)
+        isReadLogsGranted = ContextCompat.checkSelfPermission(
+            this, 
+            android.Manifest.permission.READ_LOGS
+        ) == PackageManager.PERMISSION_GRANTED
     }
     
     @Suppress("DEPRECATION")
@@ -119,16 +138,21 @@ class MainActivity : ComponentActivity() {
     private fun toggleOverlayService() {
         val intent = Intent(this, LogKittyOverlayService::class.java)
         if (isServiceRunning) {
-            intent.action = "com.hereliesaz.logkitty.STOP_SERVICE" // Match the constant in Service
-            startService(intent) // Sending stop command
+            intent.action = "com.hereliesaz.logkitty.STOP_SERVICE"
+            startService(intent)
             isServiceRunning = false
         } else {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
+                try {
+                    startForegroundService(intent)
+                } catch (e: Exception) {
+                    // Fallback for Android 12+ background start restrictions
+                    // In a real scenario, we might need to schedule an alarm or use a different trigger
+                    e.printStackTrace()
+                }
             } else {
                 startService(intent)
             }
-            // We assume it starts successfully; the lifecycle observer will confirm on next resume
             isServiceRunning = true
             finish()
         }
@@ -154,16 +178,25 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreenContent(
     isOverlayGranted: Boolean,
+    isReadLogsGranted: Boolean,
+    isRootEnabled: Boolean,
     isServiceRunning: Boolean,
-    onGrantPermission: () -> Unit,
+    onGrantOverlay: () -> Unit,
     onToggleService: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
+    val scrollState = rememberScrollState()
+
+    // We can start if Overlay is granted AND (ReadLogs is granted OR Root is enabled)
+    val canStart = isOverlayGranted && (isReadLogsGranted || isRootEnabled)
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -183,18 +216,78 @@ fun MainScreenContent(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // 1. Overlay Permission Card
             if (!isOverlayGranted) {
-                Text(
-                    text = "LogKitty needs permission to display over other apps.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                PermissionCard(
+                    title = "Overlay Permission Required",
+                    description = "LogKitty needs to draw over other apps to function.",
+                    buttonText = "Grant Overlay",
+                    onClick = onGrantOverlay
                 )
-                AzButton(
-                    onClick = onGrantPermission,
-                    text = "Grant Overlay Permission",
-                    shape = AzButtonShape.RECTANGLE
-                )
-            } else {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // 2. Read Logs Permission Card (ADB)
+            // Greyed out if Root is Enabled
+            if (!isReadLogsGranted) {
+                val cardAlpha = if (isRootEnabled) 0.5f else 1.0f
+                val cardColor = if (isRootEnabled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
+                
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
+                    elevation = CardDefaults.cardElevation(defaultElevation = if (isRootEnabled) 0.dp else 4.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .alpha(cardAlpha), // Visual Greying
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isRootEnabled) "Standard Permission (Bypassed)" else "Standard Permission Required",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (isRootEnabled) 
+                                "Root access is enabled, so manual ADB permission is not required." 
+                            else 
+                                "Android requires a special permission to read logs. You must grant this via ADB:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        if (!isRootEnabled) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            val command = "adb shell pm grant ${BuildConfig.APPLICATION_ID} android.permission.READ_LOGS"
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = command,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(8.dp),
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            AzButton(
+                                onClick = { clipboardManager.setText(AnnotatedString(command)) },
+                                text = "Copy Command",
+                                shape = AzButtonShape.RECTANGLE,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // 3. Action Buttons
+            if (canStart) {
                 Text(
                     text = "Ready to Purr",
                     style = MaterialTheme.typography.headlineSmall,
@@ -202,7 +295,6 @@ fun MainScreenContent(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Toggle Button
                 AzButton(
                     onClick = onToggleService,
                     text = if (isServiceRunning) "Stop Service" else "Start Service",
@@ -210,6 +302,11 @@ fun MainScreenContent(
                     shape = AzButtonShape.RECTANGLE,
                     colors = if (isServiceRunning) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
                 )
+            } else if (isRootEnabled) {
+                // If Root is enabled but Overlay is missing, we still wait for Overlay
+                if (isOverlayGranted) {
+                     // Should be covered by canStart, but safe fallback
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -223,3 +320,47 @@ fun MainScreenContent(
         }
     }
 }
+
+@Composable
+fun PermissionCard(
+    title: String,
+    description: String,
+    buttonText: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            AzButton(
+                onClick = onClick,
+                text = buttonText,
+                shape = AzButtonShape.RECTANGLE,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+// Helper for alpha modifier
+fun Modifier.alpha(alpha: Float) = this.then(Modifier.drawWithContent {
+    drawContent()
+    drawRect(androidx.compose.ui.graphics.Color.Transparent, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+}.graphicsLayer { this.alpha = alpha })
