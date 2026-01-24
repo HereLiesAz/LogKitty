@@ -77,9 +77,9 @@ fun LogBottomSheet(
     Box(modifier = Modifier.fillMaxSize()) {
         if (isHidden) {
             val rawLatest = systemLogMessages.lastOrNull() ?: "LogKitty Ready"
-            // Strip timestamp if setting is off
             val latestLog = if (showTimestamp) rawLatest else rawLatest.replace(Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), "")
             
+            // This Box fills the COLLAPSED height (NavBar + 1 Line)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -88,11 +88,13 @@ fun LogBottomSheet(
                     .background(sheetBackgroundColor)
                     .clickable { scope.launch { sheetState.peek() } }
             ) {
+                // Content container excluding navbar area
+                // We align this to the TOP of the collapsed box
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = navBarHeight)
-                        .height(collapsedHeightDp - navBarHeight),
+                        .padding(bottom = navBarHeight) // Push content UP above navbar
+                        .fillMaxHeight(), // Fill remaining space (which is line height)
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -105,6 +107,7 @@ fun LogBottomSheet(
                         overflow = TextOverflow.Ellipsis,
                         color = Color.White
                     )
+                    // Visual Drag Handle (Tiny line at top)
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
@@ -128,6 +131,7 @@ fun LogBottomSheet(
                     .fillMaxSize()
                     .background(sheetBackgroundColor)
             ) {
+                // Expanded Drag Handle
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
@@ -170,6 +174,7 @@ fun LogBottomSheet(
                     LazyColumn(
                         state = listState,
                         reverseLayout = isLogReversed,
+                        // Add bottom padding to account for Navbar so last item isn't hidden
                         contentPadding = PaddingValues(bottom = navBarHeight + 16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
