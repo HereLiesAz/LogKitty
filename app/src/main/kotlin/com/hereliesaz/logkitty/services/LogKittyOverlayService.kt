@@ -6,88 +6,45 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
-import android.graphics.Rect
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.WindowManager
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
-import androidx.compose.foundation.layout.WindowInsets
-import com.hereliesaz.logkitty.MainActivity
-import com.hereliesaz.logkitty.MainApplication
-import com.hereliesaz.logkitty.R
-import com.hereliesaz.logkitty.ui.LogBottomSheet
-import com.hereliesaz.logkitty.ui.inspection.OverlayView
-import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
-import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
 import com.dokar.sheets.BottomSheetState
 import com.dokar.sheets.BottomSheetValue
 import com.dokar.sheets.rememberBottomSheetState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.delay
+import com.hereliesaz.logkitty.MainActivity
+import com.hereliesaz.logkitty.MainApplication
+import com.hereliesaz.logkitty.ui.LogBottomSheet
+import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
+import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
+import kotlinx.coroutines.*
 
 class LogKittyOverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
-    private var overlayView: OverlayView? = null
-    private var isOverlayAdded = false
-
+    
     // Bottom Sheet Overlay
     private var composeView: ComposeView? = null
     private var lifecycleHelper: ComposeLifecycleHelper? = null
-    private var bottomSheetState: BottomSheetState? = null // To control sheet externally
+    private var bottomSheetState: BottomSheetState? = null 
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                "com.hereliesaz.logkitty.TOGGLE_SELECT_MODE" -> {
-                    val enable = intent.getBooleanExtra("ENABLE", false)
-                    handleSelectionMode(enable)
-                }
-                "com.hereliesaz.logkitty.HIGHLIGHT_RECT" -> {
-                    val rect = if (Build.VERSION.SDK_INT >= 33) {
-                         intent.getParcelableExtra("RECT", Rect::class.java)
-                    } else {
-                         @Suppress("DEPRECATION")
-                         intent.getParcelableExtra("RECT")
-                    }
-                    if (rect != null) {
-                        overlayView?.updateHighlight(rect)
-                    } else {
-                        overlayView?.clearHighlight()
-                    }
-                }
-                "com.hereliesaz.logkitty.SHOW_UPDATE_POPUP" -> {
-                    val prompt = intent.getStringExtra("PROMPT")
-                    if (!prompt.isNullOrBlank()) {
-                        copyToClipboard(prompt)
-                    }
-                    overlayView?.showUpdateSplash()
-                }
                 LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY -> {
                     collapseBottomSheet()
                 }
@@ -102,12 +59,6 @@ class LogKittyOverlayService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (intent != null) {
-            if (intent.hasExtra("ENABLE")) {
-                 val enable = intent.getBooleanExtra("ENABLE", false)
-                 handleSelectionMode(enable)
-            }
-        }
         return START_STICKY
     }
 
@@ -117,29 +68,23 @@ class LogKittyOverlayService : Service() {
         createNotificationChannel()
 
         val notification = createNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                 if (Build.VERSION.SDK_INT >= 34) {
-                     startForeground(SERVICE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-                 } else {
-                     startForeground(SERVICE_ID, notification)
-                 }
-            } catch (e: Exception) {
+        
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(SERVICE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
                 startForeground(SERVICE_ID, notification)
             }
-        } else {
+        } catch (e: Exception) {
+            // Fallback for older APIs or if permission is weird
             startForeground(SERVICE_ID, notification)
         }
 
         if (Settings.canDrawOverlays(this)) {
-            setupOverlay()
             setupBottomSheetOverlay()
         }
 
         val filter = IntentFilter().apply {
-            addAction("com.hereliesaz.logkitty.TOGGLE_SELECT_MODE")
-            addAction("com.hereliesaz.logkitty.HIGHLIGHT_RECT")
-            addAction("com.hereliesaz.logkitty.SHOW_UPDATE_POPUP")
             addAction(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -151,13 +96,6 @@ class LogKittyOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isOverlayAdded && overlayView != null) {
-            try {
-                windowManager.removeView(overlayView)
-            } catch (e: Exception) {
-                android.util.Log.e("LogKittyOverlay", "Failed to remove overlay view", e)
-            }
-        }
         if (composeView != null) {
             try {
                 lifecycleHelper?.onStop()
@@ -186,35 +124,6 @@ class LogKittyOverlayService : Service() {
          }
     }
 
-    private fun handleSelectionMode(enable: Boolean) {
-        if (overlayView == null && Settings.canDrawOverlays(this)) {
-            setupOverlay()
-        }
-        overlayView?.setSelectionMode(enable)
-        updateOverlayParams(enable)
-    }
-
-    private fun setupOverlay() {
-        if (isOverlayAdded) return
-        overlayView = OverlayView(this)
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT
-        )
-        try {
-            windowManager.addView(overlayView, params)
-            isOverlayAdded = true
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     private fun setupBottomSheetOverlay() {
         val app = applicationContext as MainApplication
         val viewModel = app.mainViewModel
@@ -225,7 +134,7 @@ class LogKittyOverlayService : Service() {
         composeView = ComposeView(this).apply {
             setContent {
                 val density = androidx.compose.ui.platform.LocalDensity.current
-                // Robust screen height calculation using RealMetrics or WindowMetrics
+                
                 val screenHeightPx = remember {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         windowManager.currentWindowMetrics.bounds.height()
@@ -249,8 +158,8 @@ class LogKittyOverlayService : Service() {
                     onDispose { bottomSheetState = null }
                 }
 
-                val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
-                var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
+                val coroutineScope = rememberCoroutineScope()
+                var delayedShrinkJob by remember { mutableStateOf<Job?>(null) }
                 var isWindowExpanded by remember { mutableStateOf(false) }
                 var currentPeekFraction by remember { mutableStateOf(0.25f) }
 
@@ -258,51 +167,61 @@ class LogKittyOverlayService : Service() {
                 val anchorYPx = 0
                 val expandedHeightPx = (screenHeightPx * 0.90f + navBarHeightPx).toInt()
 
+                // Logic to resize the underlying WindowManager View
                 val updateWindowHeight = { isInteracting: Boolean ->
                      val params = composeView?.layoutParams as? WindowManager.LayoutParams
                      if (params != null) {
-                         // Always ensure Y anchor is maintained and Gravity is BOTTOM
                          params.y = anchorYPx
                          params.gravity = Gravity.BOTTOM
                          params.flags = params.flags or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 
                          if (isInteracting) {
+                             // User is touching/dragging: Expand immediately to max height to avoid clipping
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = null
 
-                             // Expand window upwards to allow full interaction
                              if (params.height != expandedHeightPx) {
                                  params.height = expandedHeightPx
+                                 // Allow touches
+                                 params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
                                  try {
                                      windowManager.updateViewLayout(composeView, params)
+                                     isWindowExpanded = true
                                  } catch (e: Exception) {
                                      e.printStackTrace()
                                  }
                              }
                          } else {
-                             // Delay shrinking to allow animation to settle
+                             // User stopped interacting. 
+                             // We only shrink if the sheet is visibly small (Collapsed or Peeked).
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = coroutineScope.launch {
-                                 delay(400) // Wait for settle
+                                 // Small buffer to let the spring animation settle visually.
+                                 // Without this, the window snaps shut while the sheet is still bouncing.
+                                 delay(350) 
 
-                                 // Determine current detent height
                                  val currentValue = sheetState.value
+                                 
+                                 // Calculate the precise height needed for the current state
                                  val targetHeightPx = when (currentValue) {
                                      BottomSheetValue.Collapsed -> (screenHeightPx * 0.02f + navBarHeightPx).toInt()
                                      BottomSheetValue.Peeked -> (screenHeightPx * currentPeekFraction + navBarHeightPx).toInt()
                                      BottomSheetValue.Expanded -> (screenHeightPx * 0.80f + navBarHeightPx).toInt()
                                  }
 
-                                 // Check if we started interacting again during delay
                                  if (isActive) {
-                                     isWindowExpanded = false
                                      val currentParams = composeView?.layoutParams as? WindowManager.LayoutParams
                                      if (currentParams != null && (currentParams.height != targetHeightPx)) {
                                          currentParams.height = targetHeightPx
-                                         // Y anchor remains constant
                                          currentParams.y = anchorYPx
                                          currentParams.gravity = Gravity.BOTTOM
-                                         currentParams.flags = currentParams.flags or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                                         
+                                         // If we are collapsed/peeked, we still need to receive touches for the handle/header,
+                                         // but we rely on the WindowManager height to let touches pass through above it.
+                                         // So we KEEP FLAG_NOT_TOUCHABLE CLEARED (allowing touches),
+                                         // but the window is small, so we don't block the rest of the screen.
+                                         currentParams.flags = currentParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                                         
                                          try {
                                              windowManager.updateViewLayout(composeView, currentParams)
                                          } catch (e: Exception) {
@@ -316,16 +235,10 @@ class LogKittyOverlayService : Service() {
                      }
                 }
 
-                // Monitor detent changes to trigger resize if needed (even without interaction)
+                // Monitor state changes to trigger resize if needed (even without direct interaction)
                 LaunchedEffect(sheetState.value) {
-                    // Force a settled update if we are not currently interacting
+                    // Force a check when the sheet snaps to a state
                     updateWindowHeight(false)
-                }
-
-                // Update WindowManager flags based on sheet state to allow touch-through
-                DisposableEffect(sheetState.value) {
-                    updateWindowManagerFlags()
-                    onDispose { }
                 }
 
                 LogKittyTheme {
@@ -361,7 +274,7 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
-        // Initial params: Height = Hidden (2%) or Peek (25%)? Initial state is Collapsed (Hidden)
+        // Initial setup
         val screenHeightPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             windowManager.currentWindowMetrics.bounds.height()
         } else {
@@ -386,44 +299,6 @@ class LogKittyOverlayService : Service() {
 
         try {
             windowManager.addView(composeView, params)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun updateWindowManagerFlags() {
-        val view = composeView ?: return
-        val params = view.layoutParams as? WindowManager.LayoutParams ?: return
-
-        // Always allow touches but let them pass through outside
-        params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-        params.width = WindowManager.LayoutParams.MATCH_PARENT
-        // Height is managed by updateWindowHeight
-
-        try {
-            windowManager.updateViewLayout(view, params)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun updateOverlayParams(isSelectMode: Boolean) {
-        if (!isOverlayAdded || overlayView == null) {
-            if (isSelectMode && Settings.canDrawOverlays(this)) {
-                setupOverlay()
-            } else {
-                return
-            }
-        }
-
-        val params = overlayView?.layoutParams as? WindowManager.LayoutParams ?: return
-        if (isSelectMode) {
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-        } else {
-            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        }
-        try {
-            windowManager.updateViewLayout(overlayView, params)
         } catch (e: Exception) {
             e.printStackTrace()
         }
