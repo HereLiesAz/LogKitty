@@ -21,10 +21,13 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dokar.sheets.BottomSheetState
 import com.dokar.sheets.BottomSheetValue
 import com.dokar.sheets.PeekHeight
 import com.dokar.sheets.m3.BottomSheetLayout
+import com.hereliesaz.logkitty.ui.theme.CodingFont
+import com.hereliesaz.logkitty.ui.theme.getGoogleFontFamily
 import kotlinx.coroutines.launch
 
 @Composable
@@ -33,6 +36,7 @@ fun LogBottomSheet(
     viewModel: MainViewModel,
     screenHeight: Dp,
     navBarHeight: Dp,
+    collapsedHeightDp: Dp,
     currentPeekFraction: Float,
     onPeekFractionChange: (Float) -> Unit,
     onSaveClick: () -> Unit,
@@ -43,7 +47,10 @@ fun LogBottomSheet(
 
     val systemLogMessages by viewModel.filteredSystemLog.collectAsState()
     val overlayOpacity by viewModel.overlayOpacity.collectAsState()
-    val backgroundColorInt by viewModel.backgroundColor.collectAsState() // New
+    val backgroundColorInt by viewModel.backgroundColor.collectAsState()
+    val fontSize by viewModel.fontSize.collectAsState()
+    val fontFamilyName by viewModel.fontFamily.collectAsState()
+    
     val tabs by viewModel.tabs.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val logColors by viewModel.logColors.collectAsState()
@@ -51,8 +58,13 @@ fun LogBottomSheet(
 
     val listState = rememberLazyListState()
     
-    // Combine User Color with User Opacity
     val sheetBackgroundColor = Color(backgroundColorInt).copy(alpha = overlayOpacity)
+    
+    // Resolve Font
+    val currentFontFamily = remember(fontFamilyName) {
+        val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
+        getGoogleFontFamily(enumVal.fontName)
+    }
 
     LaunchedEffect(sheetState.dragProgress) {
         if (sheetState.dragProgress > 0.45f && currentPeekFraction != 0.50f) {
@@ -69,25 +81,27 @@ fun LogBottomSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height((screenHeight * 0.05f) + navBarHeight)
+                    .height(collapsedHeightDp) // DYNAMIC
                     .align(Alignment.BottomCenter)
-                    .background(sheetBackgroundColor) // Applied here
+                    .background(sheetBackgroundColor)
                     .clickable { scope.launch { sheetState.peek() } }
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = navBarHeight)
-                        .height(screenHeight * 0.05f),
+                        .height(collapsedHeightDp - navBarHeight),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
                         text = latestLog,
+                        fontFamily = currentFontFamily,
+                        fontSize = fontSize.sp,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 8.dp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = Color.White // Text remains opaque white (or system contrast)
+                        color = Color.White
                     )
                     Box(
                         modifier = Modifier
@@ -110,7 +124,7 @@ fun LogBottomSheet(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(sheetBackgroundColor) // Applied here
+                    .background(sheetBackgroundColor)
             ) {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
@@ -163,8 +177,11 @@ fun LogBottomSheet(
                         itemsIndexed(systemLogMessages) { index, message ->
                             Text(
                                 text = message,
+                                fontFamily = currentFontFamily,
+                                fontSize = fontSize.sp,
+                                lineHeight = (fontSize * 1.4).sp, // Comfortable reading
                                 style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(vertical = 1.dp),
+                                modifier = Modifier.padding(vertical = 0.5.dp),
                                 color = logColors[LogLevel.fromLine(message)] ?: Color.White
                             )
                         }
