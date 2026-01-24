@@ -5,7 +5,15 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
 }
-
+// Helper to load properties securely
+fun getLocalProperty(key: String): String {
+    val properties = java.util.Properties()
+    val localProperties = File(rootProject.projectDir, "local.properties")
+    if (localProperties.exists()) {
+        properties.load(localProperties.inputStream())
+    }
+    return properties.getProperty(key) ?: System.getenv(key) ?: ""
+}
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -45,6 +53,8 @@ android {
                 keyPassword = System.getenv("KEY_PASSWORD")
             }
         }
+// Inject API Key
+        buildConfigField("String", "FONTS_API_KEY", "\"${getLocalProperty("FONTS_API_KEY")}\"")
     }
 
     testOptions {
@@ -171,6 +181,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+implementation("androidx.compose.ui:ui-text-google-fonts:1.6.1")
 
     // Custom UI components we kept
     implementation(libs.dokar3.sheets.m3)
