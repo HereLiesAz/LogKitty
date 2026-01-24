@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.hereliesaz.aznavrail.AzButton
@@ -124,7 +125,7 @@ fun SettingsScreen(
                 OutlinedButton(
                     onClick = { fontExpanded = true },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = AzButtonShape.RECTANGLE.toShape()
+                    shape = RectangleShape
                 ) {
                     Text(text = "Font: $fontFamilyName")
                 }
@@ -197,14 +198,4 @@ fun SettingsScreen(
             )
         }
     }
-}
-
-@Composable
-fun SettingsSectionHeader(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(bottom = 8.dp)
-    )
 }
