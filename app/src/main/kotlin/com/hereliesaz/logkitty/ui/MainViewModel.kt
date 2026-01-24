@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -72,7 +71,7 @@ class MainViewModel(
     ) { logs, tab, userFilter, prohibited ->
         var result = logs
 
-        // 0. Filter prohibited tags (heuristic: check if log contains any prohibited string)
+        // 0. Filter prohibited tags
         if (prohibited.isNotEmpty()) {
             result = result.filter { logLine ->
                 prohibited.none { tag -> logLine.contains(tag, ignoreCase = true) }
@@ -84,8 +83,6 @@ class MainViewModel(
             TabType.SYSTEM -> { /* No specific filter */ }
             TabType.ERRORS -> {
                 result = result.filter {
-                    // Simple heuristic for "Error" logs (contains " E/")
-                    // Adjust this if LogcatReader format changes
                     it.contains(" E/") || it.contains(" E ")
                 }
             }
@@ -174,7 +171,6 @@ class MainViewModel(
         }
     }
 
-    /** Clears the log. */
     fun clearLog() = stateDelegate.clearLog()
 
     fun toggleContextMode() {
@@ -206,35 +202,33 @@ class MainViewModel(
     }
 
     fun prohibitLog(logLine: String) {
-        // Simplified prohibition: extract tag or just use the whole line?
-        // User requested "filter out log items of that kind".
-        // Usually "tag" is the kind.
-        // Format: "MM-DD HH:MM:SS.mmm PID-TID/Package L/Tag: Message"
-        // Let's try to extract "Tag".
-        // Regex for standard time format: \S+\s+\S+\s+\S+\s+\S+\s+\S+/(\S+):
-
-        // Fallback: Prohibit the exact exact message is too specific, prohibiting tag is better.
-        // Let's try to find " L/" and take the word after it until colon.
-        // Or just allow user to manage it.
-        // For now, let's prohibit the "Tag" if possible, else the line.
-
-        val tagRegex = Regex("""[VDIWEA]/([^:]+):""")
+        // Robust regex to capture the tag.
+        // It looks for a sequence of characters after the "/" or between spaces/colons
+        // Example: "01-24 12:00:00.000 123 123 D TagName: Message"
+        // Captures "TagName"
+        val tagRegex = Regex("""\s([A-Z])\/(.*?):""") // Matches " D/TagName:"
         val match = tagRegex.find(logLine)
-        val tag = match?.groupValues?.get(1)?.trim() ?: logLine.take(50) // Fallback to start of line if no tag found
+        
+        val tag = if (match != null) {
+            match.groupValues.getOrNull(2)?.trim()
+        } else {
+            // Fallback: Try "Process: " or just grab the first word
+            logLine.split(":").firstOrNull()?.takeLast(20)
+        }
 
-        userPreferences.addProhibitedTag(tag)
+        if (!tag.isNullOrBlank()) {
+            userPreferences.addProhibitedTag(tag)
+        }
     }
 
     fun removeProhibitedTag(tag: String) {
         userPreferences.removeProhibitedTag(tag)
     }
 
-    // Export/Import wrappers
     fun exportPreferences() = userPreferences.exportPreferences()
     fun importPreferences(json: String) = userPreferences.importPreferences(json)
 
-    /** Sends a prompt (stub for now). */
     fun sendPrompt(p: String?) {
-        // No-op or TODO: Implement simple chat logging if needed
+        // Stub
     }
 }
