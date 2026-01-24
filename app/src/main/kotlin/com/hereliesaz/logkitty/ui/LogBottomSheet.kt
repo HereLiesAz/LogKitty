@@ -56,6 +56,8 @@ fun LogBottomSheet(
     screenHeight: Dp,
     navBarHeight: Dp,
     isWindowExpanded: Boolean,
+    currentPeekFraction: Float,
+    onPeekFractionChange: (Float) -> Unit,
     onSendPrompt: (String) -> Unit,
     onInteraction: (Boolean) -> Unit,
     onSaveClick: () -> Unit,
@@ -94,6 +96,31 @@ fun LogBottomSheet(
     // --- OPTIMIZED AUTO-SCROLL ---
     var autoScrollEnabled by remember { mutableStateOf(true) }
     var selectedLogIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Dynamic Peek Logic
+    LaunchedEffect(sheetState.dragProgress, sheetState.value) {
+        // approximate drag progress to height fraction
+        // This is heuristic because dragProgress is 0..1 (collapsed to expanded)
+        // Collapsed (2%) -> Peek (25% or 50%) -> Expanded (80%)
+        // If progress is significant, we can infer user intent.
+
+        // Threshold: 37.5% (Midpoint between 25% and 50%)
+        // Normalized range: Expanded(80) - Collapsed(2) = 78% range.
+        // 25% is approx 0.29 progress.
+        // 50% is approx 0.61 progress.
+        // 37.5% is approx 0.45 progress.
+
+        if (sheetState.dragProgress > 0.45f) {
+            if (currentPeekFraction != 0.50f) {
+                onPeekFractionChange(0.50f)
+            }
+        } else {
+             // If we are dragging down, or just below threshold
+             if (currentPeekFraction != 0.25f) {
+                 onPeekFractionChange(0.25f)
+             }
+        }
+    }
 
     LaunchedEffect(listState.isScrollInProgress) {
         if (listState.isScrollInProgress) {
@@ -176,7 +203,7 @@ fun LogBottomSheet(
         // Bottom Sheet
         BottomSheetLayout(
             state = sheetState,
-            peekHeight = PeekHeight.dp((screenHeight * 0.25f + navBarHeight).value),
+            peekHeight = PeekHeight.dp((screenHeight * currentPeekFraction + navBarHeight).value),
             modifier = Modifier
                 .fillMaxSize(),
             skipPeeked = false,

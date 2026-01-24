@@ -252,6 +252,7 @@ class LogKittyOverlayService : Service() {
                 val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
                 var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
                 var isWindowExpanded by remember { mutableStateOf(false) }
+                var currentPeekFraction by remember { mutableStateOf(0.25f) }
 
                 // Fixed Anchor: 0 (Immovable at bottom)
                 val anchorYPx = 0
@@ -288,7 +289,7 @@ class LogKittyOverlayService : Service() {
                                  val currentValue = sheetState.value
                                  val targetHeightPx = when (currentValue) {
                                      BottomSheetValue.Collapsed -> (screenHeightPx * 0.02f + navBarHeightPx).toInt()
-                                     BottomSheetValue.Peeked -> (screenHeightPx * 0.25f + navBarHeightPx).toInt()
+                                     BottomSheetValue.Peeked -> (screenHeightPx * currentPeekFraction + navBarHeightPx).toInt()
                                      BottomSheetValue.Expanded -> (screenHeightPx * 0.80f + navBarHeightPx).toInt()
                                  }
 
@@ -334,6 +335,8 @@ class LogKittyOverlayService : Service() {
                         screenHeight = screenHeight,
                         navBarHeight = navBarHeight,
                         isWindowExpanded = isWindowExpanded,
+                        currentPeekFraction = currentPeekFraction,
+                        onPeekFractionChange = { currentPeekFraction = it },
                         onSendPrompt = { viewModel.sendPrompt(it) },
                         onInteraction = { isInteracting ->
                             updateWindowHeight(isInteracting)
@@ -359,7 +362,12 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onStart()
 
         // Initial params: Height = Hidden (2%) or Peek (25%)? Initial state is Collapsed (Hidden)
-        val initialHeight = (resources.displayMetrics.heightPixels * 0.02f + navBarHeightPx).toInt()
+        val screenHeightPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowManager.currentWindowMetrics.bounds.height()
+        } else {
+            resources.displayMetrics.heightPixels
+        }
+        val initialHeight = (screenHeightPx * 0.02f + navBarHeightPx).toInt()
         val initialY = 0
 
         val params = WindowManager.LayoutParams(
