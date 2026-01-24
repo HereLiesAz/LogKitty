@@ -19,12 +19,15 @@ data class ExportedPreferences(
     val customFilter: String,
     val overlayOpacity: Float,
     val backgroundColor: Int,
-    val fontSize: Int, // Added (SP)
-    val fontFamily: String, // Added
+    val fontSize: Int,
+    val fontFamily: String,
     val isRootEnabled: Boolean,
     val isLogReversed: Boolean,
     val prohibitedTags: List<String>,
-    val logColors: Map<String, Int>
+    val logColors: Map<String, Int>,
+    val showTimestamp: Boolean, // Restored
+    val bufferSize: Int,        // Restored
+    val activeLogLevels: Set<String> // Restored
 )
 
 class UserPreferences(context: Context) {
@@ -55,6 +58,20 @@ class UserPreferences(context: Context) {
     private val _isLogReversed = MutableStateFlow(prefs.getBoolean(KEY_IS_LOG_REVERSED, false))
     val isLogReversed: StateFlow<Boolean> = _isLogReversed.asStateFlow()
 
+    // --- RESTORED PREFERENCES ---
+    private val _showTimestamp = MutableStateFlow(prefs.getBoolean(KEY_SHOW_TIMESTAMP, true))
+    val showTimestamp: StateFlow<Boolean> = _showTimestamp.asStateFlow()
+
+    private val _bufferSize = MutableStateFlow(prefs.getInt(KEY_BUFFER_SIZE, 1000))
+    val bufferSize: StateFlow<Int> = _bufferSize.asStateFlow()
+
+    private val _activeLogLevels = MutableStateFlow(
+        prefs.getStringSet(KEY_ACTIVE_LOG_LEVELS, LogLevel.values().map { it.name }.toSet()) 
+            ?: LogLevel.values().map { it.name }.toSet()
+    )
+    val activeLogLevels: StateFlow<Set<String>> = _activeLogLevels.asStateFlow()
+    // ---------------------------
+
     private val _prohibitedTags = MutableStateFlow(loadProhibitedTags())
     val prohibitedTags: StateFlow<Set<String>> = _prohibitedTags.asStateFlow()
 
@@ -74,6 +91,23 @@ class UserPreferences(context: Context) {
     fun setLogReversed(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_IS_LOG_REVERSED, enabled).apply()
         _isLogReversed.value = enabled
+    }
+
+    fun setShowTimestamp(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_TIMESTAMP, enabled).apply()
+        _showTimestamp.value = enabled
+    }
+
+    fun setBufferSize(size: Int) {
+        prefs.edit().putInt(KEY_BUFFER_SIZE, size).apply()
+        _bufferSize.value = size
+    }
+
+    fun toggleLogLevel(levelName: String, enabled: Boolean) {
+        val current = _activeLogLevels.value.toMutableSet()
+        if (enabled) current.add(levelName) else current.remove(levelName)
+        prefs.edit().putStringSet(KEY_ACTIVE_LOG_LEVELS, current).apply()
+        _activeLogLevels.value = current
     }
 
     fun setCustomFilter(filter: String) {
@@ -164,7 +198,10 @@ class UserPreferences(context: Context) {
             isRootEnabled = _isRootEnabled.value,
             isLogReversed = _isLogReversed.value,
             prohibitedTags = _prohibitedTags.value.toList(),
-            logColors = colorMap
+            logColors = colorMap,
+            showTimestamp = _showTimestamp.value,
+            bufferSize = _bufferSize.value,
+            activeLogLevels = _activeLogLevels.value
         )
         return try {
             Json.encodeToString(exported)
@@ -182,6 +219,12 @@ class UserPreferences(context: Context) {
             setFontFamily(imported.fontFamily)
             setRootEnabled(imported.isRootEnabled)
             setLogReversed(imported.isLogReversed)
+            setShowTimestamp(imported.showTimestamp)
+            setBufferSize(imported.bufferSize)
+            
+            val levels = imported.activeLogLevels.toMutableSet()
+            prefs.edit().putStringSet(KEY_ACTIVE_LOG_LEVELS, levels).apply()
+            _activeLogLevels.value = levels
 
             val tags = imported.prohibitedTags.toSet()
             _prohibitedTags.value = tags
@@ -218,5 +261,8 @@ class UserPreferences(context: Context) {
         private const val KEY_IS_ROOT_ENABLED = "is_root_enabled"
         private const val KEY_IS_LOG_REVERSED = "is_log_reversed"
         private const val KEY_PROHIBITED_TAGS = "prohibited_tags"
+        private const val KEY_SHOW_TIMESTAMP = "show_timestamp"
+        private const val KEY_BUFFER_SIZE = "buffer_size"
+        private const val KEY_ACTIVE_LOG_LEVELS = "active_log_levels"
     }
 }
