@@ -14,7 +14,6 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
-import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
@@ -41,6 +40,7 @@ class LogKittyOverlayService : Service() {
     private var lifecycleHelper: ComposeLifecycleHelper? = null
     private var bottomSheetState: BottomSheetState? = null
 
+    // Track interaction to prevent premature shrinking
     private var isInteractingRaw = false
 
     private val receiver = object : BroadcastReceiver() {
@@ -134,6 +134,7 @@ class LogKittyOverlayService : Service() {
         val navBarHeightPx = if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
 
         composeView = ComposeView(this).apply {
+            // FIX: Raw Touch Listener to capture drag start even in small window
             setOnTouchListener { v, event ->
                 if (event.action == MotionEvent.ACTION_DOWN) {
                     isInteractingRaw = true
@@ -141,7 +142,7 @@ class LogKittyOverlayService : Service() {
                 } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                     isInteractingRaw = false
                 }
-                false
+                false // Allow event to propagate to Compose
             }
 
             setContent {
@@ -159,12 +160,15 @@ class LogKittyOverlayService : Service() {
                 val screenHeight = (screenHeightPx / density.density).dp
                 val navBarHeight = with(density) { navBarHeightPx.toDp() }
 
-                // --- DETENT ADJUSTMENT ---
+                // --- HEIGHT CALCULATION ---
+                // We want ONE line of text + Padding + Navbar.
+                // 1.5 multiplier for line height + spacing
+                // 16.dp for container padding
                 val fontSizePx = with(density) { fontSizeSp.sp.toPx() }
+                val contentHeightPx = (fontSizePx * 1.5f) + with(density) { 16.dp.toPx() }
                 
-                // Height = NavBar + Padding + Text Line
-                val collapsedContentHeightPx = (fontSizePx * 1.5f) + with(density) { 24.dp.toPx() }
-                val collapsedTotalHeightPx = (collapsedContentHeightPx + navBarHeightPx).toInt()
+                // Total height = Content sitting above navbar + Navbar itself
+                val collapsedTotalHeightPx = (contentHeightPx + navBarHeightPx).toInt()
                 val collapsedHeightDp = with(density) { collapsedTotalHeightPx.toDp() }
 
                 val sheetState = rememberBottomSheetState(
@@ -180,33 +184,37 @@ class LogKittyOverlayService : Service() {
                 var delayedShrinkJob by remember { mutableStateOf<Job?>(null) }
                 var currentPeekFraction by remember { mutableStateOf(0.25f) }
 
+                // Sync window size with sheet state
                 val syncWindowHeight = {
                      if (!isInteractingRaw) {
                          val params = composeView?.layoutParams as? WindowManager.LayoutParams
                          if (params != null) {
                              delayedShrinkJob?.cancel()
                              delayedShrinkJob = coroutineScope.launch {
-                                 delay(350)
+                                 delay(250) // Small buffer
                                  
                                  if (isInteractingRaw) return@launch
 
                                  val targetHeightPx = when (sheetState.value) {
                                      BottomSheetValue.Collapsed -> collapsedTotalHeightPx
                                      BottomSheetValue.Peeked -> (screenHeightPx * currentPeekFraction + navBarHeightPx).toInt()
-                                     // Ensure MATCH_PARENT explicitly covers full screen height including navbar area
-                                     BottomSheetValue.Expanded -> screenHeightPx
+                                     // Expanded needs full screen to allow interactions everywhere if needed, 
+                                     // or just large enough. MATCH_PARENT covers safety.
+                                     BottomSheetValue.Expanded -> WindowManager.LayoutParams.MATCH_PARENT
                                  }
 
                                  if (params.height != targetHeightPx) {
                                      params.height = targetHeightPx
                                      params.y = 0 
+                                     // Ensure we draw behind navbar
                                      params.flags = params.flags or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                                      
-                                     if (sheetState.value == BottomSheetValue.Expanded) {
-                                         params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-                                     } else {
-                                         params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-                                     }
+                                     // Manage touch pass-through
+                                     // If we are collapsed/peeked, we technically only "need" touches on the sheet,
+                                     // but since we resize the window TO the sheet size, we don't need FLAG_NOT_TOUCHABLE.
+                                     // If expanded (MATCH_PARENT), we might want pass-through for empty areas, 
+                                     // but bottom sheets usually cover everything.
+                                     params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
 
                                      try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { e.printStackTrace() }
                                  }
@@ -248,12 +256,13 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
+        // Initial setup
         val screenHeightPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             windowManager.currentWindowMetrics.bounds.height()
         } else {
             resources.displayMetrics.heightPixels
         }
-        val initialHeight = (screenHeightPx * 0.05f + navBarHeightPx).toInt()
+        val initialHeight = (screenHeightPx * 0.05f + navBarHeightPx).toInt() // Safe default
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
