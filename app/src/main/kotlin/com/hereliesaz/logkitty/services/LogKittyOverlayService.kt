@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import com.hereliesaz.logkitty.MainActivity
 import com.hereliesaz.logkitty.MainApplication
 import com.hereliesaz.logkitty.R
@@ -234,6 +236,10 @@ class LogKittyOverlayService : Service() {
                 }
                 val screenHeight = (screenHeightPx / density.density).dp
 
+                val navBarInsets = WindowInsets.navigationBars
+                val navBarHeightPx = navBarInsets.getBottom(density)
+                val navBarHeight = with(density) { navBarHeightPx.toDp() }
+
                 val sheetState = rememberBottomSheetState(
                     initialValue = BottomSheetValue.Collapsed
                 )
@@ -250,7 +256,7 @@ class LogKittyOverlayService : Service() {
 
                 // Fixed Anchor: 0 (Immovable at bottom)
                 val anchorYPx = 0
-                val expandedHeightPx = (screenHeightPx * 0.90f).toInt()
+                val expandedHeightPx = (screenHeightPx * 0.90f + navBarHeightPx).toInt()
 
                 val updateWindowHeight = { isInteracting: Boolean ->
                      val params = composeView?.layoutParams as? WindowManager.LayoutParams
@@ -286,7 +292,7 @@ class LogKittyOverlayService : Service() {
                                      BottomSheetValue.Expanded -> 0.80f
                                  }
 
-                                 val targetHeightPx = (screenHeightPx * detentHeightFactor).toInt()
+                                 val targetHeightPx = (screenHeightPx * detentHeightFactor + navBarHeightPx).toInt()
 
                                  // Check if we started interacting again during delay
                                  if (isActive) {
@@ -329,6 +335,7 @@ class LogKittyOverlayService : Service() {
                         sheetState = sheetState,
                         viewModel = viewModel,
                         screenHeight = screenHeight,
+                        navBarHeight = navBarHeight,
                         isWindowExpanded = isWindowExpanded,
                         bottomPadding = bottomPadding,
                         onSendPrompt = { viewModel.sendPrompt(it) },
