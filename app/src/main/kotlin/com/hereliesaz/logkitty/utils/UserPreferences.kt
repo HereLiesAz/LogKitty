@@ -61,7 +61,35 @@ class UserPreferences(context: Context) {
     private val _logColors = MutableStateFlow(loadLogColors())
     val logColors: StateFlow<Map<LogLevel, Color>> = _logColors.asStateFlow()
 
-    // ... (Keep existing Setters) ...
+    fun setContextModeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CONTEXT_MODE, enabled).apply()
+        _isContextModeEnabled.value = enabled
+    }
+
+    fun setRootEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_ROOT_ENABLED, enabled).apply()
+        _isRootEnabled.value = enabled
+    }
+
+    fun setLogReversed(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_LOG_REVERSED, enabled).apply()
+        _isLogReversed.value = enabled
+    }
+
+    fun setCustomFilter(filter: String) {
+        prefs.edit().putString(KEY_CUSTOM_FILTER, filter).apply()
+        _customFilter.value = filter
+    }
+
+    fun setOverlayOpacity(opacity: Float) {
+        prefs.edit().putFloat(KEY_OVERLAY_OPACITY, opacity).apply()
+        _overlayOpacity.value = opacity
+    }
+
+    fun setBackgroundColor(color: Int) {
+        prefs.edit().putInt(KEY_BACKGROUND_COLOR, color).apply()
+        _backgroundColor.value = color
+    }
 
     fun setFontSize(size: Int) {
         prefs.edit().putInt(KEY_FONT_SIZE, size).apply()
@@ -73,7 +101,56 @@ class UserPreferences(context: Context) {
         _fontFamily.value = fontEnumName
     }
 
-    // ... (Keep existing Color/Tag methods) ...
+    fun addProhibitedTag(tag: String) {
+        val current = _prohibitedTags.value.toMutableSet()
+        current.add(tag)
+        _prohibitedTags.value = current
+        saveProhibitedTags(current)
+    }
+
+    fun removeProhibitedTag(tag: String) {
+        val current = _prohibitedTags.value.toMutableSet()
+        current.remove(tag)
+        _prohibitedTags.value = current
+        saveProhibitedTags(current)
+    }
+
+    fun setLogColor(level: LogLevel, color: Color) {
+        val current = _logColors.value.toMutableMap()
+        current[level] = color
+        _logColors.value = current
+        prefs.edit().putInt(getKeyForColor(level), color.toArgb()).apply()
+    }
+
+    fun resetLogColors() {
+        val editor = prefs.edit()
+        val defaultColors = mutableMapOf<LogLevel, Color>()
+        LogLevel.values().forEach { level ->
+            editor.remove(getKeyForColor(level))
+            defaultColors[level] = level.defaultColor
+        }
+        editor.apply()
+        _logColors.value = defaultColors
+    }
+
+    private fun loadProhibitedTags(): Set<String> {
+        return prefs.getStringSet(KEY_PROHIBITED_TAGS, emptySet()) ?: emptySet()
+    }
+
+    private fun saveProhibitedTags(tags: Set<String>) {
+        prefs.edit().putStringSet(KEY_PROHIBITED_TAGS, tags).apply()
+    }
+
+    private fun loadLogColors(): Map<LogLevel, Color> {
+        val colors = mutableMapOf<LogLevel, Color>()
+        LogLevel.values().forEach { level ->
+            val colorInt = prefs.getInt(getKeyForColor(level), level.defaultColor.toArgb())
+            colors[level] = Color(colorInt)
+        }
+        return colors
+    }
+
+    private fun getKeyForColor(level: LogLevel) = "color_${level.name}"
 
     fun exportPreferences(): String {
         val colorMap = _logColors.value.mapKeys { it.key.name }.mapValues { it.value.toArgb() }
@@ -97,11 +174,37 @@ class UserPreferences(context: Context) {
     fun importPreferences(jsonString: String) {
         try {
             val imported = Json.decodeFromString<ExportedPreferences>(jsonString)
-            // ... (Import other fields)
+            setContextModeEnabled(imported.contextMode)
+            setCustomFilter(imported.customFilter)
+            setOverlayOpacity(imported.overlayOpacity)
+            setBackgroundColor(imported.backgroundColor)
             setFontSize(imported.fontSize)
             setFontFamily(imported.fontFamily)
-            // ... (Import remaining fields)
-        } catch (e: Exception) { e.printStackTrace() }
+            setRootEnabled(imported.isRootEnabled)
+            setLogReversed(imported.isLogReversed)
+
+            val tags = imported.prohibitedTags.toSet()
+            _prohibitedTags.value = tags
+            saveProhibitedTags(tags)
+
+            val editor = prefs.edit()
+            val newColors = mutableMapOf<LogLevel, Color>()
+            LogLevel.values().forEach { newColors[it] = it.defaultColor }
+
+            imported.logColors.forEach { (levelName, colorInt) ->
+                try {
+                    val level = LogLevel.valueOf(levelName)
+                    val color = Color(colorInt)
+                    newColors[level] = color
+                    editor.putInt(getKeyForColor(level), colorInt)
+                } catch (e: IllegalArgumentException) { }
+            }
+            editor.apply()
+            _logColors.value = newColors
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     companion object {
