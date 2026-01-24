@@ -377,6 +377,7 @@ class LogKittyOverlayService : Service() {
         ).apply {
             gravity = Gravity.BOTTOM
             y = initialY
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         }
 
         try {
