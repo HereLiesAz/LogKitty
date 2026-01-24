@@ -50,6 +50,7 @@ fun LogBottomSheet(
     val backgroundColorInt by viewModel.backgroundColor.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
     val fontFamilyName by viewModel.fontFamily.collectAsState()
+    val showTimestamp by viewModel.showTimestamp.collectAsState()
     
     val tabs by viewModel.tabs.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
@@ -60,7 +61,6 @@ fun LogBottomSheet(
     
     val sheetBackgroundColor = Color(backgroundColorInt).copy(alpha = overlayOpacity)
     
-    // Resolve Font
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
         getGoogleFontFamily(enumVal.fontName)
@@ -76,12 +76,14 @@ fun LogBottomSheet(
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isHidden) {
-            val latestLog = systemLogMessages.lastOrNull() ?: "LogKitty Ready"
+            val rawLatest = systemLogMessages.lastOrNull() ?: "LogKitty Ready"
+            // Strip timestamp if setting is off
+            val latestLog = if (showTimestamp) rawLatest else rawLatest.replace(Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), "")
             
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(collapsedHeightDp) // DYNAMIC
+                    .height(collapsedHeightDp)
                     .align(Alignment.BottomCenter)
                     .background(sheetBackgroundColor)
                     .clickable { scope.launch { sheetState.peek() } }
@@ -175,11 +177,12 @@ fun LogBottomSheet(
                             .padding(horizontal = 8.dp)
                     ) {
                         itemsIndexed(systemLogMessages) { index, message ->
+                            val displayText = if (showTimestamp) message else message.replace(Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), "")
                             Text(
-                                text = message,
+                                text = displayText,
                                 fontFamily = currentFontFamily,
                                 fontSize = fontSize.sp,
-                                lineHeight = (fontSize * 1.4).sp, // Comfortable reading
+                                lineHeight = (fontSize * 1.4).sp,
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(vertical = 0.5.dp),
                                 color = logColors[LogLevel.fromLine(message)] ?: Color.White
