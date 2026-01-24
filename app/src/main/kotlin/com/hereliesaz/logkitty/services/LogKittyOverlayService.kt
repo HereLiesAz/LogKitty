@@ -33,7 +33,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
 import com.hereliesaz.logkitty.MainActivity
 import com.hereliesaz.logkitty.MainApplication
 import com.hereliesaz.logkitty.R
@@ -326,8 +325,6 @@ class LogKittyOverlayService : Service() {
                     onDispose { }
                 }
 
-                val bottomPadding = if (isWindowExpanded) screenHeight * 0.10f else 0.dp
-
                 LogKittyTheme {
                     LogBottomSheet(
                         sheetState = sheetState,
@@ -335,7 +332,6 @@ class LogKittyOverlayService : Service() {
                         screenHeight = screenHeight,
                         navBarHeight = navBarHeight,
                         isWindowExpanded = isWindowExpanded,
-                        bottomPadding = bottomPadding,
                         onSendPrompt = { viewModel.sendPrompt(it) },
                         onInteraction = { isInteracting ->
                             updateWindowHeight(isInteracting)

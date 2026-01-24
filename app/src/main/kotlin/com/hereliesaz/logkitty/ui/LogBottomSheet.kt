@@ -56,7 +56,6 @@ fun LogBottomSheet(
     screenHeight: Dp,
     navBarHeight: Dp,
     isWindowExpanded: Boolean,
-    bottomPadding: Dp,
     onSendPrompt: (String) -> Unit,
     onInteraction: (Boolean) -> Unit,
     onSaveClick: () -> Unit,
@@ -179,8 +178,7 @@ fun LogBottomSheet(
             state = sheetState,
             peekHeight = PeekHeight.dp((screenHeight * 0.25f + navBarHeight).value),
             modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = bottomPadding),
+                .fillMaxSize(),
             skipPeeked = false,
         ) {
              Box(
