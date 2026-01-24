@@ -7,13 +7,14 @@ plugins {
 
 import java.util.Properties
 import java.io.FileInputStream
+import java.io.File
 
 // Helper to load properties securely
-fun getLocalProperty(key: String): String {
-    val properties = java.util.Properties()
-    val localProperties = File(rootProject.projectDir, "local.properties")
+fun getLocalProperty(key: String, rootDir: File): String {
+    val properties = Properties()
+    val localProperties = File(rootDir, "local.properties")
     if (localProperties.exists()) {
-        properties.load(localProperties.inputStream())
+        properties.load(FileInputStream(localProperties))
     }
     return properties.getProperty(key) ?: System.getenv(key) ?: ""
 }
@@ -31,16 +32,29 @@ val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
 
 android {
     namespace = "com.hereliesaz.logkitty"
-    compileSdk = 34 // Reverted to 34 as 36 is likely unstable/preview and causes issues
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"
         minSdk = 30
-        targetSdk = 34
+        targetSdk = 36
         versionCode = major * 1000000 + minor * 10000 + patch * 100 + buildNumber
         versionName = "$major.$minor.$patch.$buildNumber"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Inject API Key
+        val apiKey = getLocalProperty("FONTS_API_KEY", rootProject.projectDir)
+        buildConfigField("String", "FONTS_API_KEY", "\"$apiKey\"")
+        
+        // Build Tools Config
+        val toolsOwner = project.findProperty("build.tools.owner") as? String ?: "HereLiesAz"
+        val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "LogKitty-buildtools"
+        buildConfigField("String", "BUILD_TOOLS_OWNER", "\"$toolsOwner\"")
+        buildConfigField("String", "BUILD_TOOLS_REPO", "\"$toolsRepo\"")
+        buildConfigField("String", "GH_TOKEN", "\"${System.getenv("GH_TOKEN") ?: ""}\"")
+        buildConfigField("String", "REPO_OWNER", "\"HereLiesAz\"")
+        buildConfigField("String", "REPO_NAME", "\"LogKitty\"")
     }
 
     signingConfigs {
@@ -55,20 +69,6 @@ android {
         }
     }
 
-    // Inject API Key (Moved out of signingConfigs to ensure it applies to all builds)
-    defaultConfig {
-        buildConfigField("String", "FONTS_API_KEY", "\"${getLocalProperty("FONTS_API_KEY")}\"")
-        
-        // Build Tools Config
-        val toolsOwner = project.findProperty("build.tools.owner") as? String ?: "HereLiesAz"
-        val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "LogKitty-buildtools"
-        buildConfigField("String", "BUILD_TOOLS_OWNER", "\"$toolsOwner\"")
-        buildConfigField("String", "BUILD_TOOLS_REPO", "\"$toolsRepo\"")
-        buildConfigField("String", "GH_TOKEN", "\"${System.getenv("GH_TOKEN") ?: ""}\"")
-        buildConfigField("String", "REPO_OWNER", "\"HereLiesAz\"")
-        buildConfigField("String", "REPO_NAME", "\"LogKitty\"")
-    }
-
     testOptions {
         unitTests.isReturnDefaultValues = true
         unitTests.isIncludeAndroidResources = true
@@ -76,7 +76,7 @@ android {
 
     buildTypes {
         debug {
-            // signingConfig = signingConfigs.getByName("debug") // Default debug signing is usually fine
+            // signingConfig = signingConfigs.getByName("debug")
         }
         release {
             signingConfig = signingConfigs.getByName("release")
@@ -91,11 +91,11 @@ android {
         baseline = file("lint-baseline.xml")
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     kotlin {
-        jvmToolchain(17) // Standard for AGP 8+ compatibility
+        jvmToolchain(21)
     }
     buildFeatures {
         compose = true
