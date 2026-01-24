@@ -177,7 +177,7 @@ fun LogBottomSheet(
         // Bottom Sheet
         BottomSheetLayout(
             state = sheetState,
-            peekHeight = PeekHeight.dp((screenHeight * 0.02f + navBarHeight).value),
+            peekHeight = PeekHeight.dp((screenHeight * 0.25f + navBarHeight).value),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = bottomPadding),
