@@ -48,6 +48,7 @@ class MainViewModel(
     val isContextModeEnabled: StateFlow<Boolean> = userPreferences.isContextModeEnabled
     val customFilter: StateFlow<String> = userPreferences.customFilter
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
+    val backgroundColor: StateFlow<Int> = userPreferences.backgroundColor
     val isRootEnabled: StateFlow<Boolean> = userPreferences.isRootEnabled
     val isLogReversed: StateFlow<Boolean> = userPreferences.isLogReversed
     val prohibitedTags: StateFlow<Set<String>> = userPreferences.prohibitedTags
@@ -94,7 +95,7 @@ class MainViewModel(
             }
         }
 
-        // 2. User custom text filter (applied on top)
+        // 2. User custom text filter
         if (userFilter.isNotBlank()) {
             result = result.filter { it.contains(userFilter, ignoreCase = true) }
         }
@@ -118,7 +119,6 @@ class MainViewModel(
     private var logJob: Job? = null
 
     init {
-        // Observe root setting and restart log collection when it changes
         viewModelScope.launch {
             isRootEnabled.collect { useRoot ->
                 logJob?.cancel()
@@ -185,6 +185,10 @@ class MainViewModel(
         userPreferences.setOverlayOpacity(opacity)
     }
 
+    fun setBackgroundColor(color: Int) {
+        userPreferences.setBackgroundColor(color)
+    }
+
     fun setRootEnabled(enabled: Boolean) {
         userPreferences.setRootEnabled(enabled)
     }
@@ -202,17 +206,12 @@ class MainViewModel(
     }
 
     fun prohibitLog(logLine: String) {
-        // Robust regex to capture the tag.
-        // It looks for a sequence of characters after the "/" or between spaces/colons
-        // Example: "01-24 12:00:00.000 123 123 D TagName: Message"
-        // Captures "TagName"
-        val tagRegex = Regex("""\s([A-Z])\/(.*?):""") // Matches " D/TagName:"
+        val tagRegex = Regex("""\s([A-Z])\/(.*?):""")
         val match = tagRegex.find(logLine)
         
         val tag = if (match != null) {
             match.groupValues.getOrNull(2)?.trim()
         } else {
-            // Fallback: Try "Process: " or just grab the first word
             logLine.split(":").firstOrNull()?.takeLast(20)
         }
 
@@ -228,7 +227,5 @@ class MainViewModel(
     fun exportPreferences() = userPreferences.exportPreferences()
     fun importPreferences(json: String) = userPreferences.importPreferences(json)
 
-    fun sendPrompt(p: String?) {
-        // Stub
-    }
+    fun sendPrompt(p: String?) { }
 }
