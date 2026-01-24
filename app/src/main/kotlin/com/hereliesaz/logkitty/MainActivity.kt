@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
@@ -50,7 +51,6 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
         checkServiceStatus()
         
-        // Initial Root Check (Silent)
         requestRootAccess()
 
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -81,7 +81,6 @@ class MainActivity : ComponentActivity() {
                             viewModel = (application as MainApplication).mainViewModel
                         )
                     } else {
-                        // Observe Root State from ViewModel
                         val viewModel = (application as MainApplication).mainViewModel
                         val isRootEnabled by viewModel.isRootEnabled.collectAsState()
 
@@ -146,8 +145,6 @@ class MainActivity : ComponentActivity() {
                 try {
                     startForegroundService(intent)
                 } catch (e: Exception) {
-                    // Fallback for Android 12+ background start restrictions
-                    // In a real scenario, we might need to schedule an alarm or use a different trigger
                     e.printStackTrace()
                 }
             } else {
@@ -188,7 +185,6 @@ fun MainScreenContent(
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
 
-    // We can start if Overlay is granted AND (ReadLogs is granted OR Root is enabled)
     val canStart = isOverlayGranted && (isReadLogsGranted || isRootEnabled)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -216,7 +212,6 @@ fun MainScreenContent(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 1. Overlay Permission Card
             if (!isOverlayGranted) {
                 PermissionCard(
                     title = "Overlay Permission Required",
@@ -227,8 +222,6 @@ fun MainScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // 2. Read Logs Permission Card (ADB)
-            // Greyed out if Root is Enabled
             if (!isReadLogsGranted) {
                 val cardAlpha = if (isRootEnabled) 0.5f else 1.0f
                 val cardColor = if (isRootEnabled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surface
@@ -241,7 +234,7 @@ fun MainScreenContent(
                     Column(
                         modifier = Modifier
                             .padding(16.dp)
-                            .alpha(cardAlpha), // Visual Greying
+                            .alpha(cardAlpha),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -286,7 +279,6 @@ fun MainScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // 3. Action Buttons
             if (canStart) {
                 Text(
                     text = "Ready to Purr",
@@ -303,9 +295,8 @@ fun MainScreenContent(
                     colors = if (isServiceRunning) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
                 )
             } else if (isRootEnabled) {
-                // If Root is enabled but Overlay is missing, we still wait for Overlay
                 if (isOverlayGranted) {
-                     // Should be covered by canStart, but safe fallback
+                     // Should be covered by canStart
                 }
             }
 
@@ -358,9 +349,3 @@ fun PermissionCard(
         }
     }
 }
-
-// Helper for alpha modifier
-fun Modifier.alpha(alpha: Float) = this.then(Modifier.drawWithContent {
-    drawContent()
-    drawRect(androidx.compose.ui.graphics.Color.Transparent, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-}.graphicsLayer { this.alpha = alpha })
