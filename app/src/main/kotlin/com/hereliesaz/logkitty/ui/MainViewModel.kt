@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hereliesaz.logkitty.services.LogKittyAccessibilityService
 import com.hereliesaz.logkitty.ui.delegates.StateDelegate
+import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogcatReader
 import com.hereliesaz.logkitty.utils.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +50,8 @@ class MainViewModel(
     val customFilter: StateFlow<String> = userPreferences.customFilter
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
     val backgroundColor: StateFlow<Int> = userPreferences.backgroundColor
+    val fontSize: StateFlow<Int> = userPreferences.fontSize
+    val fontFamily: StateFlow<String> = userPreferences.fontFamily
     val isRootEnabled: StateFlow<Boolean> = userPreferences.isRootEnabled
     val isLogReversed: StateFlow<Boolean> = userPreferences.isLogReversed
     val prohibitedTags: StateFlow<Set<String>> = userPreferences.prohibitedTags
@@ -63,7 +66,6 @@ class MainViewModel(
     private val _selectedTab = MutableStateFlow(systemTab)
     val selectedTab: StateFlow<LogTab> = _selectedTab
 
-    // Derived state for filtered logs based on selected tab and custom filter
     val filteredSystemLog = combine(
         stateDelegate.systemLog,
         _selectedTab,
@@ -72,20 +74,16 @@ class MainViewModel(
     ) { logs, tab, userFilter, prohibited ->
         var result = logs
 
-        // 0. Filter prohibited tags
         if (prohibited.isNotEmpty()) {
             result = result.filter { logLine ->
                 prohibited.none { tag -> logLine.contains(tag, ignoreCase = true) }
             }
         }
 
-        // 1. Tab-based filtering
         when (tab.type) {
-            TabType.SYSTEM -> { /* No specific filter */ }
+            TabType.SYSTEM -> { }
             TabType.ERRORS -> {
-                result = result.filter {
-                    it.contains(" E/") || it.contains(" E ")
-                }
+                result = result.filter { it.contains(" E/") || it.contains(" E ") }
             }
             TabType.APP -> {
                 val pkg = tab.filterValue
@@ -95,7 +93,6 @@ class MainViewModel(
             }
         }
 
-        // 2. User custom text filter
         if (userFilter.isNotBlank()) {
             result = result.filter { it.contains(userFilter, ignoreCase = true) }
         }
@@ -187,6 +184,14 @@ class MainViewModel(
 
     fun setBackgroundColor(color: Int) {
         userPreferences.setBackgroundColor(color)
+    }
+
+    fun setFontSize(size: Int) {
+        userPreferences.setFontSize(size)
+    }
+
+    fun setFontFamily(font: CodingFont) {
+        userPreferences.setFontFamily(font.name)
     }
 
     fun setRootEnabled(enabled: Boolean) {
