@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.hereliesaz.aznavrail.AzButton
@@ -37,6 +36,9 @@ fun SettingsScreen(
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
     val fontFamilyName by viewModel.fontFamily.collectAsState()
+    val showTimestamp by viewModel.showTimestamp.collectAsState()
+    val bufferSize by viewModel.bufferSize.collectAsState()
+    val activeLevels by viewModel.activeLogLevels.collectAsState()
     
     var showColorPicker by remember { mutableStateOf(false) }
 
@@ -124,8 +126,7 @@ fun SettingsScreen(
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 OutlinedButton(
                     onClick = { fontExpanded = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RectangleShape
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(text = "Font: $fontFamilyName")
                 }
@@ -144,10 +145,63 @@ fun SettingsScreen(
                     }
                 }
             }
+            
+            // Show Timestamp Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Show Timestamps", style = MaterialTheme.typography.bodyLarge)
+                Switch(checked = showTimestamp, onCheckedChange = { viewModel.setShowTimestamp(it) })
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             SettingsSectionHeader("Behavior")
+
+            // Log Levels (Multi-select)
+            Text("Active Log Levels", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                LogLevel.values().forEach { level ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Checkbox(
+                            checked = activeLevels.contains(level.name),
+                            onCheckedChange = { viewModel.toggleLogLevel(level, it) }
+                        )
+                        Text(level.name.first().toString(), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+
+            // Buffer Size Dropdown
+            var bufferExpanded by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Buffer Size (Lines)", style = MaterialTheme.typography.bodyLarge)
+                Box {
+                    OutlinedButton(onClick = { bufferExpanded = true }) {
+                        Text(bufferSize.toString())
+                    }
+                    DropdownMenu(expanded = bufferExpanded, onDismissRequest = { bufferExpanded = false }) {
+                        listOf(1000, 2000, 5000, 10000).forEach { size ->
+                            DropdownMenuItem(
+                                text = { Text("$size lines") },
+                                onClick = {
+                                    viewModel.setBufferSize(size)
+                                    bufferExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             // Context Mode
             Row(
