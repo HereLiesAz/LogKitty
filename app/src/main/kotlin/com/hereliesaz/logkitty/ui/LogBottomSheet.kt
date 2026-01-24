@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -55,6 +54,7 @@ fun LogBottomSheet(
     sheetState: BottomSheetState,
     viewModel: MainViewModel,
     screenHeight: Dp,
+    navBarHeight: Dp,
     isWindowExpanded: Boolean,
     bottomPadding: Dp,
     onSendPrompt: (String) -> Unit,
@@ -177,7 +177,7 @@ fun LogBottomSheet(
         // Bottom Sheet
         BottomSheetLayout(
             state = sheetState,
-            peekHeight = PeekHeight.dp((screenHeight * 0.25f).value),
+            peekHeight = PeekHeight.dp((screenHeight * 0.02f + navBarHeight).value),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = bottomPadding),
@@ -186,29 +186,6 @@ fun LogBottomSheet(
              Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
-                        var totalDrag = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { totalDrag = 0f },
-                            onDragEnd = {
-                                 if (abs(totalDrag) > swipeThreshold) {
-                                     val currentIndex = tabs.indexOf(selectedTab)
-                                     if (totalDrag > 0) { // Swipe Right -> Previous Tab
-                                         if (currentIndex > 0) {
-                                             viewModel.selectTab(tabs[currentIndex - 1])
-                                         }
-                                     } else { // Swipe Left -> Next Tab
-                                         if (currentIndex < tabs.size - 1) {
-                                             viewModel.selectTab(tabs[currentIndex + 1])
-                                         }
-                                     }
-                                 }
-                            }
-                        ) { change, dragAmount ->
-                            change.consume()
-                            totalDrag += dragAmount
-                        }
-                    }
             ) {
                 Column(
                     modifier = Modifier
@@ -298,6 +275,7 @@ fun LogBottomSheet(
                         LazyColumn(
                             state = listState,
                             reverseLayout = isLogReversed,
+                            contentPadding = PaddingValues(bottom = navBarHeight),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
