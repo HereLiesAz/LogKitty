@@ -248,8 +248,8 @@ class LogKittyOverlayService : Service() {
                 var delayedShrinkJob by remember { androidx.compose.runtime.mutableStateOf<kotlinx.coroutines.Job?>(null) }
                 var isWindowExpanded by remember { mutableStateOf(false) }
 
-                // Fixed Anchor: 10% of screen height from bottom
-                val anchorYPx = (screenHeightPx * 0.10f).toInt()
+                // Fixed Anchor: 0 (Immovable at bottom)
+                val anchorYPx = 0
                 val expandedHeightPx = (screenHeightPx * 0.90f).toInt()
 
                 val updateWindowHeight = { isInteracting: Boolean ->
@@ -357,7 +357,7 @@ class LogKittyOverlayService : Service() {
 
         // Initial params: Height = Hidden (2%) or Peek (25%)? Initial state is Collapsed (Hidden)
         val initialHeight = (resources.displayMetrics.heightPixels * 0.02f).toInt()
-        val initialY = (resources.displayMetrics.heightPixels * 0.10f).toInt()
+        val initialY = 0
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
