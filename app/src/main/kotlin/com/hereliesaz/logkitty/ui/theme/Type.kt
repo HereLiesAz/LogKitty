@@ -7,7 +7,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.ui.unit.sp
-import com.hereliesaz.logkitty.BuildConfig
 import com.hereliesaz.logkitty.R
 
 val provider = GoogleFont.Provider(
@@ -24,7 +23,8 @@ enum class CodingFont(val fontName: String, val displayName: String) {
     JETBRAINS_MONO("JetBrains Mono", "JetBrains Mono"),
     FIRA_CODE("Fira Code", "Fira Code"),
     INCONSOLATA("Inconsolata", "Inconsolata"),
-    SPACE_MONO("Space Mono", "Space Mono")
+    SPACE_MONO("Space Mono", "Space Mono"),
+    UBUNTU_MONO("Ubuntu Mono", "Ubuntu Mono")
 }
 
 fun getGoogleFontFamily(fontName: String): FontFamily {
@@ -37,7 +37,6 @@ fun getGoogleFontFamily(fontName: String): FontFamily {
     }
 }
 
-// Default Typography (can be overridden dynamically)
 val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
