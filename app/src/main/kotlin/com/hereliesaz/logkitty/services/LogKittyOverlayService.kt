@@ -16,13 +16,17 @@ import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
+import androidx.core.view.WindowCompat
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.dokar.sheets.BottomSheetState
 import com.dokar.sheets.BottomSheetValue
 import com.dokar.sheets.rememberBottomSheetState
@@ -40,13 +44,12 @@ class LogKittyOverlayService : Service() {
     private var lifecycleHelper: ComposeLifecycleHelper? = null
     private var bottomSheetState: BottomSheetState? = null
 
-    // Track interaction to prevent premature shrinking
     private var isInteractingRaw = false
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY -> collapseBottomSheet()
+            if (intent?.action == LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY) {
+                collapseBottomSheet()
             }
         }
     }
@@ -54,18 +57,16 @@ class LogKittyOverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP_SERVICE -> {
-                stopSelf()
-                return START_NOT_STICKY
+        if (intent?.action == ACTION_STOP_SERVICE) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_OPEN_SETTINGS) {
+            val settingsIntent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra("EXTRA_SHOW_SETTINGS", true)
             }
-            ACTION_OPEN_SETTINGS -> {
-                val settingsIntent = Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    putExtra("EXTRA_SHOW_SETTINGS", true)
-                }
-                startActivity(settingsIntent)
-            }
+            startActivity(settingsIntent)
         }
         return START_STICKY
     }
@@ -90,9 +91,7 @@ class LogKittyOverlayService : Service() {
             setupBottomSheetOverlay()
         }
 
-        val filter = IntentFilter().apply {
-            addAction(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)
-        }
+        val filter = IntentFilter(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
@@ -130,46 +129,39 @@ class LogKittyOverlayService : Service() {
         val app = applicationContext as MainApplication
         val viewModel = app.mainViewModel
 
+        // Physical pixels of the Navbar
         val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
         val navBarHeightPx = if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
 
         composeView = ComposeView(this).apply {
-            // FIX: Raw Touch Listener to capture drag start even in small window
-            setOnTouchListener { v, event ->
+            // CRITICAL: Disable system fitting so we draw BEHIND the navbar
+            WindowCompat.setDecorFitsSystemWindows(
+                (context.getSystemService(Context.WINDOW_SERVICE) as? android.view.Window) ?: return@apply, 
+                false
+            )
+            
+            // Raw Touch Listener: instantly expand window on touch
+            setOnTouchListener { _, event ->
                 if (event.action == MotionEvent.ACTION_DOWN) {
                     isInteractingRaw = true
-                    expandWindowForInteraction()
+                    setWindowToFullScreen(true) // Expand immediately
                 } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
                     isInteractingRaw = false
+                    // We don't shrink here; we let Compose state settle and shrink later
                 }
-                false // Allow event to propagate to Compose
+                false // Propagate to Compose
             }
 
             setContent {
                 val density = LocalDensity.current
                 val fontSizeSp by viewModel.fontSize.collectAsState()
                 
-                val screenHeightPx = remember {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        windowManager.currentWindowMetrics.bounds.height()
-                    } else {
-                        @Suppress("DEPRECATION")
-                        resources.displayMetrics.heightPixels
-                    }
-                }
-                val screenHeight = (screenHeightPx / density.density).dp
-                val navBarHeight = with(density) { navBarHeightPx.toDp() }
-
-                // --- HEIGHT CALCULATION ---
-                // We want ONE line of text + Padding + Navbar.
-                // 1.5 multiplier for line height + spacing
-                // 16.dp for container padding
+                // Calculate Collapsed Height: 1 Line + Padding + Navbar
                 val fontSizePx = with(density) { fontSizeSp.sp.toPx() }
-                val contentHeightPx = (fontSizePx * 1.5f) + with(density) { 16.dp.toPx() }
-                
-                // Total height = Content sitting above navbar + Navbar itself
+                val contentHeightPx = (fontSizePx * 1.5f) + with(density) { 24.dp.toPx() }
                 val collapsedTotalHeightPx = (contentHeightPx + navBarHeightPx).toInt()
                 val collapsedHeightDp = with(density) { collapsedTotalHeightPx.toDp() }
+                val navBarHeightDp = with(density) { navBarHeightPx.toDp() }
 
                 val sheetState = rememberBottomSheetState(
                     initialValue = BottomSheetValue.Collapsed
@@ -180,62 +172,29 @@ class LogKittyOverlayService : Service() {
                     onDispose { bottomSheetState = null }
                 }
 
-                val coroutineScope = rememberCoroutineScope()
-                var delayedShrinkJob by remember { mutableStateOf<Job?>(null) }
-                var currentPeekFraction by remember { mutableStateOf(0.25f) }
+                // Window State Management
+                LaunchedEffect(sheetState.value, isInteractingRaw) {
+                    if (isInteractingRaw) return@LaunchedEffect // Don't shrink while touching
 
-                // Sync window size with sheet state
-                val syncWindowHeight = {
-                     if (!isInteractingRaw) {
-                         val params = composeView?.layoutParams as? WindowManager.LayoutParams
-                         if (params != null) {
-                             delayedShrinkJob?.cancel()
-                             delayedShrinkJob = coroutineScope.launch {
-                                 delay(250) // Small buffer
-                                 
-                                 if (isInteractingRaw) return@launch
-
-                                 val targetHeightPx = when (sheetState.value) {
-                                     BottomSheetValue.Collapsed -> collapsedTotalHeightPx
-                                     BottomSheetValue.Peeked -> (screenHeightPx * currentPeekFraction + navBarHeightPx).toInt()
-                                     // Expanded needs full screen to allow interactions everywhere if needed, 
-                                     // or just large enough. MATCH_PARENT covers safety.
-                                     BottomSheetValue.Expanded -> WindowManager.LayoutParams.MATCH_PARENT
-                                 }
-
-                                 if (params.height != targetHeightPx) {
-                                     params.height = targetHeightPx
-                                     params.y = 0 
-                                     // Ensure we draw behind navbar
-                                     params.flags = params.flags or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-                                     
-                                     // Manage touch pass-through
-                                     // If we are collapsed/peeked, we technically only "need" touches on the sheet,
-                                     // but since we resize the window TO the sheet size, we don't need FLAG_NOT_TOUCHABLE.
-                                     // If expanded (MATCH_PARENT), we might want pass-through for empty areas, 
-                                     // but bottom sheets usually cover everything.
-                                     params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-
-                                     try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { e.printStackTrace() }
-                                 }
-                             }
-                         }
-                     }
-                }
-
-                LaunchedEffect(sheetState.value) {
-                    syncWindowHeight()
+                    // If Collapsed, shrink window to strip. If Expanded/Peeked, keep Full Screen.
+                    if (sheetState.value == BottomSheetValue.Collapsed) {
+                        // Delay slightly to let animation finish visually
+                        delay(300)
+                        if (!isInteractingRaw) {
+                            setWindowToCollapsed(collapsedTotalHeightPx)
+                        }
+                    } else {
+                        setWindowToFullScreen(false) // False = don't force touchable yet, let flags decide
+                    }
                 }
 
                 LogKittyTheme {
                     LogBottomSheet(
                         sheetState = sheetState,
                         viewModel = viewModel,
-                        screenHeight = screenHeight,
-                        navBarHeight = navBarHeight,
+                        screenHeight = with(density) { resources.displayMetrics.heightPixels.toDp() }, // Approximation for layout
+                        navBarHeight = navBarHeightDp,
                         collapsedHeightDp = collapsedHeightDp,
-                        currentPeekFraction = currentPeekFraction,
-                        onPeekFractionChange = { currentPeekFraction = it },
                         onSaveClick = {
                             val intent = Intent(this@LogKittyOverlayService, com.hereliesaz.logkitty.FileSaverActivity::class.java)
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -256,20 +215,15 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
-        // Initial setup
-        val screenHeightPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            windowManager.currentWindowMetrics.bounds.height()
-        } else {
-            resources.displayMetrics.heightPixels
-        }
-        val initialHeight = (screenHeightPx * 0.05f + navBarHeightPx).toInt() // Safe default
-
+        // Initial Window Params (Collapsed State)
+        val initialHeight = (100 * resources.displayMetrics.density).toInt() // Safe start
+        
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             initialHeight,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or // DRAW BEHIND NAVBAR
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -284,10 +238,21 @@ class LogKittyOverlayService : Service() {
         }
     }
 
-    private fun expandWindowForInteraction() {
+    private fun setWindowToFullScreen(forceTouchable: Boolean) {
         val params = composeView?.layoutParams as? WindowManager.LayoutParams ?: return
         if (params.height != WindowManager.LayoutParams.MATCH_PARENT) {
             params.height = WindowManager.LayoutParams.MATCH_PARENT
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() // Make touchable
+            try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    private fun setWindowToCollapsed(heightPx: Int) {
+        val params = composeView?.layoutParams as? WindowManager.LayoutParams ?: return
+        if (params.height != heightPx) {
+            params.height = heightPx
+            // Even in collapsed, we want touches on the strip, so keep touchable
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv() 
             try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { e.printStackTrace() }
         }
     }
