@@ -1,6 +1,5 @@
 package com.hereliesaz.logkitty.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -55,7 +54,6 @@ fun LogBottomSheet(
     val fontSize by viewModel.fontSize.collectAsState()
     val fontFamilyName by viewModel.fontFamily.collectAsState()
     val showTimestamp by viewModel.showTimestamp.collectAsState()
-    
     val tabs by viewModel.tabs.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val logColors by viewModel.logColors.collectAsState()
@@ -73,7 +71,6 @@ fun LogBottomSheet(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // --- COLLAPSED VIEW (The Strip) ---
         if (isHidden) {
             val rawLatest = systemLogMessages.lastOrNull() ?: "LogKitty Ready"
             val latestLog = if (showTimestamp) rawLatest else rawLatest.replace(Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), "")
@@ -81,20 +78,18 @@ fun LogBottomSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(collapsedHeightDp) // Correct calculated height
+                    .height(collapsedHeightDp)
                     .align(Alignment.BottomCenter)
                     .background(sheetBackgroundColor)
                     .clickable { scope.launch { sheetState.peek() } }
             ) {
-                // Content area (Above Navbar)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = navBarHeight) // Push content up
+                        .padding(bottom = navBarHeight)
                         .fillMaxHeight(),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    // Drag Handle Line
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
@@ -104,7 +99,6 @@ fun LogBottomSheet(
                             .clip(RoundedCornerShape(2.dp))
                             .background(Color.Gray.copy(alpha = 0.5f))
                     )
-                    
                     Text(
                         text = latestLog,
                         fontFamily = currentFontFamily,
@@ -119,10 +113,9 @@ fun LogBottomSheet(
             }
         }
 
-        // --- EXPANDED SHEET ---
         BottomSheetLayout(
             state = sheetState,
-            peekHeight = PeekHeight.dp((screenHeight * 0.35f).value), // 35% peek
+            peekHeight = PeekHeight.dp((screenHeight * 0.35f).value),
             modifier = Modifier.fillMaxSize(),
         ) {
             Column(
@@ -130,7 +123,6 @@ fun LogBottomSheet(
                     .fillMaxSize()
                     .background(sheetBackgroundColor)
             ) {
-                // Expanded Drag Handle
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
@@ -144,7 +136,6 @@ fun LogBottomSheet(
                     )
                 }
 
-                // Tabs & Controls
                 ScrollableTabRow(
                     selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
                     edgePadding = 16.dp,
@@ -183,7 +174,7 @@ fun LogBottomSheet(
                     LazyColumn(
                         state = listState,
                         reverseLayout = isLogReversed,
-                        contentPadding = PaddingValues(bottom = navBarHeight + 16.dp), // Safe padding
+                        contentPadding = PaddingValues(bottom = navBarHeight + 16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
@@ -208,7 +199,6 @@ fun LogBottomSheet(
             }
         }
         
-        // --- HEADER ACTIONS (Visible when not hidden) ---
         if (!isHidden) {
              Row(
                 modifier = Modifier
