@@ -1,5 +1,6 @@
 package com.hereliesaz.logkitty.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,7 +10,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -37,8 +43,6 @@ fun LogBottomSheet(
     screenHeight: Dp,
     navBarHeight: Dp,
     collapsedHeightDp: Dp,
-    currentPeekFraction: Float,
-    onPeekFractionChange: (Float) -> Unit,
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -56,7 +60,9 @@ fun LogBottomSheet(
     val selectedTab by viewModel.selectedTab.collectAsState()
     val logColors by viewModel.logColors.collectAsState()
     val isLogReversed by viewModel.isLogReversed.collectAsState()
+    val isContextMode by viewModel.isContextModeEnabled.collectAsState()
 
+    val clipboardManager = LocalClipboardManager.current
     val listState = rememberLazyListState()
     
     val sheetBackgroundColor = Color(backgroundColorInt).copy(alpha = overlayOpacity)
@@ -66,64 +72,57 @@ fun LogBottomSheet(
         getGoogleFontFamily(enumVal.fontName)
     }
 
-    LaunchedEffect(sheetState.dragProgress) {
-        if (sheetState.dragProgress > 0.45f && currentPeekFraction != 0.50f) {
-            onPeekFractionChange(0.50f)
-        } else if (sheetState.dragProgress <= 0.45f && currentPeekFraction != 0.25f) {
-            onPeekFractionChange(0.25f)
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
+        // --- COLLAPSED VIEW (The Strip) ---
         if (isHidden) {
             val rawLatest = systemLogMessages.lastOrNull() ?: "LogKitty Ready"
             val latestLog = if (showTimestamp) rawLatest else rawLatest.replace(Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), "")
             
-            // This Box fills the COLLAPSED height (NavBar + 1 Line)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(collapsedHeightDp)
+                    .height(collapsedHeightDp) // Correct calculated height
                     .align(Alignment.BottomCenter)
                     .background(sheetBackgroundColor)
                     .clickable { scope.launch { sheetState.peek() } }
             ) {
-                // Content container excluding navbar area
-                // We align this to the TOP of the collapsed box
+                // Content area (Above Navbar)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = navBarHeight) // Push content UP above navbar
-                        .fillMaxHeight(), // Fill remaining space (which is line height)
+                        .padding(bottom = navBarHeight) // Push content up
+                        .fillMaxHeight(),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    Text(
-                        text = latestLog,
-                        fontFamily = currentFontFamily,
-                        fontSize = fontSize.sp,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = Color.White
-                    )
-                    // Visual Drag Handle (Tiny line at top)
+                    // Drag Handle Line
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .width(40.dp)
                             .height(4.dp)
-                            .padding(top = 2.dp)
+                            .padding(top = 4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Color.Gray.copy(alpha = 0.8f))
+                            .background(Color.Gray.copy(alpha = 0.5f))
+                    )
+                    
+                    Text(
+                        text = latestLog,
+                        fontFamily = currentFontFamily,
+                        fontSize = fontSize.sp,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.White
                     )
                 }
             }
         }
 
+        // --- EXPANDED SHEET ---
         BottomSheetLayout(
             state = sheetState,
-            peekHeight = PeekHeight.dp((screenHeight * currentPeekFraction + navBarHeight).value),
+            peekHeight = PeekHeight.dp((screenHeight * 0.35f).value), // 35% peek
             modifier = Modifier.fillMaxSize(),
         ) {
             Column(
@@ -145,6 +144,7 @@ fun LogBottomSheet(
                     )
                 }
 
+                // Tabs & Controls
                 ScrollableTabRow(
                     selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
                     edgePadding = 16.dp,
@@ -161,7 +161,16 @@ fun LogBottomSheet(
                         Tab(
                             selected = selectedTab == tab,
                             onClick = { viewModel.selectTab(tab) },
-                            text = { Text(tab.title) }
+                            text = { 
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(tab.title)
+                                    if (tab.type == TabType.APP) {
+                                        IconButton(onClick = { viewModel.closeTab(tab) }, modifier = Modifier.size(16.dp)) {
+                                            Icon(Icons.Default.Close, "Close")
+                                        }
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -174,8 +183,7 @@ fun LogBottomSheet(
                     LazyColumn(
                         state = listState,
                         reverseLayout = isLogReversed,
-                        // Add bottom padding to account for Navbar so last item isn't hidden
-                        contentPadding = PaddingValues(bottom = navBarHeight + 16.dp),
+                        contentPadding = PaddingValues(bottom = navBarHeight + 16.dp), // Safe padding
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
@@ -190,7 +198,9 @@ fun LogBottomSheet(
                                 lineHeight = (fontSize * 1.4).sp,
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(vertical = 0.5.dp),
-                                color = logColors[LogLevel.fromLine(message)] ?: Color.White
+                                color = logColors[LogLevel.fromLine(message)] ?: Color.White,
+                                maxLines = 10,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -198,12 +208,28 @@ fun LogBottomSheet(
             }
         }
         
+        // --- HEADER ACTIONS (Visible when not hidden) ---
         if (!isHidden) {
              Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 48.dp, end = 16.dp)
             ) {
+                IconButton(onClick = { viewModel.toggleContextMode() }) {
+                     Icon(
+                         if (isContextMode) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                         "Context Mode",
+                         tint = MaterialTheme.colorScheme.onSurface
+                     )
+                }
+                IconButton(onClick = onSaveClick) {
+                     Icon(Icons.Default.Save, "Save", tint = MaterialTheme.colorScheme.onSurface)
+                }
+                IconButton(onClick = {
+                    scope.launch { clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(systemLogMessages.joinToString("\n"))) }
+                }) {
+                     Icon(Icons.Default.ContentCopy, "Copy", tint = MaterialTheme.colorScheme.onSurface)
+                }
                 IconButton(onClick = onSettingsClick) {
                      Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface)
                 }
