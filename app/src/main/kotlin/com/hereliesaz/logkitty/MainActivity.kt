@@ -49,8 +49,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         checkPermissions()
         checkServiceStatus()
-        
-        // Initial Root Check
         requestRootAccess()
 
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -71,15 +69,9 @@ class MainActivity : ComponentActivity() {
                     onDispose { lifecycle.removeObserver(observer) }
                 }
 
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     if (showSettings) {
-                        SettingsScreen(
-                            onBack = { showSettings = false },
-                            viewModel = (application as MainApplication).mainViewModel
-                        )
+                        SettingsScreen(onBack = { showSettings = false }, viewModel = (application as MainApplication).mainViewModel)
                     } else {
                         val viewModel = (application as MainApplication).mainViewModel
                         val isRootEnabled by viewModel.isRootEnabled.collectAsState()
@@ -108,17 +100,13 @@ class MainActivity : ComponentActivity() {
 
     private fun checkPermissions() {
         isOverlayGranted = Settings.canDrawOverlays(this)
-        isReadLogsGranted = ContextCompat.checkSelfPermission(
-            this, 
-            android.Manifest.permission.READ_LOGS
-        ) == PackageManager.PERMISSION_GRANTED
+        isReadLogsGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED
     }
     
     @Suppress("DEPRECATION")
     private fun checkServiceStatus() {
         val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         isServiceRunning = false
-        // Check running services to see if Overlay is active
         for (service in manager.getRunningServices(Int.MAX_VALUE)) {
             if (LogKittyOverlayService::class.java.name == service.service.className) {
                 isServiceRunning = true
@@ -128,28 +116,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestOverlayPermission() {
-        val intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName")
-        )
+        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
         overlayPermissionLauncher.launch(intent)
     }
 
     private fun toggleOverlayService() {
         val intent = Intent(this, LogKittyOverlayService::class.java)
         if (isServiceRunning) {
-            // STOP
             intent.action = "com.hereliesaz.logkitty.STOP_SERVICE"
             startService(intent)
             isServiceRunning = false
         } else {
-            // START
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    startForegroundService(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                try { startForegroundService(intent) } catch (e: Exception) { e.printStackTrace() }
             } else {
                 startService(intent)
             }
@@ -164,13 +143,9 @@ class MainActivity : ComponentActivity() {
                 val process = Runtime.getRuntime().exec("su -c exit")
                 val exitCode = process.waitFor()
                 if (exitCode == 0) {
-                    runOnUiThread {
-                         (application as MainApplication).mainViewModel.setRootEnabled(true)
-                    }
+                    runOnUiThread { (application as MainApplication).mainViewModel.setRootEnabled(true) }
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }.start()
     }
 }
@@ -187,99 +162,48 @@ fun MainScreenContent(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
-
     val canStart = isOverlayGranted && (isReadLogsGranted || isRootEnabled)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(scrollState),
+            modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(scrollState),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = R.drawable.logkitty),
                 contentDescription = "LogKitty Logo",
-                modifier = Modifier
-                    .size(120.dp)
-                    .padding(bottom = 16.dp)
+                modifier = Modifier.size(120.dp).padding(bottom = 16.dp)
             )
-
-            Text(
-                text = "LogKitty",
-                style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-
+            Text(text = "LogKitty", style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(32.dp))
 
             if (!isOverlayGranted) {
-                PermissionCard(
-                    title = "Overlay Permission Required",
-                    description = "LogKitty needs to draw over other apps to function.",
-                    buttonText = "Grant Overlay",
-                    onClick = onGrantOverlay
-                )
+                PermissionCard("Overlay Permission Required", "LogKitty needs to draw over other apps.", "Grant Overlay", onGrantOverlay)
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Only show ADB card if we don't have permission AND don't have root
             if (!isReadLogsGranted && !isRootEnabled) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Standard Permission Required",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Standard Permission Required", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Android requires a special permission to read logs. You must grant this via ADB:",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
-                        )
+                        Text("Run this ADB command:", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         val command = "adb shell pm grant ${BuildConfig.APPLICATION_ID} android.permission.READ_LOGS"
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = command,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(8.dp),
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                            )
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)), modifier = Modifier.fillMaxWidth()) {
+                            Text(command, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        AzButton(
-                            onClick = { clipboardManager.setText(AnnotatedString(command)) },
-                            text = "Copy Command",
-                            shape = AzButtonShape.RECTANGLE,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        AzButton(onClick = { clipboardManager.setText(AnnotatedString(command)) }, text = "Copy Command", shape = AzButtonShape.RECTANGLE, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
             if (canStart) {
-                Text(
-                    text = "Ready to Purr",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
+                Text("Ready to Purr", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.tertiary)
                 Spacer(modifier = Modifier.height(16.dp))
-                
                 AzButton(
                     onClick = onToggleService,
                     text = if (isServiceRunning) "Stop Service" else "Start Service",
@@ -288,53 +212,21 @@ fun MainScreenContent(
                     colors = if (isServiceRunning) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
                 )
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            AzButton(
-                onClick = onOpenSettings,
-                text = "Settings",
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = AzButtonShape.RECTANGLE
-            )
+            AzButton(onClick = onOpenSettings, text = "Settings", modifier = Modifier.fillMaxWidth().height(56.dp), shape = AzButtonShape.RECTANGLE)
         }
     }
 }
 
 @Composable
-fun PermissionCard(
-    title: String,
-    description: String,
-    buttonText: String,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.error
-            )
+fun PermissionCard(title: String, description: String, buttonText: String, onClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
+        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
+            Text(description, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(16.dp))
-            AzButton(
-                onClick = onClick,
-                text = buttonText,
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth()
-            )
+            AzButton(onClick = onClick, text = buttonText, shape = AzButtonShape.RECTANGLE, modifier = Modifier.fillMaxWidth())
         }
     }
 }
