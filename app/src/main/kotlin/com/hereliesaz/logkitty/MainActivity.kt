@@ -32,25 +32,45 @@ import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 
+/**
+ * [MainActivity] is the user-facing entry point for configuration.
+ *
+ * It is NOT the main overlay UI. Instead, it serves as a "Wizard" or "Dashboard" to:
+ * 1. Check and request necessary permissions (Overlay, Read Logs).
+ * 2. Toggle the [LogKittyOverlayService] on and off.
+ * 3. Provide access to the App Settings.
+ *
+ * It manages the [SettingsScreen] flow and provides instructions for ADB permissions.
+ */
 class MainActivity : ComponentActivity() {
 
+    // UI State for Permission Status
     private var isOverlayGranted by mutableStateOf(false)
     private var isReadLogsGranted by mutableStateOf(false)
     private var isServiceRunning by mutableStateOf(false)
+
+    // UI State for Navigation
     private var showSettings by mutableStateOf(false)
 
+    // Activity Result Launcher for the "Display Over Other Apps" system settings screen.
     private val overlayPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
+        // Re-check permissions when returning from the system settings.
         checkPermissions()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initial Checks
         checkPermissions()
         checkServiceStatus()
+
+        // Attempt to gain root access silently if available (for "Root Mode").
         requestRootAccess()
 
+        // Handle intent arguments (e.g., opening directly to Settings from the Notification).
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
             showSettings = true
         }
@@ -58,6 +78,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             LogKittyTheme {
                 val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+                // Observe lifecycle to re-check status when user returns to the app (e.g., after granting permissions).
                 DisposableEffect(lifecycle) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
@@ -71,8 +93,13 @@ class MainActivity : ComponentActivity() {
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     if (showSettings) {
-                        SettingsScreen(onBack = { showSettings = false }, viewModel = (application as MainApplication).mainViewModel)
+                        // Show the Settings Screen (Full Page).
+                        SettingsScreen(
+                            onBack = { showSettings = false },
+                            viewModel = (application as MainApplication).mainViewModel
+                        )
                     } else {
+                        // Show the Main Dashboard / Permission Wizard.
                         val viewModel = (application as MainApplication).mainViewModel
                         val isRootEnabled by viewModel.isRootEnabled.collectAsState()
 
@@ -91,6 +118,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Handles new intents (e.g. tapping the notification while the activity is already alive).
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -98,11 +128,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * verifies if the app has the necessary system permissions.
+     */
     private fun checkPermissions() {
         isOverlayGranted = Settings.canDrawOverlays(this)
+        // Check for READ_LOGS. Note: This is a "Signature|Privileged|Development" permission.
+        // Normal apps cannot get it via a prompt; it must be granted via ADB.
         isReadLogsGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED
     }
     
+    /**
+     * Checks if the [LogKittyOverlayService] is currently running.
+     * Uses ActivityManager (Legacy method, but reliable for checking own services).
+     */
     @Suppress("DEPRECATION")
     private fun checkServiceStatus() {
         val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -115,11 +154,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Directs the user to the system settings page to grant overlay permission.
+     */
     private fun requestOverlayPermission() {
         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
         overlayPermissionLauncher.launch(intent)
     }
 
+    /**
+     * Starts or Stops the Overlay Service based on current state.
+     */
     private fun toggleOverlayService() {
         val intent = Intent(this, LogKittyOverlayService::class.java)
         if (isServiceRunning) {
@@ -127,16 +172,22 @@ class MainActivity : ComponentActivity() {
             startService(intent)
             isServiceRunning = false
         } else {
+            // Start as Foreground Service.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 try { startForegroundService(intent) } catch (e: Exception) { e.printStackTrace() }
             } else {
                 startService(intent)
             }
             isServiceRunning = true
+            // Close the activity so the user sees the overlay immediately.
             finish()
         }
     }
 
+    /**
+     * Checks if Root access is available by executing `su -c exit`.
+     * If successful, updates the ViewModel to enable Root features.
+     */
     private fun requestRootAccess() {
         Thread {
             try {
@@ -150,6 +201,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * The primary dashboard UI composable.
+ */
 @Composable
 fun MainScreenContent(
     isOverlayGranted: Boolean,
@@ -162,6 +216,10 @@ fun MainScreenContent(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
+
+    // Condition to allow starting the service: Overlay MUST be granted.
+    // Read Logs OR Root is required for functionality, but we might allow start even if missing (to show empty logs).
+    // Here we strictly require at least one method of reading logs.
     val canStart = isOverlayGranted && (isReadLogsGranted || isRootEnabled)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -178,11 +236,18 @@ fun MainScreenContent(
             Text(text = "LogKitty", style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Step 1: Overlay Permission
             if (!isOverlayGranted) {
-                PermissionCard("Overlay Permission Required", "LogKitty needs to draw over other apps.", "Grant Overlay", onGrantOverlay)
+                PermissionCard(
+                    title = "Overlay Permission Required",
+                    description = "LogKitty needs to draw over other apps.",
+                    buttonText = "Grant Overlay",
+                    onClick = onGrantOverlay
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
+            // Step 2: Read Logs Permission (Only if Root is not active)
             if (!isReadLogsGranted && !isRootEnabled) {
                 Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -201,6 +266,7 @@ fun MainScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
+            // Step 3: Start Button
             if (canStart) {
                 Text("Ready to Purr", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.tertiary)
                 Spacer(modifier = Modifier.height(16.dp))

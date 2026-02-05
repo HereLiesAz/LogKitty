@@ -15,6 +15,12 @@ import androidx.compose.ui.unit.dp
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 
+/**
+ * [ProhibitedLogsScreen] allows the user to manage the list of "Blacklisted" tags.
+ *
+ * Log lines containing these tags are filtered out *before* they reach the main log list.
+ * This is useful for silencing spammy system logs that clutter the view.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProhibitedLogsScreen(
@@ -67,6 +73,9 @@ fun ProhibitedLogsScreen(
     }
 }
 
+/**
+ * A single row item representing a prohibited tag.
+ */
 @Composable
 fun ProhibitedTagItem(
     tag: String,
@@ -87,8 +96,7 @@ fun ProhibitedTagItem(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
-            // Using AzButton instead of IconButton. AzButton usually needs text.
-            // We can use a small shape or look for an icon overload if available, but assuming text:
+            // Remove Button
             AzButton(
                 onClick = onDelete,
                 text = "Remove",

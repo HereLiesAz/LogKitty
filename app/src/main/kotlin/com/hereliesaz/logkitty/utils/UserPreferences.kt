@@ -13,6 +13,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+/**
+ * Data Transfer Object for exporting/importing settings via JSON.
+ * @see UserPreferences.exportPreferences
+ */
 @Serializable
 data class ExportedPreferences(
     val contextMode: Boolean,
@@ -25,58 +29,90 @@ data class ExportedPreferences(
     val isLogReversed: Boolean,
     val prohibitedTags: List<String>,
     val logColors: Map<String, Int>,
-    val showTimestamp: Boolean, // Restored
-    val bufferSize: Int,        // Restored
-    val activeLogLevels: Set<String> // Restored
+    val showTimestamp: Boolean,
+    val bufferSize: Int,
+    val activeLogLevels: Set<String>
 )
 
+/**
+ * [UserPreferences] manages the persistence of application settings.
+ *
+ * It wraps Android's [SharedPreferences] but exposes every setting as a [StateFlow].
+ * This allows the UI to observe changes reactively without manually polling preferences.
+ *
+ * It also handles the complex logic of serializing/deserializing the "Prohibited Tags" list
+ * and custom color maps, as SharedPreferences only supports basic types.
+ */
 class UserPreferences(context: Context) {
 
+    // Standard Private SharedPreferences file.
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    // --- Preference: Context Mode ---
+    // Controls if we filter logs based on the foreground app.
     private val _isContextModeEnabled = MutableStateFlow(prefs.getBoolean(KEY_CONTEXT_MODE, false))
     val isContextModeEnabled: StateFlow<Boolean> = _isContextModeEnabled.asStateFlow()
 
+    // --- Preference: Custom Text Filter ---
+    // The text entered in the search bar.
     private val _customFilter = MutableStateFlow(prefs.getString(KEY_CUSTOM_FILTER, "") ?: "")
     val customFilter: StateFlow<String> = _customFilter.asStateFlow()
 
+    // --- Preference: Overlay Opacity ---
+    // Alpha value for the background (0.1f to 1.0f).
     private val _overlayOpacity = MutableStateFlow(prefs.getFloat(KEY_OVERLAY_OPACITY, 0.9f))
     val overlayOpacity: StateFlow<Float> = _overlayOpacity.asStateFlow()
 
+    // --- Preference: Background Color ---
     private val _backgroundColor = MutableStateFlow(prefs.getInt(KEY_BACKGROUND_COLOR, android.graphics.Color.BLACK))
     val backgroundColor: StateFlow<Int> = _backgroundColor.asStateFlow()
 
+    // --- Preference: Font Size ---
     private val _fontSize = MutableStateFlow(prefs.getInt(KEY_FONT_SIZE, 12))
     val fontSize: StateFlow<Int> = _fontSize.asStateFlow()
 
+    // --- Preference: Font Family ---
     private val _fontFamily = MutableStateFlow(prefs.getString(KEY_FONT_FAMILY, CodingFont.SYSTEM.name) ?: CodingFont.SYSTEM.name)
     val fontFamily: StateFlow<String> = _fontFamily.asStateFlow()
 
+    // --- Preference: Root Mode ---
+    // If true, we use `su -c logcat` instead of standard `logcat`.
     private val _isRootEnabled = MutableStateFlow(prefs.getBoolean(KEY_IS_ROOT_ENABLED, false))
     val isRootEnabled: StateFlow<Boolean> = _isRootEnabled.asStateFlow()
 
+    // --- Preference: Reverse Log Direction ---
+    // If true, new logs appear at the top.
     private val _isLogReversed = MutableStateFlow(prefs.getBoolean(KEY_IS_LOG_REVERSED, false))
     val isLogReversed: StateFlow<Boolean> = _isLogReversed.asStateFlow()
 
-    // --- RESTORED PREFERENCES ---
+    // --- Preference: Show Timestamps ---
     private val _showTimestamp = MutableStateFlow(prefs.getBoolean(KEY_SHOW_TIMESTAMP, true))
     val showTimestamp: StateFlow<Boolean> = _showTimestamp.asStateFlow()
 
+    // --- Preference: Buffer Size ---
     private val _bufferSize = MutableStateFlow(prefs.getInt(KEY_BUFFER_SIZE, 1000))
     val bufferSize: StateFlow<Int> = _bufferSize.asStateFlow()
 
+    // --- Preference: Active Log Levels ---
+    // Set of LogLevels (V, D, I, W, E, A) to display.
     private val _activeLogLevels = MutableStateFlow(
         prefs.getStringSet(KEY_ACTIVE_LOG_LEVELS, LogLevel.values().map { it.name }.toSet()) 
             ?: LogLevel.values().map { it.name }.toSet()
     )
     val activeLogLevels: StateFlow<Set<String>> = _activeLogLevels.asStateFlow()
-    // ---------------------------
 
+    // --- Preference: Prohibited Tags ---
+    // Set of tag strings to block.
     private val _prohibitedTags = MutableStateFlow(loadProhibitedTags())
     val prohibitedTags: StateFlow<Set<String>> = _prohibitedTags.asStateFlow()
 
+    // --- Preference: Log Colors ---
+    // Map of LogLevel to ARGB Color Integer.
     private val _logColors = MutableStateFlow(loadLogColors())
     val logColors: StateFlow<Map<LogLevel, Color>> = _logColors.asStateFlow()
+
+    // --- Setters ---
+    // Each setter updates both the SharedPreferences (persistence) and the StateFlow (reactive UI).
 
     fun setContextModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_CONTEXT_MODE, enabled).apply()
@@ -135,6 +171,9 @@ class UserPreferences(context: Context) {
         _fontFamily.value = fontEnumName
     }
 
+    /**
+     * Adds a tag to the prohibited list.
+     */
     fun addProhibitedTag(tag: String) {
         val current = _prohibitedTags.value.toMutableSet()
         current.add(tag)
@@ -142,6 +181,9 @@ class UserPreferences(context: Context) {
         saveProhibitedTags(current)
     }
 
+    /**
+     * Removes a tag from the prohibited list.
+     */
     fun removeProhibitedTag(tag: String) {
         val current = _prohibitedTags.value.toMutableSet()
         current.remove(tag)
@@ -149,13 +191,20 @@ class UserPreferences(context: Context) {
         saveProhibitedTags(current)
     }
 
+    /**
+     * Customizes the color for a specific log level.
+     */
     fun setLogColor(level: LogLevel, color: Color) {
         val current = _logColors.value.toMutableMap()
         current[level] = color
         _logColors.value = current
+        // Persist using a dynamic key like "color_ERROR"
         prefs.edit().putInt(getKeyForColor(level), color.toArgb()).apply()
     }
 
+    /**
+     * Resets all log colors to their hardcoded defaults.
+     */
     fun resetLogColors() {
         val editor = prefs.edit()
         val defaultColors = mutableMapOf<LogLevel, Color>()
@@ -166,6 +215,8 @@ class UserPreferences(context: Context) {
         editor.apply()
         _logColors.value = defaultColors
     }
+
+    // --- Helpers ---
 
     private fun loadProhibitedTags(): Set<String> {
         return prefs.getStringSet(KEY_PROHIBITED_TAGS, emptySet()) ?: emptySet()
@@ -186,6 +237,10 @@ class UserPreferences(context: Context) {
 
     private fun getKeyForColor(level: LogLevel) = "color_${level.name}"
 
+    /**
+     * Exports the current state of all preferences as a JSON string.
+     * Useful for backing up configurations or sharing setups.
+     */
     fun exportPreferences(): String {
         val colorMap = _logColors.value.mapKeys { it.key.name }.mapValues { it.value.toArgb() }
         val exported = ExportedPreferences(
@@ -208,9 +263,14 @@ class UserPreferences(context: Context) {
         } catch (e: Exception) { "{}" }
     }
 
+    /**
+     * Imports preferences from a JSON string, updating both the persistent store and the live flows.
+     */
     fun importPreferences(jsonString: String) {
         try {
             val imported = Json.decodeFromString<ExportedPreferences>(jsonString)
+
+            // Apply simple values
             setContextModeEnabled(imported.contextMode)
             setCustomFilter(imported.customFilter)
             setOverlayOpacity(imported.overlayOpacity)
@@ -222,6 +282,7 @@ class UserPreferences(context: Context) {
             setShowTimestamp(imported.showTimestamp)
             setBufferSize(imported.bufferSize)
             
+            // Apply Collections
             val levels = imported.activeLogLevels.toMutableSet()
             prefs.edit().putStringSet(KEY_ACTIVE_LOG_LEVELS, levels).apply()
             _activeLogLevels.value = levels
@@ -230,8 +291,10 @@ class UserPreferences(context: Context) {
             _prohibitedTags.value = tags
             saveProhibitedTags(tags)
 
+            // Apply Colors
             val editor = prefs.edit()
             val newColors = mutableMapOf<LogLevel, Color>()
+            // Initialize with defaults in case JSON is missing some keys
             LogLevel.values().forEach { newColors[it] = it.defaultColor }
 
             imported.logColors.forEach { (levelName, colorInt) ->

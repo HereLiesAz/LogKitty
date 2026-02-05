@@ -35,6 +35,20 @@ import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.ui.theme.getGoogleFontFamily
 import kotlinx.coroutines.launch
 
+/**
+ * [LogBottomSheet] is the primary UI of the application.
+ *
+ * It acts as the "Face" of LogKitty, rendering the floating window content.
+ *
+ * **Interaction Model:**
+ * - **Collapsed:** Shows a tiny "Peek" strip at the bottom (anchored above the nav bar).
+ *   Displays the single most recent log line.
+ * - **Peek (Half-Expanded):** Shows about 35% of the screen. Good for casual monitoring.
+ * - **Expanded:** Shows nearly full screen (limited by system bars) for deep investigation.
+ *
+ * **Performance:**
+ * Uses [LazyColumn] to efficiently render the high-frequency log stream.
+ */
 @Composable
 fun LogBottomSheet(
     sheetState: BottomSheetState,
@@ -46,8 +60,11 @@ fun LogBottomSheet(
     onSettingsClick: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+
+    // Check if we are in the smallest state to switch between "Peek View" and "List View".
     val isHidden = sheetState.value == BottomSheetValue.Collapsed
 
+    // Collect all necessary state from the ViewModel.
     val systemLogMessages by viewModel.filteredSystemLog.collectAsState()
     val overlayOpacity by viewModel.overlayOpacity.collectAsState()
     val backgroundColorInt by viewModel.backgroundColor.collectAsState()
@@ -63,16 +80,24 @@ fun LogBottomSheet(
     val clipboardManager = LocalClipboardManager.current
     val listState = rememberLazyListState()
     
+    // Apply user-defined opacity to the background color.
     val sheetBackgroundColor = Color(backgroundColorInt).copy(alpha = overlayOpacity)
     
+    // Resolve the selected Google Font family.
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
         getGoogleFontFamily(enumVal.fontName)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+
+        // --- 1. COLLAPSED VIEW (The "Peek" Strip) ---
+        // This is a custom Box rendered manually when the sheet is collapsed.
+        // We do this because the actual BottomSheet library might hide completely or behave differently
+        // at 0 height. We want a persistent "ticker" at the bottom.
         if (isHidden) {
             val rawLatest = systemLogMessages.lastOrNull() ?: "LogKitty Ready"
+            // Strip timestamp if user setting requests it, to save horizontal space in the small strip.
             val latestLog = if (showTimestamp) rawLatest else rawLatest.replace(Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), "")
             
             Box(
@@ -81,15 +106,18 @@ fun LogBottomSheet(
                     .height(collapsedHeightDp)
                     .align(Alignment.BottomCenter)
                     .background(sheetBackgroundColor)
+                    // Tapping the strip expands it to the "Peek" (35%) state.
                     .clickable { scope.launch { sheetState.peek() } }
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // Ensure we respect the system navigation bar so we don't draw under the gesture area/buttons.
                         .padding(bottom = navBarHeight)
                         .fillMaxHeight(),
                     contentAlignment = Alignment.CenterStart
                 ) {
+                    // Visual Drag Handle indicator
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
@@ -99,6 +127,7 @@ fun LogBottomSheet(
                             .clip(RoundedCornerShape(2.dp))
                             .background(Color.Gray.copy(alpha = 0.5f))
                     )
+                    // The single line of log text.
                     Text(
                         text = latestLog,
                         fontFamily = currentFontFamily,
@@ -113,8 +142,10 @@ fun LogBottomSheet(
             }
         }
 
+        // --- 2. EXPANDED VIEW (The Actual Bottom Sheet) ---
         BottomSheetLayout(
             state = sheetState,
+            // We define the "Peek" height as 35% of the screen.
             peekHeight = PeekHeight.dp((screenHeight * 0.35f).value),
             modifier = Modifier.fillMaxSize(),
         ) {
@@ -123,6 +154,7 @@ fun LogBottomSheet(
                     .fillMaxSize()
                     .background(sheetBackgroundColor)
             ) {
+                // Drag Handle area
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
@@ -136,6 +168,7 @@ fun LogBottomSheet(
                     )
                 }
 
+                // Tab Row (System, Errors, App-specific tabs)
                 ScrollableTabRow(
                     selectedTabIndex = tabs.indexOf(selectedTab).takeIf { it >= 0 } ?: 0,
                     edgePadding = 16.dp,
@@ -155,6 +188,7 @@ fun LogBottomSheet(
                             text = { 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(tab.title)
+                                    // Allow closing app-specific tabs
                                     if (tab.type == TabType.APP) {
                                         IconButton(onClick = { viewModel.closeTab(tab) }, modifier = Modifier.size(16.dp)) {
                                             Icon(Icons.Default.Close, "Close")
@@ -166,6 +200,7 @@ fun LogBottomSheet(
                     }
                 }
 
+                // Main Content Area
                 if (systemLogMessages.isEmpty()) {
                     Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text("No logs", color = Color.Gray)
@@ -174,6 +209,7 @@ fun LogBottomSheet(
                     LazyColumn(
                         state = listState,
                         reverseLayout = isLogReversed,
+                        // Add bottom padding to account for the navbar + some breathing room
                         contentPadding = PaddingValues(bottom = navBarHeight + 16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -182,6 +218,11 @@ fun LogBottomSheet(
                     ) {
                         itemsIndexed(systemLogMessages) { index, message ->
                             val displayText = if (showTimestamp) message else message.replace(Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), "")
+
+                            // Determine color based on log level
+                            val level = LogLevel.fromLine(message)
+                            val color = logColors[level] ?: Color.White
+
                             Text(
                                 text = displayText,
                                 fontFamily = currentFontFamily,
@@ -189,7 +230,7 @@ fun LogBottomSheet(
                                 lineHeight = (fontSize * 1.4).sp,
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(vertical = 0.5.dp),
-                                color = logColors[LogLevel.fromLine(message)] ?: Color.White,
+                                color = color,
                                 maxLines = 10,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -199,12 +240,15 @@ fun LogBottomSheet(
             }
         }
         
+        // --- 3. HEADER CONTROLS (Floating Icons) ---
+        // Visible only when expanded/peeking.
         if (!isHidden) {
              Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 48.dp, end = 16.dp)
             ) {
+                // Toggle Context Mode (Eye Icon)
                 IconButton(onClick = { viewModel.toggleContextMode() }) {
                      Icon(
                          if (isContextMode) Icons.Default.Visibility else Icons.Default.VisibilityOff,
@@ -212,17 +256,21 @@ fun LogBottomSheet(
                          tint = MaterialTheme.colorScheme.onSurface
                      )
                 }
+                // Save to File
                 IconButton(onClick = onSaveClick) {
                      Icon(Icons.Default.Save, "Save", tint = MaterialTheme.colorScheme.onSurface)
                 }
+                // Copy All to Clipboard
                 IconButton(onClick = {
                     scope.launch { clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(systemLogMessages.joinToString("\n"))) }
                 }) {
                      Icon(Icons.Default.ContentCopy, "Copy", tint = MaterialTheme.colorScheme.onSurface)
                 }
+                // Open Settings
                 IconButton(onClick = onSettingsClick) {
                      Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface)
                 }
+                // Clear Logs
                 IconButton(onClick = { viewModel.clearLog() }) {
                     Icon(Icons.Default.Clear, "Clear", tint = MaterialTheme.colorScheme.onSurface)
                 }

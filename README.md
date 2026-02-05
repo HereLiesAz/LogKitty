@@ -12,9 +12,22 @@ LogKitty is a developer tool that puts your system logs right where you need the
     *   **Peek:** See the latest log line without obstruction.
     *   **Half:** Scroll through recent logs.
     *   **Full:** Deep dive into stack traces.
+*   **Context Awareness:** Automatically detects the foreground app to highlight or filter relevant logs.
 *   **Copy to Clipboard:** Quickly grab logs to share or analyze.
 *   **Save to File:** Save the current log buffer to a text file for sharing or later analysis.
-*   **Settings:** Manage overlay and log permissions easily.
+*   **Settings:** Manage overlay opacity, text size, prohibited tags, and more.
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+*   **[Setup Guide](docs/SETUP.md):** Build instructions, prerequisites, and installation.
+*   **[Architecture](docs/architecture.md):** High-level overview of the system design (MVVM, Services).
+*   **[API Reference](docs/API.md):** Detailed description of key classes and components.
+*   **[File Descriptions](docs/file_descriptions.md):** A map of the project structure.
+*   **[UI/UX Guidelines](docs/UI_UX.md):** Design philosophy and component breakdown.
+*   **[Task Flow](docs/task_flow.md):** Typical user workflows.
+*   **[Contribution Guide](docs/conduct.md):** Code of conduct and rules for contributors/agents.
 
 ## Installation
 
@@ -37,12 +50,12 @@ LogKitty is a developer tool that puts your system logs right where you need the
 
 ## Development
 
-LogKitty was originally forked from the **IDEaz** project, stripping away the IDE functionality to focus purely on the logcat overlay experience.
+LogKitty is built with Kotlin and Jetpack Compose.
 
 ### Build
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-### Documentation
-See the `docs/` directory for detailed architecture, design, and contribution guidelines.
+### Versioning
+See `version.properties` for the current version state.
