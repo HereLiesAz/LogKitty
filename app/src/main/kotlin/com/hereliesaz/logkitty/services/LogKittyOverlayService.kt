@@ -308,7 +308,7 @@ class LogKittyOverlayService : Service() {
             params.height = WindowManager.LayoutParams.MATCH_PARENT
             // Remove FLAG_NOT_TOUCHABLE so we can interact with the full UI.
             params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { e.printStackTrace() }
+            try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { android.util.Log.e("LogKittyOverlayService", "Failed to update window to full screen", e) }
         }
     }
 
