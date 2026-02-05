@@ -174,7 +174,7 @@ class MainActivity : ComponentActivity() {
         } else {
             // Start as Foreground Service.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try { startForegroundService(intent) } catch (e: Exception) { e.printStackTrace() }
+                try { startForegroundService(intent) } catch (e: Exception) { android.util.Log.e("MainActivity", "Failed to start foreground service", e) }
             } else {
                 startService(intent)
             }
