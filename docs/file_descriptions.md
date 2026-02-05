@@ -1,35 +1,44 @@
 # File Descriptions
 
 ## Root
-*   `AGENTS.md`: Master instructions and index.
+*   `AGENTS.md`: Master instructions and index for AI agents.
 *   `build.gradle.kts`: Project-level build configuration.
-*   `settings.gradle.kts`: Module inclusion.
-*   `gradle.properties`: Build properties.
-*   `version.properties`: Versioning source of truth.
+*   `settings.gradle.kts`: Module inclusion settings.
+*   `gradle.properties`: Gradle build properties.
+*   `version.properties`: Source of truth for project versioning.
+*   `get_version.sh`: Script to extract version info.
+*   `lint-baseline.xml`: Baseline file for lint warnings.
+*   `proguard-rules.pro`: ProGuard/R8 configuration rules.
 
 ## app/src/main/kotlin/com/hereliesaz/logkitty/
 
 ### Root Package
-*   `MainActivity.kt`: Setup activity for permissions.
-*   `MainApplication.kt`: Application class, initializes ViewModel.
+*   `MainActivity.kt`: The entry point activity. Handles initial setup, permission requests (Overlay, Root), and service starting.
+*   `MainApplication.kt`: The Application class. Initializes global singletons like `MainViewModel`.
+*   `FileSaverActivity.kt`: A transient Activity used to save log buffers to a file using the System File Picker.
 
 ### services/
-*   `IdeazOverlayService.kt`: The main engine. Manages the system overlay window and hosts the Compose UI.
-*   `IdeazAccessibilityService.kt`: Background service for inspecting the foreground UI.
-*   `ScreenshotService.kt`: Service for capturing screen content (MediaProjection).
+*   `LogKittyOverlayService.kt`: The core service. Manages the system overlay window, handles window resizing/pass-through logic, and hosts the Compose UI.
+*   `LogKittyAccessibilityService.kt`: Background service that detects `TYPE_WINDOW_STATE_CHANGED` events to identify the foreground package for context-aware filtering.
 
 ### ui/
-*   `IdeBottomSheet.kt`: The primary UI composable. Displays the log list and controls.
-*   `MainViewModel.kt`: Logic controller. Connects data to UI.
-*   `ContextlessChatInput.kt`: Simple text input composable (renaming to `LogSearchInput` recommended).
+*   `LogBottomSheet.kt`: The primary UI composable. Renders the persistent bottom sheet, log list, and control header.
+*   `MainViewModel.kt`: The central logic controller. Bridges the `LogcatReader` data, `UserPreferences`, and the UI. Handles filtering and state management.
+*   `SettingsScreen.kt`: A dedicated screen for configuring app behavior (opacity, buffer size, prohibited logs, etc.).
+*   `ProhibitedLogsScreen.kt`: UI for managing the list of prohibited log tags/strings.
+*   `LogColors.kt`: Definitions for log level colors (Verbose, Debug, Info, Warn, Error, Assert).
+*   `ColorPickerDialog.kt`: A dialog composable for picking colors (used in settings).
 
 ### ui/delegates/
-*   `StateDelegate.kt`: State holder. Manages `systemLog` flow and batching.
+*   `StateDelegate.kt`: The data holder and processor. Manages the circular log buffer and handles the high-frequency log stream batching.
 
-### ui/inspection/
-*   `OverlayView.kt`: Custom View for drawing highlighters/rectangles on the screen (used by Accessibility/Screenshot services).
+### ui/theme/
+*   `Theme.kt`: Jetpack Compose theme definition.
+*   `Color.kt`: Color palette definitions.
+*   `Type.kt`: Typography definitions.
 
 ### utils/
-*   `LogcatReader.kt`: Reads system logs.
-*   `ComposeLifecycleHelper.kt`: Critical utility for running Compose in a Service.
-*   `VersionUtils.kt`: Version string parsing.
+*   `LogcatReader.kt`: The engine that spawns and reads the `logcat` process. Handles stream parsing and resilience.
+*   `ComposeLifecycleHelper.kt`: Critical utility for bridging the gap between an Android Service and Jetpack Compose's Lifecycle-aware components.
+*   `UserPreferences.kt`: Manages persistence of user settings (DataStore/SharedPreferences) and export/import functionality.
+*   `CrashReporter.kt`: A custom `UncaughtExceptionHandler` that captures crashes and attempts to report them (e.g., to GitHub Issues).

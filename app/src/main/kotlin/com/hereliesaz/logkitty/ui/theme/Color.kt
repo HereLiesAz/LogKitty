@@ -2,6 +2,8 @@ package com.hereliesaz.logkitty.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// --- Base Colors ---
+// Neutral monochrome palette designed to be unobtrusive.
 val Black = Color(0xFF000000)
 val DarkGrey = Color(0xFF1C1C1E)
 val MediumGrey = Color(0xFF3A3A3C)

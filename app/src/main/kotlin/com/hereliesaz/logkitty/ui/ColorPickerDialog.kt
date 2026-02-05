@@ -2,7 +2,6 @@ package com.hereliesaz.logkitty.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,10 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 
+/**
+ * A simple RGB color picker dialog.
+ * Used in [SettingsScreen] to allow users to customize the overlay background color.
+ */
 @Composable
 fun ColorPickerDialog(
     initialColor: Color,
@@ -59,13 +61,14 @@ fun ColorPickerDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Sliders
+                // RGB Sliders
                 ColorSlider(value = red, onValueChange = { red = it }, label = "R", color = Color.Red)
                 ColorSlider(value = green, onValueChange = { green = it }, label = "G", color = Color.Green)
                 ColorSlider(value = blue, onValueChange = { blue = it }, label = "B", color = Color.Blue)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Actions
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -83,6 +86,9 @@ fun ColorPickerDialog(
     }
 }
 
+/**
+ * Helper composable for a single color channel slider.
+ */
 @Composable
 private fun ColorSlider(
     value: Float,

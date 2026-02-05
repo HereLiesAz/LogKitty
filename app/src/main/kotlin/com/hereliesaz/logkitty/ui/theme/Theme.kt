@@ -10,6 +10,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+// --- Dark Theme Palette ---
+// High contrast, intended for the overlay primarily.
 private val DarkColorScheme = darkColorScheme(
     primary = White,
     secondary = LightGrey,
@@ -23,6 +25,8 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = White,
 )
 
+// --- Light Theme Palette ---
+// Standard light mode, mostly used for the Settings screen if the system is light.
 private val LightColorScheme = lightColorScheme(
     primary = Black,
     secondary = MediumGrey,
@@ -36,10 +40,18 @@ private val LightColorScheme = lightColorScheme(
     onSurface = Black,
 )
 
+/**
+ * [LogKittyTheme] is the centralized Material3 theme wrapper.
+ *
+ * It automatically adapts to system settings (Dark/Light mode) and supports Dynamic Colors (Material You)
+ * on Android 12+ devices, though we default to disabled for the overlay to ensure consistent high contrast.
+ *
+ * @param darkTheme Whether to use the dark color scheme. Defaults to system setting.
+ * @param dynamicColor Whether to use wallpaper-derived colors (Android S+). Default is false.
+ */
 @Composable
 fun LogKittyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
