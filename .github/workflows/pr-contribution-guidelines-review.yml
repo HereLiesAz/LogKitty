@@ -102,6 +102,7 @@ jobs:
 
       - name: Validate PR against CONTRIBUTING.md
         id: gemini
+        if: ${{ secrets.GEMINI_API_KEY != '' }}
         uses: google-github-actions/run-gemini-cli@v0
         env:
           # gh CLI inside Gemini
