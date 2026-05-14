@@ -138,14 +138,16 @@ class LogKittyOverlayService : Service() {
         val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
         val navBarHeightPx = if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
 
-        composeView = object : ComposeView(this) {
-            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                    if (onBack()) return true
+        composeView = ComposeView(this).apply {
+            // ComposeView is final in modern Compose, so we intercept back via an OnKeyListener
+            // instead of subclassing. The listener fires only when the window is focusable
+            // (HALF/FULL detent), which is exactly when we want to capture back.
+            setOnKeyListener { _, keyCode, event ->
+                if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                    if (onBack()) return@setOnKeyListener true
                 }
-                return super.dispatchKeyEvent(event)
+                false
             }
-        }.apply {
             setContent {
                 val composeDensity = LocalDensity.current
                 val fontSizeInt by viewModel.fontSize.collectAsState()
@@ -247,6 +249,7 @@ class LogKittyOverlayService : Service() {
 
     private fun updateWindow(heightPx: Int, focusable: Boolean) {
         val view = composeView ?: return
+        if (!view.isAttachedToWindow) return
         val params = view.layoutParams as? WindowManager.LayoutParams ?: return
         params.height = heightPx
         params.flags = baseLayoutParams(heightPx, focusable).flags

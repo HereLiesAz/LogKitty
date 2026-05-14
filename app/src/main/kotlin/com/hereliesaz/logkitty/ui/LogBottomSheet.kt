@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -200,7 +201,9 @@ fun LogBottomSheet(
                     selectedLineId = null
                 },
                 onSearchLine = { line ->
-                    val query = java.net.URLEncoder.encode(line.text, "UTF-8")
+                    // Cap the query — full log lines (stack traces) can blow past the URL/intent
+                    // size limits and silently fail to launch the browser.
+                    val query = java.net.URLEncoder.encode(line.text.take(500), "UTF-8")
                     val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
                         android.net.Uri.parse("https://www.google.com/search?q=$query")).apply {
                         addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -537,23 +540,29 @@ private fun LogRow(
 }
 
 /**
- * Modifier that detects vertical drags above a threshold and triggers either [onUp] (drag up)
- * or [onDown] (drag down). The gesture is one-shot per drag — small movements within the
- * threshold are ignored to avoid hijacking taps or list scrolling.
+ * Modifier that fires [onUp] / [onDown] exactly once per gesture when the *accumulated*
+ * vertical displacement crosses [threshold]. The per-frame `dragAmount` reported by
+ * Compose is a delta, not a total — accumulating into `totalDrag` is required, otherwise
+ * fast flicks fire repeatedly and slow drags never fire at all.
  */
 private fun Modifier.pointerInputVerticalDrag(
     threshold: Float,
     onUp: () -> Unit,
     onDown: () -> Unit,
-): Modifier = androidx.compose.ui.input.pointer.pointerInput(threshold) {
+): Modifier = this.pointerInput(threshold) {
+    var totalDrag = 0f
+    var fired = false
     detectVerticalDragGestures(
-        onDragStart = { },
-        onDragEnd = { },
-        onDragCancel = { },
+        onDragStart = { totalDrag = 0f; fired = false },
+        onDragEnd = { totalDrag = 0f; fired = false },
+        onDragCancel = { totalDrag = 0f; fired = false },
         onVerticalDrag = { change, dragAmount ->
-            if (abs(dragAmount) > threshold) {
+            if (fired) return@detectVerticalDragGestures
+            totalDrag += dragAmount
+            if (abs(totalDrag) > threshold) {
+                fired = true
                 change.consume()
-                if (dragAmount < 0) onUp() else onDown()
+                if (totalDrag < 0) onUp() else onDown()
             }
         }
     )
@@ -563,15 +572,20 @@ private fun Modifier.pointerInputHorizontalDrag(
     threshold: Float,
     onLeft: () -> Unit,
     onRight: () -> Unit,
-): Modifier = androidx.compose.ui.input.pointer.pointerInput(threshold) {
+): Modifier = this.pointerInput(threshold) {
+    var totalDrag = 0f
+    var fired = false
     detectHorizontalDragGestures(
-        onDragStart = { },
-        onDragEnd = { },
-        onDragCancel = { },
+        onDragStart = { totalDrag = 0f; fired = false },
+        onDragEnd = { totalDrag = 0f; fired = false },
+        onDragCancel = { totalDrag = 0f; fired = false },
         onHorizontalDrag = { change, dragAmount ->
-            if (abs(dragAmount) > threshold) {
+            if (fired) return@detectHorizontalDragGestures
+            totalDrag += dragAmount
+            if (abs(totalDrag) > threshold) {
+                fired = true
                 change.consume()
-                if (dragAmount < 0) onLeft() else onRight()
+                if (totalDrag < 0) onLeft() else onRight()
             }
         }
     )
