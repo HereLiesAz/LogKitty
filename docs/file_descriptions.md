@@ -22,15 +22,17 @@
 *   `LogKittyAccessibilityService.kt`: Background service that detects `TYPE_WINDOW_STATE_CHANGED` events to identify the foreground package for context-aware filtering.
 
 ### ui/
-*   `LogBottomSheet.kt`: The primary UI composable. Renders the persistent bottom sheet, log list, and control header.
-*   `MainViewModel.kt`: The central logic controller. Bridges the `LogcatReader` data, `UserPreferences`, and the UI. Handles filtering and state management.
-*   `SettingsScreen.kt`: A dedicated screen for configuring app behavior (opacity, buffer size, prohibited logs, etc.).
+*   `LogBottomSheet.kt`: The primary UI composable. Custom 4-detent overlay (HIDDEN/PEEK/HALF/FULL) with tab row, gesture zones, and selectable log items.
+*   `SheetController.kt`: Shared state holder for the active detent — consumed by both the Compose UI (for animation) and the hosting Service (for window sizing).
+*   `MainViewModel.kt`: The central logic controller. Bridges the `LogcatReader` data, `UserPreferences`, and the UI. Handles per-tab clearing and side-swipe tab navigation.
+*   `SettingsScreen.kt`: A dedicated screen for configuring app behavior. Hosts navigation into the prohibited-tags list, the color scheme editor, and preferences export/import.
 *   `ProhibitedLogsScreen.kt`: UI for managing the list of prohibited log tags/strings.
-*   `LogColors.kt`: Definitions for log level colors (Verbose, Debug, Info, Warn, Error, Assert).
+*   `ColorSchemeEditorScreen.kt`: Per-level color customization. Selecting any swatch flips the active scheme to CUSTOM.
+*   `LogColors.kt`: Log level enum plus the built-in `LogColorScheme` palettes (Material, AOSP, Pidcat, Monochrome, Solarized, Custom) and the tag-based highlight rules.
 *   `ColorPickerDialog.kt`: A dialog composable for picking colors (used in settings).
 
 ### ui/delegates/
-*   `StateDelegate.kt`: The data holder and processor. Manages the circular log buffer and handles the high-frequency log stream batching.
+*   `StateDelegate.kt`: The data holder and processor. Tags every log line with a monotonically-increasing `IndexedLogLine.id` (the basis for per-tab clearing), batches incoming lines, and caps the rolling buffer.
 
 ### ui/theme/
 *   `Theme.kt`: Jetpack Compose theme definition.

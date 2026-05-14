@@ -15,93 +15,79 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
-import android.view.MotionEvent
+import android.view.KeyEvent
 import android.view.WindowManager
-import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
-import com.dokar.sheets.BottomSheetState
-import com.dokar.sheets.BottomSheetValue
-import com.dokar.sheets.rememberBottomSheetState
 import com.hereliesaz.logkitty.MainActivity
 import com.hereliesaz.logkitty.MainApplication
 import com.hereliesaz.logkitty.ui.LogBottomSheet
+import com.hereliesaz.logkitty.ui.SheetController
+import com.hereliesaz.logkitty.ui.SheetDetent
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
- * [LogKittyOverlayService] is the core component of the application, responsible for rendering the
- * always-on overlay window.
+ * [LogKittyOverlayService] hosts the always-on Compose overlay.
  *
- * It manages:
- * 1. The System Overlay Window (`WindowManager`).
- * 2. The Jetpack Compose UI host (`ComposeView`).
- * 3. The complex interaction logic that allows touches to pass through the overlay when it is
- *    collapsed or "peeking", but captures them when expanded.
- * 4. The lifecycle synchronization between the Android Service component and the Compose world.
+ * **Touch confinement**
+ * The WindowManager view is resized to match the current sheet detent so taps outside the sheet
+ * fall through to the underlying application — even when the sheet is FULL height (the bottom 90%
+ * of the screen) the window leaves the top 10% untouchable.
  *
- * This service runs as a Foreground Service to ensure the system does not kill it while the user
- * is debugging other applications.
+ * **Back-button handling**
+ * When the sheet is HALF or FULL the window is focusable, so the system delivers back events.
+ * Pressing back collapses the sheet to HIDDEN, and the window immediately drops focus so a second
+ * back is delivered to the underlying app.
+ *
+ * **Home / Recents**
+ * The accessibility service broadcasts [LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY] with
+ * a reason; this service collapses the sheet without performing any further action (the system
+ * already handled the home/recents gesture).
  */
 class LogKittyOverlayService : Service() {
 
-    // System Window Manager to add/update/remove the overlay view.
     private lateinit var windowManager: WindowManager
-
-    // The container for our Jetpack Compose UI.
     private var composeView: ComposeView? = null
-
-    // A helper to provide LifecycleOwner, ViewModelStoreOwner, and SavedStateRegistryOwner to Compose.
-    // This is CRITICAL because Services do not naturally provide these, and Compose crashes without them.
     private var lifecycleHelper: ComposeLifecycleHelper? = null
 
-    // State of the bottom sheet (Collapsed, Expanded, Peek).
-    private var bottomSheetState: BottomSheetState? = null
+    private val controller = SheetController()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    // Flag to track if the user is currently interacting with the raw view (touch down).
-    // This allows us to expand the window bounds *immediately* upon touch, before Compose even processes the gesture.
-    private var isInteractingRaw = false
-
-    /**
-     * Receiver for actions broadcast by the [LogKittyAccessibilityService].
-     * Specifically used to auto-collapse the overlay when the user goes to the Home screen or Recents.
-     */
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY) {
-                collapseBottomSheet()
+                controller.hide()
             }
         }
     }
 
-    /**
-     * Binding is not supported. This service operates purely as a started service.
-     */
     override fun onBind(intent: Intent?): IBinder? = null
 
-    /**
-     * Handles startup commands.
-     * Supports:
-     * - [ACTION_STOP_SERVICE]: Gracefully shuts down the overlay.
-     * - [ACTION_OPEN_SETTINGS]: Launches the main configuration activity.
-     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP_SERVICE) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        if (intent?.action == ACTION_OPEN_SETTINGS) {
-            val settingsIntent = Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Required when starting Activity from Service
-                putExtra("EXTRA_SHOW_SETTINGS", true)
+        when (intent?.action) {
+            ACTION_STOP_SERVICE -> {
+                stopSelf()
+                return START_NOT_STICKY
             }
-            startActivity(settingsIntent)
+            ACTION_OPEN_SETTINGS -> {
+                val settingsIntent = Intent(this, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    putExtra("EXTRA_SHOW_SETTINGS", true)
+                }
+                startActivity(settingsIntent)
+            }
         }
-        // Restart the service if the system kills it (standard for always-on tools).
         return START_STICKY
     }
 
@@ -109,27 +95,19 @@ class LogKittyOverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
-
-        // Start as foreground service immediately to prevent ANR or system killing.
         val notification = createNotification()
         try {
             if (Build.VERSION.SDK_INT >= 34) {
-                // API 34+ requires declaring the specific foreground service type in manifest and code.
                 startForeground(SERVICE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
             } else {
                 startForeground(SERVICE_ID, notification)
             }
         } catch (e: Exception) {
-            // Fallback for older APIs or if specific permission logic fails slightly differently
             startForeground(SERVICE_ID, notification)
         }
 
-        // Verify overlay permission before attempting to add the view to avoid crashes.
-        if (Settings.canDrawOverlays(this)) {
-            setupBottomSheetOverlay()
-        }
+        if (Settings.canDrawOverlays(this)) setupOverlay()
 
-        // Register the broadcast receiver to listen for "Go Home" events from the accessibility service.
         val filter = IntentFilter(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
@@ -140,244 +118,176 @@ class LogKittyOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Clean up the Compose view and WindowManager to prevent leaks.
-        if (composeView != null) {
+        serviceScope.cancel()
+        composeView?.let { view ->
             try {
                 lifecycleHelper?.onStop()
                 lifecycleHelper?.onDestroy()
-                windowManager.removeView(composeView)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+                windowManager.removeView(view)
+            } catch (e: Exception) { e.printStackTrace() }
         }
-        try {
-            unregisterReceiver(receiver)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        try { unregisterReceiver(receiver) } catch (e: Exception) { e.printStackTrace() }
     }
 
-    /**
-     * Programmatically collapses the bottom sheet to its peek state.
-     * Safe to call from background threads (logic dispatched to Main).
-     */
-    private fun collapseBottomSheet() {
-         if (bottomSheetState != null) {
-             CoroutineScope(Dispatchers.Main).launch {
-                 try { bottomSheetState?.collapse() } catch (e: Exception) { e.printStackTrace() }
-             }
-         }
-    }
-
-    /**
-     * Initializes the ComposeView, sets up the window parameters, and attaches it to the WindowManager.
-     */
-    private fun setupBottomSheetOverlay() {
-        // Access the singleton ViewModel from the Application to share state with the Settings UI.
+    private fun setupOverlay() {
         val app = applicationContext as MainApplication
         val viewModel = app.mainViewModel
+        val density = resources.displayMetrics.density
+        val screenHeightPx = resources.displayMetrics.heightPixels
 
-        // Retrieve the system navigation bar height to ensure we don't draw under it (or account for it).
-        // We use getIdentifier because directly accessing window insets in a Service is complex/unreliable across APIs.
         val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
         val navBarHeightPx = if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
 
-        composeView = ComposeView(this).apply {
-            // CRITICAL: Raw Touch Listener
-            // When the window is "Collapsed" or "Peeking", its height is small.
-            // If the user starts a drag (swipe up), we must INSTANTLY expand the underlying WindowManager window
-            // to MATCH_PARENT so the gesture has room to continue.
-            // If we waited for Compose to tell us, the gesture would exit the window bounds and be lost.
-            setOnTouchListener { _, event ->
-                if (event.action == MotionEvent.ACTION_DOWN) {
-                    isInteractingRaw = true
-                    setWindowToFullScreen(true) // Expand window bounds immediately
-                } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-                    isInteractingRaw = false
-                    // We don't collapse here immediately; we let the LaunchedEffect below handle the settling logic.
+        composeView = object : ComposeView(this) {
+            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                    if (onBack()) return true
                 }
-                false // Return false to let the event propagate to the Compose layer for actual UI handling.
+                return super.dispatchKeyEvent(event)
             }
-
+        }.apply {
             setContent {
-                val density = LocalDensity.current
+                val composeDensity = LocalDensity.current
                 val fontSizeInt by viewModel.fontSize.collectAsState()
-                
-                // Calculate dynamic heights based on text size.
-                // Collapsed Height = 1 Line of text (approx 1.5x font size) + Vertical Padding (24dp) + Nav Bar.
-                // This ensures the "Peek" strip is exactly tall enough to show one line of logs.
-                val fontSizeSp = fontSizeInt.sp
-                val fontSizePx = with(density) { fontSizeSp.toPx() }
-                val paddingPx = with(density) { 24.dp.toPx() }
-                
-                val contentHeightPx = (fontSizePx * 1.5f) + paddingPx
-                val collapsedTotalHeightPx = (contentHeightPx + navBarHeightPx).toInt()
-                val collapsedHeightDp = with(density) { collapsedTotalHeightPx.toDp() }
-                val navBarHeightDp = with(density) { navBarHeightPx.toDp() }
-
-                // Determine initial state of the sheet.
-                val sheetState = rememberBottomSheetState(
-                    initialValue = BottomSheetValue.Collapsed
-                )
-
-                // Expose sheet state to the outer Service class for programmatic collapse.
-                DisposableEffect(sheetState) {
-                    bottomSheetState = sheetState
-                    onDispose { bottomSheetState = null }
-                }
-
-                // Window State Synchronization Logic
-                // This observes the Compose Sheet State and updates the WindowManager flags accordingly.
-                LaunchedEffect(sheetState.value, isInteractingRaw) {
-                    // Do not shrink the window while the user is actively touching it.
-                    if (isInteractingRaw) return@LaunchedEffect
-
-                    if (sheetState.value == BottomSheetValue.Collapsed) {
-                        // Delay slightly to allow the collapse animation to visually finish before clipping the window.
-                        delay(300)
-                        if (!isInteractingRaw) {
-                            setWindowToCollapsed(collapsedTotalHeightPx)
-                        }
-                    } else {
-                        // If Expanded or Peeking (custom logic often maps peek to expanded in window terms),
-                        // ensure the window fills the screen to receive touches everywhere.
-                        setWindowToFullScreen(false)
-                    }
-                }
+                val fontSpPx = with(composeDensity) { fontSizeInt.sp.toPx() }
+                val paddingPx = with(composeDensity) { 24.dp.toPx() }
+                val peekContentPx = (fontSpPx * 1.5f) + paddingPx
+                val peekTotalPx = (peekContentPx + navBarHeightPx).toInt()
+                val peekDp = with(composeDensity) { peekTotalPx.toDp() }
+                val navBarDp = with(composeDensity) { navBarHeightPx.toDp() }
+                val screenHeightDp = with(composeDensity) { screenHeightPx.toDp() }
 
                 LogKittyTheme {
                     LogBottomSheet(
-                        sheetState = sheetState,
+                        controller = controller,
                         viewModel = viewModel,
-                        screenHeight = with(density) { resources.displayMetrics.heightPixels.toDp() },
-                        navBarHeight = navBarHeightDp,
-                        collapsedHeightDp = collapsedHeightDp,
+                        screenHeight = screenHeightDp,
+                        navBarHeight = navBarDp,
+                        collapsedHeightDp = peekDp,
                         onSaveClick = {
-                            // Launch the file saver activity (requires UI context).
-                            val intent = Intent(this@LogKittyOverlayService, com.hereliesaz.logkitty.FileSaverActivity::class.java)
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            val intent = Intent(this@LogKittyOverlayService,
+                                com.hereliesaz.logkitty.FileSaverActivity::class.java)
+                                .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
                             startActivity(intent)
                         },
                         onSettingsClick = {
-                            // Launch the settings activity.
-                            val intent = Intent(this@LogKittyOverlayService, MainActivity::class.java)
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            intent.putExtra("EXTRA_SHOW_SETTINGS", true)
+                            val intent = Intent(this@LogKittyOverlayService, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                putExtra("EXTRA_SHOW_SETTINGS", true)
+                            }
                             startActivity(intent)
-                        }
+                        },
                     )
                 }
             }
         }
-
-        // Initialize the LifecycleHelper to enable Jetpack Compose within this Service.
         lifecycleHelper = ComposeLifecycleHelper(composeView!!)
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
-        // Define initial window parameters (Collapsed state).
-        val initialHeight = (100 * resources.displayMetrics.density).toInt()
-        
-        val params = WindowManager.LayoutParams(
+        // Initial layout params: position at bottom, height matched to PEEK detent.
+        val initialHeight = peekHeightPx(density, navBarHeightPx, viewModel.fontSize.value)
+        val params = baseLayoutParams(initialHeight, focusable = false)
+        try { windowManager.addView(composeView, params) }
+        catch (e: Exception) { e.printStackTrace() }
+
+        // React to detent changes: resize the window, toggle focusability for back support.
+        serviceScope.launch {
+            controller.detentFlow.collect { detent ->
+                val fontSize = viewModel.fontSize.value
+                val targetHeight = heightForDetent(detent, density, navBarHeightPx, fontSize, screenHeightPx)
+                val needsFocus = detent == SheetDetent.HALF || detent == SheetDetent.FULL
+                updateWindow(targetHeight, focusable = needsFocus)
+            }
+        }
+    }
+
+    /** Sheet height in pixels for the given detent. Mirrors the heights in [LogBottomSheet]. */
+    private fun heightForDetent(
+        detent: SheetDetent,
+        density: Float,
+        navBarHeightPx: Int,
+        fontSize: Int,
+        screenHeightPx: Int,
+    ): Int = when (detent) {
+        SheetDetent.HIDDEN -> (14f * density).toInt().coerceAtLeast(1)
+        SheetDetent.PEEK -> peekHeightPx(density, navBarHeightPx, fontSize)
+        SheetDetent.HALF -> (screenHeightPx * 0.5f).toInt()
+        SheetDetent.FULL -> (screenHeightPx * 0.9f).toInt()
+    }
+
+    private fun peekHeightPx(density: Float, navBarHeightPx: Int, fontSize: Int): Int {
+        val fontPx = fontSize.toFloat() * density
+        val paddingPx = 24f * density
+        return ((fontPx * 1.5f) + paddingPx + navBarHeightPx).toInt()
+    }
+
+    private fun baseLayoutParams(heightPx: Int, focusable: Boolean): WindowManager.LayoutParams {
+        // FLAG_NOT_TOUCH_MODAL is the key flag for passthrough — without it, any touch on the
+        // screen targets this window even outside its drawn bounds. With it, only touches inside
+        // the window's bounds reach us; everything else continues to the underlying app.
+        val flagsBase = WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+        val flags = if (focusable) flagsBase
+        else flagsBase or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
+        return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            initialHeight,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, // Required for drawing over other apps (API 26+)
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or // Don't steal key input (allows typing in other apps)
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or // Allow drawing behind system bars
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, // Use absolute coordinates
-            PixelFormat.TRANSLUCENT // Transparent background
+            heightPx,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            flags,
+            PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM
-            y = 0 // Anchor to the absolute bottom
-        }
-
-        try {
-            windowManager.addView(composeView, params)
-        } catch (e: Exception) {
-            e.printStackTrace()
+            y = 0
         }
     }
 
-    /**
-     * Expands the WindowManager layout to cover the entire screen.
-     * @param forceTouchable If true, ensures the window accepts touches immediately (removes FLAG_NOT_TOUCHABLE).
-     */
-    private fun setWindowToFullScreen(forceTouchable: Boolean) {
-        val params = composeView?.layoutParams as? WindowManager.LayoutParams ?: return
-        if (params.height != WindowManager.LayoutParams.MATCH_PARENT) {
-            params.height = WindowManager.LayoutParams.MATCH_PARENT
-            // Remove FLAG_NOT_TOUCHABLE so we can interact with the full UI.
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { android.util.Log.e("LogKittyOverlayService", "Failed to update window to full screen", e) }
+    private fun updateWindow(heightPx: Int, focusable: Boolean) {
+        val view = composeView ?: return
+        val params = view.layoutParams as? WindowManager.LayoutParams ?: return
+        params.height = heightPx
+        params.flags = baseLayoutParams(heightPx, focusable).flags
+        try { windowManager.updateViewLayout(view, params) }
+        catch (e: Exception) { e.printStackTrace() }
+    }
+
+    /** Intercepts back-button so HALF/FULL collapses to HIDDEN before the app gets it. */
+    private fun onBack(): Boolean {
+        return when (controller.detent) {
+            SheetDetent.HALF, SheetDetent.FULL -> { controller.hide(); true }
+            else -> false
         }
     }
 
-    /**
-     * Shrinks the WindowManager layout to just the height of the collapsed "peek" strip.
-     * This is crucial: it allows clicks on the rest of the screen to pass through to the underlying app.
-     * @param heightPx The target height in pixels.
-     */
-    private fun setWindowToCollapsed(heightPx: Int) {
-        val params = composeView?.layoutParams as? WindowManager.LayoutParams ?: return
-        if (params.height != heightPx) {
-            params.height = heightPx
-            // Remove FLAG_NOT_TOUCHABLE (logic seems redundant here, but ensures we are in a known state).
-            // Note: Even with this flag removed, because the window SIZE is small, touches outside it pass through.
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            try { windowManager.updateViewLayout(composeView, params) } catch (e: Exception) { e.printStackTrace() }
-        }
-    }
-
-    /**
-     * Creates the Notification Channel required for Android O+.
-     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Overlay Service",
-                NotificationManager.IMPORTANCE_LOW // Low importance to avoid sound/vibration
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            val channel = NotificationChannel(CHANNEL_ID, "Overlay Service", NotificationManager.IMPORTANCE_LOW)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
-    /**
-     * Builds the persistent notification for the Foreground Service.
-     */
     private fun createNotification(): Notification {
-        val stopIntent = Intent(this, LogKittyOverlayService::class.java).apply {
-            action = ACTION_STOP_SERVICE
-        }
-        val stopPendingIntent = PendingIntent.getService(
-            this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val settingsIntent = Intent(this, LogKittyOverlayService::class.java).apply {
-            action = ACTION_OPEN_SETTINGS
-        }
-        val settingsPendingIntent = PendingIntent.getService(
-            this, 1, settingsIntent, PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Standard icon (ensure it exists in drawable resources)
-        val icon = android.R.drawable.ic_menu_view
-
+        val stopIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_STOP_SERVICE }
+        val stopPending = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
+        val settingsIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_OPEN_SETTINGS }
+        val settingsPending = PendingIntent.getService(this, 1, settingsIntent, PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("LogKitty Running")
             .setContentText("Tap to Stop. Expand for Settings.")
-            .setSmallIcon(icon)
-            .setContentIntent(stopPendingIntent) // Tapping notification stops service (maybe change to open settings?)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Service", stopPendingIntent)
-            .addAction(android.R.drawable.ic_menu_preferences, "App Settings", settingsPendingIntent)
+            .setSmallIcon(android.R.drawable.ic_menu_view)
+            .setContentIntent(stopPending)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Service", stopPending)
+            .addAction(android.R.drawable.ic_menu_preferences, "App Settings", settingsPending)
             .setOngoing(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
 
     companion object {
-        private const val CHANNEL_ID = "ideaz_overlay_channel"
+        private const val CHANNEL_ID = "logkitty_overlay_channel"
         private const val SERVICE_ID = 1001
         private const val ACTION_STOP_SERVICE = "com.hereliesaz.logkitty.STOP_SERVICE"
         private const val ACTION_OPEN_SETTINGS = "com.hereliesaz.logkitty.OPEN_SETTINGS"
