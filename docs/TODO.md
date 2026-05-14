@@ -1,5 +1,20 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0. v0.6 — Overhaul (DONE)
+- [x] Replaced dokar3 bottom-sheet with a custom 4-detent overlay (HIDDEN / PEEK / HALF / FULL).
+- [x] Window size now mirrors the active detent, so taps outside the sheet always reach the underlying app.
+- [x] Thin (2dp) drag handle; gesture zones split between header (detent change) and log area (scroll), with side-swipe = tab switch in both.
+- [x] Tabs: System, Errors, and per-app — close-X only shows on the selected APP tab.
+- [x] X icon does two things: first press clears the active tab; second press (within 3s) hides the sheet.
+- [x] Save & Settings buttons collapse the sheet to HIDDEN before launching their action.
+- [x] Home / Recents collapse via the accessibility broadcast; back-button collapses HALF/FULL → HIDDEN, then second back goes to the app below.
+- [x] Selectable log entries with a Copy / Search (Google) / Prohibit action toolbar.
+- [x] Comprehensive color schemes: Material, Android Studio, Pidcat, Monochrome, Solarized, Custom. Tag-based highlights for common Android components (toggleable).
+- [x] Settings now houses the Prohibited list, Color Scheme editor, and Preferences export / import (JSON via SAF + clipboard).
+- [x] Removed the legacy AI-prompt placeholder.
+
+
+
 ## 1. Runtime Hardening & Safety Rails
 **Goal:** Prevent crashes and guide the user through the "Hostile" Android permission landscape.
 

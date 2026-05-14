@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.hereliesaz.logkitty.ui.LogColorScheme
 import com.hereliesaz.logkitty.ui.LogLevel
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +32,9 @@ data class ExportedPreferences(
     val logColors: Map<String, Int>,
     val showTimestamp: Boolean,
     val bufferSize: Int,
-    val activeLogLevels: Set<String>
+    val activeLogLevels: Set<String>,
+    val colorScheme: String = LogColorScheme.MATERIAL.name,
+    val tagColoringEnabled: Boolean = true
 )
 
 /**
@@ -106,9 +109,17 @@ class UserPreferences(context: Context) {
     private val _prohibitedTags = MutableStateFlow(loadProhibitedTags())
     val prohibitedTags: StateFlow<Set<String>> = _prohibitedTags.asStateFlow()
 
+    // --- Preference: Color Scheme ---
+    private val _colorScheme = MutableStateFlow(loadColorScheme())
+    val colorScheme: StateFlow<LogColorScheme> = _colorScheme.asStateFlow()
+
+    // --- Preference: Tag-Based Coloring ---
+    private val _tagColoringEnabled = MutableStateFlow(prefs.getBoolean(KEY_TAG_COLORING, true))
+    val tagColoringEnabled: StateFlow<Boolean> = _tagColoringEnabled.asStateFlow()
+
     // --- Preference: Log Colors ---
-    // Map of LogLevel to ARGB Color Integer.
-    private val _logColors = MutableStateFlow(loadLogColors())
+    // Map of LogLevel to ARGB Color Integer. Reflects the active scheme until the user customizes.
+    private val _logColors = MutableStateFlow(loadLogColors(_colorScheme.value))
     val logColors: StateFlow<Map<LogLevel, Color>> = _logColors.asStateFlow()
 
     // --- Setters ---
@@ -192,28 +203,60 @@ class UserPreferences(context: Context) {
     }
 
     /**
-     * Customizes the color for a specific log level.
+     * Customizes the color for a specific log level. Switches the scheme to CUSTOM so further
+     * scheme changes don't silently overwrite the user's overrides.
      */
     fun setLogColor(level: LogLevel, color: Color) {
         val current = _logColors.value.toMutableMap()
         current[level] = color
         _logColors.value = current
-        // Persist using a dynamic key like "color_ERROR"
-        prefs.edit().putInt(getKeyForColor(level), color.toArgb()).apply()
+        prefs.edit()
+            .putInt(getKeyForColor(level), color.toArgb())
+            .putString(KEY_COLOR_SCHEME, LogColorScheme.CUSTOM.name)
+            .apply()
+        _colorScheme.value = LogColorScheme.CUSTOM
     }
 
     /**
-     * Resets all log colors to their hardcoded defaults.
+     * Resets all log colors to the current scheme's defaults (clearing user overrides).
      */
     fun resetLogColors() {
         val editor = prefs.edit()
-        val defaultColors = mutableMapOf<LogLevel, Color>()
+        val scheme = if (_colorScheme.value == LogColorScheme.CUSTOM) LogColorScheme.MATERIAL else _colorScheme.value
+        val baseColors = mutableMapOf<LogLevel, Color>()
         LogLevel.values().forEach { level ->
             editor.remove(getKeyForColor(level))
-            defaultColors[level] = level.defaultColor
+            baseColors[level] = scheme.colorFor(level)
+        }
+        editor.putString(KEY_COLOR_SCHEME, scheme.name).apply()
+        _colorScheme.value = scheme
+        _logColors.value = baseColors
+    }
+
+    /**
+     * Switches the active color scheme. Per-level overrides are dropped when moving away from CUSTOM.
+     */
+    fun setColorScheme(scheme: LogColorScheme) {
+        val editor = prefs.edit()
+        editor.putString(KEY_COLOR_SCHEME, scheme.name)
+        val palette = mutableMapOf<LogLevel, Color>()
+        LogLevel.values().forEach { level ->
+            if (scheme == LogColorScheme.CUSTOM) {
+                val saved = prefs.getInt(getKeyForColor(level), Int.MIN_VALUE)
+                palette[level] = if (saved == Int.MIN_VALUE) LogColorScheme.MATERIAL.colorFor(level) else Color(saved)
+            } else {
+                editor.remove(getKeyForColor(level))
+                palette[level] = scheme.colorFor(level)
+            }
         }
         editor.apply()
-        _logColors.value = defaultColors
+        _colorScheme.value = scheme
+        _logColors.value = palette
+    }
+
+    fun setTagColoringEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_TAG_COLORING, enabled).apply()
+        _tagColoringEnabled.value = enabled
     }
 
     // --- Helpers ---
@@ -226,13 +269,23 @@ class UserPreferences(context: Context) {
         prefs.edit().putStringSet(KEY_PROHIBITED_TAGS, tags).apply()
     }
 
-    private fun loadLogColors(): Map<LogLevel, Color> {
+    private fun loadLogColors(scheme: LogColorScheme): Map<LogLevel, Color> {
         val colors = mutableMapOf<LogLevel, Color>()
         LogLevel.values().forEach { level ->
-            val colorInt = prefs.getInt(getKeyForColor(level), level.defaultColor.toArgb())
-            colors[level] = Color(colorInt)
+            if (scheme == LogColorScheme.CUSTOM) {
+                val saved = prefs.getInt(getKeyForColor(level), Int.MIN_VALUE)
+                colors[level] = if (saved == Int.MIN_VALUE) LogColorScheme.MATERIAL.colorFor(level) else Color(saved)
+            } else {
+                colors[level] = scheme.colorFor(level)
+            }
         }
         return colors
+    }
+
+    private fun loadColorScheme(): LogColorScheme {
+        val name = prefs.getString(KEY_COLOR_SCHEME, LogColorScheme.MATERIAL.name)
+            ?: LogColorScheme.MATERIAL.name
+        return try { LogColorScheme.valueOf(name) } catch (e: Exception) { LogColorScheme.MATERIAL }
     }
 
     private fun getKeyForColor(level: LogLevel) = "color_${level.name}"
@@ -256,21 +309,23 @@ class UserPreferences(context: Context) {
             logColors = colorMap,
             showTimestamp = _showTimestamp.value,
             bufferSize = _bufferSize.value,
-            activeLogLevels = _activeLogLevels.value
+            activeLogLevels = _activeLogLevels.value,
+            colorScheme = _colorScheme.value.name,
+            tagColoringEnabled = _tagColoringEnabled.value
         )
         return try {
-            Json.encodeToString(exported)
+            Json { prettyPrint = true }.encodeToString(exported)
         } catch (e: Exception) { "{}" }
     }
 
     /**
      * Imports preferences from a JSON string, updating both the persistent store and the live flows.
      */
-    fun importPreferences(jsonString: String) {
-        try {
-            val imported = Json.decodeFromString<ExportedPreferences>(jsonString)
+    fun importPreferences(jsonString: String): Boolean {
+        return try {
+            val parser = Json { ignoreUnknownKeys = true; isLenient = true }
+            val imported = parser.decodeFromString<ExportedPreferences>(jsonString)
 
-            // Apply simple values
             setContextModeEnabled(imported.contextMode)
             setCustomFilter(imported.customFilter)
             setOverlayOpacity(imported.overlayOpacity)
@@ -281,8 +336,8 @@ class UserPreferences(context: Context) {
             setLogReversed(imported.isLogReversed)
             setShowTimestamp(imported.showTimestamp)
             setBufferSize(imported.bufferSize)
-            
-            // Apply Collections
+            setTagColoringEnabled(imported.tagColoringEnabled)
+
             val levels = imported.activeLogLevels.toMutableSet()
             prefs.edit().putStringSet(KEY_ACTIVE_LOG_LEVELS, levels).apply()
             _activeLogLevels.value = levels
@@ -291,25 +346,26 @@ class UserPreferences(context: Context) {
             _prohibitedTags.value = tags
             saveProhibitedTags(tags)
 
-            // Apply Colors
+            val scheme = try { LogColorScheme.valueOf(imported.colorScheme) } catch (e: Exception) { LogColorScheme.MATERIAL }
+
             val editor = prefs.edit()
             val newColors = mutableMapOf<LogLevel, Color>()
-            // Initialize with defaults in case JSON is missing some keys
-            LogLevel.values().forEach { newColors[it] = it.defaultColor }
+            LogLevel.values().forEach { newColors[it] = scheme.colorFor(it) }
 
             imported.logColors.forEach { (levelName, colorInt) ->
                 try {
                     val level = LogLevel.valueOf(levelName)
-                    val color = Color(colorInt)
-                    newColors[level] = color
+                    newColors[level] = Color(colorInt)
                     editor.putInt(getKeyForColor(level), colorInt)
                 } catch (e: IllegalArgumentException) { }
             }
-            editor.apply()
+            editor.putString(KEY_COLOR_SCHEME, scheme.name).apply()
+            _colorScheme.value = scheme
             _logColors.value = newColors
-
+            true
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 
@@ -327,5 +383,7 @@ class UserPreferences(context: Context) {
         private const val KEY_SHOW_TIMESTAMP = "show_timestamp"
         private const val KEY_BUFFER_SIZE = "buffer_size"
         private const val KEY_ACTIVE_LOG_LEVELS = "active_log_levels"
+        private const val KEY_COLOR_SCHEME = "color_scheme"
+        private const val KEY_TAG_COLORING = "tag_coloring_enabled"
     }
 }

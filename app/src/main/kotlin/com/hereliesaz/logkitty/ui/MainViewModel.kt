@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hereliesaz.logkitty.services.LogKittyAccessibilityService
+import com.hereliesaz.logkitty.ui.delegates.IndexedLogLine
 import com.hereliesaz.logkitty.ui.delegates.StateDelegate
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogcatReader
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -85,6 +87,14 @@ class MainViewModel(
     val showTimestamp: StateFlow<Boolean> = userPreferences.showTimestamp
     val bufferSize: StateFlow<Int> = userPreferences.bufferSize
     val activeLogLevels: StateFlow<Set<String>> = userPreferences.activeLogLevels
+    val colorScheme: StateFlow<LogColorScheme> = userPreferences.colorScheme
+    val tagColoringEnabled: StateFlow<Boolean> = userPreferences.tagColoringEnabled
+
+    /**
+     * Per-tab "cleared" baseline. When the user clears a single tab we record the size of the
+     * underlying log buffer at that moment and skip everything before it for that tab only.
+     */
+    private val _tabClearMarks = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     // Tab Management
     private val systemTab = LogTab("system", "System", TabType.SYSTEM)
@@ -96,59 +106,56 @@ class MainViewModel(
     private val _selectedTab = MutableStateFlow(systemTab)
     val selectedTab: StateFlow<LogTab> = _selectedTab
 
-    // --- The Core Pipeline ---
-    // This Flow combines all inputs to produce the final list of logs shown on screen.
-    // It re-runs whenever any of the inputs (logs, tab, filter, etc.) change.
-    val filteredSystemLog = combine(
-        stateDelegate.systemLog,
-        _selectedTab,
-        customFilter,
-        prohibitedTags,
-        activeLogLevels
-    ) { logs, tab, userFilter, prohibited, levels ->
-        var result = logs
+    private data class FilterInputs(
+        val tab: LogTab,
+        val userFilter: String,
+        val prohibited: Set<String>,
+        val levels: Set<String>,
+        val marks: Map<String, Long>
+    )
 
-        // 1. Filter Log Levels (Verbose, Debug, Info, etc.)
-        // Optimization: Only run if some levels are actually disabled.
-        if (levels.size < LogLevel.values().size) {
-            result = result.filter { line ->
-                val level = LogLevel.fromLine(line)
-                levels.contains(level.name)
-            }
+    /**
+     * Indexed, filtered view of the log stream for the current tab.
+     * Each entry preserves its global id so the UI can stably select / copy / prohibit it.
+     */
+    val filteredIndexedLog: StateFlow<List<IndexedLogLine>> = run {
+        val inputs = combine(_selectedTab, customFilter, prohibitedTags, activeLogLevels, _tabClearMarks) {
+            tab, userFilter, prohibited, levels, marks -> FilterInputs(tab, userFilter, prohibited, levels, marks)
         }
+        combine(stateDelegate.systemLog, inputs) { logs, input ->
+            val clearMark = input.marks[input.tab.id] ?: 0L
+            var result: List<IndexedLogLine> = if (clearMark > 0L) logs.filter { it.id > clearMark } else logs
 
-        // 2. Filter prohibited tags (Blacklist)
-        if (prohibited.isNotEmpty()) {
-            result = result.filter { logLine ->
-                // Check if any prohibited tag exists in the line.
-                // Case-insensitive for better UX.
-                prohibited.none { tag -> logLine.contains(tag, ignoreCase = true) }
+            if (input.levels.size < LogLevel.values().size) {
+                result = result.filter { line -> input.levels.contains(LogLevel.fromLine(line.text).name) }
             }
-        }
-
-        // 3. Tab-based filtering
-        when (tab.type) {
-            TabType.SYSTEM -> { /* Show all (subject to other filters) */ }
-            TabType.ERRORS -> {
-                // Heuristic for finding error logs.
-                result = result.filter { it.contains(" E/") || it.contains(" E ") }
+            if (input.prohibited.isNotEmpty()) {
+                result = result.filter { line -> input.prohibited.none { tag -> line.text.contains(tag, ignoreCase = true) } }
             }
-            TabType.APP -> {
-                // Show logs containing the package name.
-                val pkg = tab.filterValue
-                if (!pkg.isNullOrBlank()) {
-                    result = result.filter { it.contains(pkg, ignoreCase = true) }
+            when (input.tab.type) {
+                TabType.SYSTEM -> { }
+                TabType.ERRORS -> result = result.filter {
+                    val lvl = LogLevel.fromLine(it.text)
+                    lvl == LogLevel.ERROR || lvl == LogLevel.ASSERT
+                }
+                TabType.APP -> {
+                    val pkg = input.tab.filterValue
+                    if (!pkg.isNullOrBlank()) result = result.filter { it.text.contains(pkg, ignoreCase = true) }
                 }
             }
-        }
+            if (input.userFilter.isNotBlank()) {
+                result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }
+            }
+            result
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }
 
-        // 4. User custom text filter (Search bar)
-        if (userFilter.isNotBlank()) {
-            result = result.filter { it.contains(userFilter, ignoreCase = true) }
-        }
-
-        result
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    /**
+     * Backward-compatible textual view retained for callers (e.g. FileSaverActivity).
+     */
+    val filteredSystemLog: StateFlow<List<String>> = filteredIndexedLog
+        .map { list -> list.map { it.text } }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // --- Accessibility Receiver ---
     // Listens for broadcasts from LogKittyAccessibilityService.
@@ -209,14 +216,35 @@ class MainViewModel(
         _selectedTab.value = tab
     }
 
+    /** Move selection one tab forward / back, wrapping at the ends. */
+    fun selectNextTab() = shiftSelection(+1)
+    fun selectPreviousTab() = shiftSelection(-1)
+
+    private fun shiftSelection(delta: Int) {
+        val list = _tabs.value
+        if (list.isEmpty()) return
+        val idx = list.indexOf(_selectedTab.value).takeIf { it >= 0 } ?: 0
+        val newIdx = ((idx + delta) % list.size + list.size) % list.size
+        _selectedTab.value = list[newIdx]
+    }
+
     fun closeTab(tab: LogTab) {
         if (tab.type == TabType.APP) {
             _tabs.update { it - tab }
-            // If we closed the active tab, switch back to System.
             if (_selectedTab.value == tab) {
                 _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
             }
+            _tabClearMarks.update { it - tab.id }
         }
+    }
+
+    /**
+     * Clears only the active tab by recording the current max id as that tab's "skip line".
+     * Other tabs continue to see historical data.
+     */
+    fun clearActiveTab() {
+        val tabId = _selectedTab.value.id
+        _tabClearMarks.update { it + (tabId to stateDelegate.currentMaxId) }
     }
 
     override fun onCleared() {
@@ -230,7 +258,15 @@ class MainViewModel(
 
     // --- Actions Delegate to Data Layer ---
 
-    fun clearLog() = stateDelegate.clearLog()
+    /** Clears the entire shared log buffer (all tabs). */
+    fun clearLog() {
+        stateDelegate.clearLog()
+        _tabClearMarks.value = emptyMap()
+    }
+
+    fun setTagColoringEnabled(enabled: Boolean) {
+        userPreferences.setTagColoringEnabled(enabled)
+    }
 
     fun toggleContextMode() {
         userPreferences.setContextModeEnabled(!isContextModeEnabled.value)
@@ -313,6 +349,7 @@ class MainViewModel(
     fun exportPreferences() = userPreferences.exportPreferences()
     fun importPreferences(json: String) = userPreferences.importPreferences(json)
 
-    // Placeholder for future AI prompt features.
-    fun sendPrompt(p: String?) { }
+    fun setColorScheme(scheme: com.hereliesaz.logkitty.ui.LogColorScheme) {
+        userPreferences.setColorScheme(scheme)
+    }
 }
