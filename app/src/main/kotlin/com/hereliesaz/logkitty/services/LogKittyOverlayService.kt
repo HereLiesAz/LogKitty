@@ -17,8 +17,13 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.WindowManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -27,6 +32,7 @@ import androidx.core.app.NotificationCompat
 import com.hereliesaz.logkitty.MainActivity
 import com.hereliesaz.logkitty.MainApplication
 import com.hereliesaz.logkitty.ui.LogBottomSheet
+import com.hereliesaz.logkitty.ui.MainViewModel
 import com.hereliesaz.logkitty.ui.SheetController
 import com.hereliesaz.logkitty.ui.SheetDetent
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
@@ -67,6 +73,13 @@ class LogKittyOverlayService : Service() {
     private lateinit var windowManager: WindowManager
     private var composeView: ComposeView? = null
     private var lifecycleHelper: ComposeLifecycleHelper? = null
+
+    // The second, non-touchable overlay window painted on top of the system navigation bar.
+    // It uses TYPE_ACCESSIBILITY_OVERLAY so it sits *above* the nav bar in z-order, hiding
+    // the bar's opaque background with our sheet color. FLAG_NOT_TOUCHABLE + NOT_TOUCH_MODAL
+    // means touches pass through to the nav bar buttons / gesture area below.
+    private var navDecorView: ComposeView? = null
+    private var navDecorLifecycle: ComposeLifecycleHelper? = null
 
     private val controller = SheetController()
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -130,6 +143,13 @@ class LogKittyOverlayService : Service() {
             try {
                 lifecycleHelper?.onStop()
                 lifecycleHelper?.onDestroy()
+                windowManager.removeView(view)
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+        navDecorView?.let { view ->
+            try {
+                navDecorLifecycle?.onStop()
+                navDecorLifecycle?.onDestroy()
                 windowManager.removeView(view)
             } catch (e: Exception) { e.printStackTrace() }
         }
@@ -231,6 +251,71 @@ class LogKittyOverlayService : Service() {
             viewModel.currentForegroundApp.collect { pkg ->
                 controller.isEnabled = !LogKittyAccessibilityService.isLauncherPackage(pkg)
             }
+        }
+
+        setupNavBarDecoration(viewModel, navBarHeightPx)
+    }
+
+    /**
+     * Add a non-interactive overlay strip sitting on top of the system navigation bar so the
+     * bar's opaque background visually disappears — replaced by the same translucent sheet
+     * color. Uses TYPE_ACCESSIBILITY_OVERLAY because that window type renders *above* the
+     * nav bar (TYPE_APPLICATION_OVERLAY renders behind it). Requires that the user has
+     * granted accessibility permission to LogKittyAccessibilityService; if they haven't, the
+     * addView call will throw and we fall back to the un-decorated nav bar.
+     *
+     * FLAG_NOT_TOUCHABLE + FLAG_NOT_TOUCH_MODAL: touches in this strip pass through to the
+     * system nav bar below, so 3-button taps and gesture-nav swipes keep working.
+     */
+    private fun setupNavBarDecoration(
+        viewModel: MainViewModel,
+        navBarHeightPx: Int,
+    ) {
+        if (navBarHeightPx <= 0) return
+        val view = ComposeView(this).apply {
+            setContent {
+                val opacity by viewModel.overlayOpacity.collectAsState()
+                val bgInt by viewModel.backgroundColor.collectAsState()
+                val detent by controller.detentFlow.collectAsState()
+                val enabled by controller.isEnabledFlow.collectAsState()
+                // Match the sheet body: same translucent color, only visible when the
+                // sheet itself is visible. HIDDEN and the disabled-on-launcher state leave
+                // the nav bar untouched.
+                val visible = enabled && detent != SheetDetent.HIDDEN
+                val color = if (visible) Color(bgInt).copy(alpha = opacity) else Color.Transparent
+                Box(modifier = Modifier.fillMaxSize().background(color))
+            }
+        }
+        navDecorLifecycle = ComposeLifecycleHelper(view).apply {
+            onCreate()
+            onStart()
+        }
+
+        val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            navBarHeightPx,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            flags,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM
+            y = 0
+        }
+        try {
+            windowManager.addView(view, params)
+            navDecorView = view
+        } catch (e: Exception) {
+            // Likely no active AccessibilityService — fall back silently; the main overlay
+            // still works, the nav bar just stays opaque.
+            navDecorLifecycle?.onStop()
+            navDecorLifecycle?.onDestroy()
+            navDecorLifecycle = null
+            e.printStackTrace()
         }
     }
 
