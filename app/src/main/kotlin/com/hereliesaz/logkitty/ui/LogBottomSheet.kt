@@ -157,26 +157,35 @@ fun LogBottomSheet(
                 )
             }
             SheetDetent.HALF, SheetDetent.FULL -> {
-                val sheetFraction = if (current == SheetDetent.HALF) 0.5f else 0.9f
-                val sheetHeight = screenHeight * sheetFraction
-                // Transparent scrim covers the whole window; tap anywhere above the sheet
-                // steps the detent down by one.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() }
-                        ) { controller.stepDown() }
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(sheetHeight)
-                        .align(Alignment.BottomCenter)
-                        .background(sheetBackgroundColor)
-                ) {
-                    ExpandedView(
+                // Split the window into scrim (top) and sheet (bottom) by weight so the
+                // sheet always uses its full share of the *actually measured* window —
+                // independent of any insets the system applies to the configured height.
+                val scrimWeight: Float
+                val sheetWeight: Float
+                if (current == SheetDetent.HALF) {
+                    scrimWeight = 1f; sheetWeight = 1f      // 50 / 50
+                } else {
+                    scrimWeight = 1f; sheetWeight = 9f      // 10 / 90
+                }
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Transparent scrim — tap anywhere above the sheet steps the detent
+                    // down by one.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(scrimWeight)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) { controller.stepDown() }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(sheetWeight)
+                            .background(sheetBackgroundColor)
+                    ) {
+                        ExpandedView(
                         tabs = tabs,
                         selectedTab = selectedTab,
                         indexedLog = indexedLog,
@@ -234,6 +243,7 @@ fun LogBottomSheet(
                             selectedLineId = null
                         },
                     )
+                    }
                 }
             }
         }
@@ -526,7 +536,7 @@ private fun LogRow(
             fontSize = fontSize.sp,
             lineHeight = (fontSize * 1.35f).sp,
             style = MaterialTheme.typography.bodySmall,
-            overflow = TextOverflow.Visible
+            overflow = TextOverflow.Visible,
         )
     }
 }
