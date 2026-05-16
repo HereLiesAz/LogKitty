@@ -35,15 +35,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
  * [LogKittyOverlayService] hosts the always-on Compose overlay.
  *
  * **Touch confinement**
- * The WindowManager view is resized to match the current sheet detent so taps outside the sheet
- * fall through to the underlying application — even when the sheet is FULL height (the bottom 90%
- * of the screen) the window leaves the top 10% untouchable.
+ * The WindowManager view is resized per detent. HIDDEN and PEEK shrink to a strip at the bottom
+ * so the rest of the screen reaches the underlying app. HALF and FULL extend to full screen height
+ * so the Compose layer can render a transparent scrim above the sheet — a tap on that scrim
+ * steps the detent down by one.
+ *
+ * **Launcher passthrough**
+ * The accessibility service exposes the foreground package via the shared ViewModel. While the
+ * launcher is foreground the overlay disables itself ([SheetController.isEnabled] = false) and
+ * the window shrinks to 1 px so the system swipe-up-for-app-drawer gesture is untouched.
  *
  * **Back-button handling**
  * When the sheet is HALF or FULL the window is focusable, so the system delivers back events.
@@ -187,35 +194,66 @@ class LogKittyOverlayService : Service() {
         lifecycleHelper!!.onCreate()
         lifecycleHelper!!.onStart()
 
-        // Initial layout params: position at bottom, height matched to PEEK detent.
-        val initialHeight = peekHeightPx(density, navBarHeightPx, viewModel.fontSize.value)
+        // Initial layout params match the controller's starting detent (HIDDEN, enabled).
+        val initialHeight = heightForDetent(
+            controller.detent,
+            controller.isEnabled,
+            density,
+            navBarHeightPx,
+            viewModel.fontSize.value,
+            screenHeightPx,
+        )
         val params = baseLayoutParams(initialHeight, focusable = false)
         try { windowManager.addView(composeView, params) }
         catch (e: Exception) { e.printStackTrace() }
 
-        // React to detent changes: resize the window, toggle focusability for back support.
+        // React to detent + enabled + font-size changes: resize the window, toggle focusability
+        // for back support. Including fontSize here means the PEEK strip resizes immediately
+        // when the user changes it in settings, instead of waiting for the next detent change.
         serviceScope.launch {
-            controller.detentFlow.collect { detent ->
-                val fontSize = viewModel.fontSize.value
-                val targetHeight = heightForDetent(detent, density, navBarHeightPx, fontSize, screenHeightPx)
-                val needsFocus = detent == SheetDetent.HALF || detent == SheetDetent.FULL
-                updateWindow(targetHeight, focusable = needsFocus)
+            combine(
+                controller.detentFlow,
+                controller.isEnabledFlow,
+                viewModel.fontSize,
+            ) { detent, enabled, fontSize -> Triple(detent, enabled, fontSize) }
+                .collect { (detent, enabled, fontSize) ->
+                    val targetHeight = heightForDetent(
+                        detent, enabled, density, navBarHeightPx, fontSize, screenHeightPx
+                    )
+                    val needsFocus = enabled && (detent == SheetDetent.HALF || detent == SheetDetent.FULL)
+                    updateWindow(targetHeight, focusable = needsFocus)
+                }
+        }
+
+        // While on the launcher, disable the overlay so the system swipe-up-for-app-drawer
+        // gesture is untouched. Re-enable when any other foreground app comes up.
+        serviceScope.launch {
+            viewModel.currentForegroundApp.collect { pkg ->
+                controller.isEnabled = !LogKittyAccessibilityService.isLauncherPackage(pkg)
             }
         }
     }
 
-    /** Sheet height in pixels for the given detent. Mirrors the heights in [LogBottomSheet]. */
+    /**
+     * Sheet height in pixels for the given detent and enabled state.
+     *
+     * HALF and FULL use the full screen height — the Compose layer draws a transparent
+     * scrim above the sheet body so a tap outside steps the detent down by one.
+     */
     private fun heightForDetent(
         detent: SheetDetent,
+        enabled: Boolean,
         density: Float,
         navBarHeightPx: Int,
         fontSize: Int,
         screenHeightPx: Int,
-    ): Int = when (detent) {
-        SheetDetent.HIDDEN -> (14f * density).toInt().coerceAtLeast(1)
-        SheetDetent.PEEK -> peekHeightPx(density, navBarHeightPx, fontSize)
-        SheetDetent.HALF -> (screenHeightPx * 0.5f).toInt()
-        SheetDetent.FULL -> (screenHeightPx * 0.9f).toInt()
+    ): Int {
+        if (!enabled) return 1
+        return when (detent) {
+            SheetDetent.HIDDEN -> (14f * density).toInt().coerceAtLeast(1)
+            SheetDetent.PEEK -> peekHeightPx(density, navBarHeightPx, fontSize)
+            SheetDetent.HALF, SheetDetent.FULL -> screenHeightPx
+        }
     }
 
     private fun peekHeightPx(density: Float, navBarHeightPx: Int, fontSize: Int): Int {

@@ -25,6 +25,15 @@ class LogKittyAccessibilityService : AccessibilityService() {
         const val EXTRA_REASON = "reason"
         const val REASON_HOME = "home"
         const val REASON_RECENTS = "recents"
+
+        fun isLauncherPackage(pkg: String?): Boolean {
+            if (pkg.isNullOrBlank()) return false
+            return pkg == "com.google.android.apps.nexuslauncher" ||
+                pkg == "com.sec.android.app.launcher" ||
+                pkg == "com.android.launcher" ||
+                pkg == "com.android.launcher3" ||
+                pkg.contains("launcher", ignoreCase = true)
+        }
     }
 
     override fun onServiceConnected() {
@@ -59,14 +68,9 @@ class LogKittyAccessibilityService : AccessibilityService() {
         val isRecents = lowerCls.contains("recents") ||
             lowerCls.contains("taskswitcher") ||
             lowerCls.contains("overview")
-        val isLauncher = pkg.contains("launcher", ignoreCase = true) ||
-            pkg == "com.google.android.apps.nexuslauncher" ||
-            pkg == "com.sec.android.app.launcher" ||
-            pkg == "com.android.launcher" ||
-            pkg == "com.android.launcher3"
         return when {
             isRecents -> REASON_RECENTS
-            isLauncher -> REASON_HOME
+            isLauncherPackage(pkg) -> REASON_HOME
             pkg == "com.android.systemui" -> REASON_RECENTS
             else -> null
         }
