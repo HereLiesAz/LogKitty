@@ -286,9 +286,10 @@ class LogKittyOverlayService : Service() {
                 Box(modifier = Modifier.fillMaxSize().background(color))
             }
         }
-        navDecorLifecycle = ComposeLifecycleHelper(view)
-        navDecorLifecycle!!.onCreate()
-        navDecorLifecycle!!.onStart()
+        navDecorLifecycle = ComposeLifecycleHelper(view).apply {
+            onCreate()
+            onStart()
+        }
 
         val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or

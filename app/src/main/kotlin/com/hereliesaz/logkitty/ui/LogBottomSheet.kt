@@ -160,13 +160,9 @@ fun LogBottomSheet(
                 // Split the window into scrim (top) and sheet (bottom) by weight so the
                 // sheet always uses its full share of the *actually measured* window —
                 // independent of any insets the system applies to the configured height.
-                val scrimWeight: Float
-                val sheetWeight: Float
-                if (current == SheetDetent.HALF) {
-                    scrimWeight = 1f; sheetWeight = 1f      // 50 / 50
-                } else {
-                    scrimWeight = 1f; sheetWeight = 9f      // 10 / 90
-                }
+                // HALF = 1:1 (≈ 50/50 split), FULL = 1:9 (≈ 10/90 split).
+                val scrimWeight = 1f
+                val sheetWeight = if (current == SheetDetent.HALF) 1f else 9f
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Transparent scrim — tap anywhere above the sheet steps the detent
                     // down by one.
