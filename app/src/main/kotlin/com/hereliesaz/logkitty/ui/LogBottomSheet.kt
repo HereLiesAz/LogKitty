@@ -18,14 +18,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Clear
@@ -52,7 +49,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -74,18 +70,18 @@ import kotlin.math.abs
  * The four-detent overlay rewritten for the new gesture and tab model.
  *
  * **Detents**
- *   HIDDEN  – a thin invisible grab-strip; the window shrinks so taps go to the underlying app.
+ *   HIDDEN  – an invisible swipe-up zone at the bottom edge; the window shrinks so the
+ *             underlying app receives every touch outside that strip. The launcher disables
+ *             the overlay entirely so the swipe-up-for-app-drawer gesture is untouched.
  *   PEEK    – a one-line ticker showing the latest log entry.
- *   HALF    – roughly 50% of the screen.
- *   FULL    – extends so the log fills everything except the bottom 10% of the screen.
+ *   HALF    – roughly 50% of the screen, with a transparent scrim above.
+ *   FULL    – the log fills everything except the bottom 10% of the screen, scrim above.
  *
- * **Gestures (handle / header row area)**
- *   Vertical drag   → step the detent up or down.
- *   Horizontal drag → switch to the previous/next tab.
- *
- * **Gestures (below the header)**
- *   Vertical drag   → scrolls the log (LazyColumn).
- *   Horizontal drag → switches tabs.
+ * **Gestures**
+ *   Swipe up from the HIDDEN strip → step to PEEK (then HALF, then FULL on subsequent swipes).
+ *   Tap anywhere on the scrim above an expanded sheet → step down by one detent.
+ *   Header row vertical drag       → step the detent up or down.
+ *   Header / row horizontal drag   → switch to the previous/next tab.
  *
  * **Selection model**
  *   Tap a log line → an action toolbar (copy / search / prohibit) appears at the top of the log area.
@@ -134,119 +130,134 @@ fun LogBottomSheet(
         selectedLineId?.let { id -> indexedLog.firstOrNull { it.id == id } }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(sheetBackgroundColor)
-    ) {
-        when (controller.detent) {
-            SheetDetent.HIDDEN -> HiddenHandle(
+    val current = controller.detent
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (current) {
+            SheetDetent.HIDDEN -> HiddenSwipeZone(
                 modifier = Modifier.fillMaxSize(),
-                onSwipeUp = { controller.peek() },
-                onTap = { controller.peek() }
+                onSwipeUp = { controller.stepUp() }
             )
-            SheetDetent.PEEK -> PeekStrip(
-                modifier = Modifier.fillMaxSize(),
-                latest = indexedLog.lastOrNull()?.text ?: "LogKitty Ready",
-                showTimestamp = showTimestamp,
-                fontFamily = currentFontFamily,
-                fontSize = fontSize,
-                navBarHeight = navBarHeight,
-                onTap = { controller.half() },
-                onSwipeUp = { controller.stepUp() },
-                onSwipeDown = { controller.hide() },
-                onSwipeLeft = { viewModel.selectNextTab() },
-                onSwipeRight = { viewModel.selectPreviousTab() }
-            )
-            SheetDetent.HALF, SheetDetent.FULL -> ExpandedView(
-                tabs = tabs,
-                selectedTab = selectedTab,
-                indexedLog = indexedLog,
-                logColors = logColors,
-                tagColoringEnabled = tagColoringEnabled,
-                fontFamily = currentFontFamily,
-                fontSize = fontSize,
-                showTimestamp = showTimestamp,
-                isLogReversed = isLogReversed,
-                navBarHeight = navBarHeight,
-                selectedLine = selectedLine,
-                onSelectLine = { id -> selectedLineId = if (selectedLineId == id) null else id },
-                onClearSelection = { selectedLineId = null },
-                onTabSelected = { viewModel.selectTab(it) },
-                onCloseAppTab = { viewModel.closeTab(it) },
-                onSwipeLeft = { viewModel.selectNextTab() },
-                onSwipeRight = { viewModel.selectPreviousTab() },
-                onHeaderDragUp = { controller.stepUp() },
-                onHeaderDragDown = { controller.stepDown() },
-                onSaveClick = {
-                    controller.hide()
-                    onSaveClick()
-                },
-                onSettingsClick = {
-                    controller.hide()
-                    onSettingsClick()
-                },
-                onClearClick = {
-                    val now = System.currentTimeMillis()
-                    if (now - lastClearAt < 3000L) {
-                        controller.hide()
-                        lastClearAt = 0L
-                    } else {
-                        viewModel.clearActiveTab()
-                        lastClearAt = now
-                    }
-                },
-                onCopyLine = { line ->
-                    clipboardManager.setText(AnnotatedString(line.text))
-                    selectedLineId = null
-                },
-                onSearchLine = { line ->
-                    // Cap the query — full log lines (stack traces) can blow past the URL/intent
-                    // size limits and silently fail to launch the browser.
-                    val query = java.net.URLEncoder.encode(line.text.take(500), "UTF-8")
-                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse("https://www.google.com/search?q=$query")).apply {
-                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    runCatching { context.startActivity(intent) }
-                    selectedLineId = null
-                },
-                onProhibitLine = { line ->
-                    viewModel.prohibitLog(line.text)
-                    selectedLineId = null
-                },
-            )
+            SheetDetent.PEEK -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(sheetBackgroundColor)
+            ) {
+                PeekStrip(
+                    modifier = Modifier.fillMaxSize(),
+                    latest = indexedLog.lastOrNull()?.text ?: "LogKitty Ready",
+                    showTimestamp = showTimestamp,
+                    fontFamily = currentFontFamily,
+                    fontSize = fontSize,
+                    navBarHeight = navBarHeight,
+                    onTap = { controller.stepUp() },
+                    onSwipeUp = { controller.stepUp() },
+                    onSwipeDown = { controller.hide() },
+                    onSwipeLeft = { viewModel.selectNextTab() },
+                    onSwipeRight = { viewModel.selectPreviousTab() }
+                )
+            }
+            SheetDetent.HALF, SheetDetent.FULL -> {
+                val sheetFraction = if (current == SheetDetent.HALF) 0.5f else 0.9f
+                val sheetHeight = screenHeight * sheetFraction
+                // Transparent scrim covers the whole window; tap anywhere above the sheet
+                // steps the detent down by one.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { controller.stepDown() }
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(sheetHeight)
+                        .align(Alignment.BottomCenter)
+                        .background(sheetBackgroundColor)
+                ) {
+                    ExpandedView(
+                        tabs = tabs,
+                        selectedTab = selectedTab,
+                        indexedLog = indexedLog,
+                        logColors = logColors,
+                        tagColoringEnabled = tagColoringEnabled,
+                        fontFamily = currentFontFamily,
+                        fontSize = fontSize,
+                        showTimestamp = showTimestamp,
+                        isLogReversed = isLogReversed,
+                        navBarHeight = navBarHeight,
+                        selectedLine = selectedLine,
+                        onSelectLine = { id -> selectedLineId = if (selectedLineId == id) null else id },
+                        onClearSelection = { selectedLineId = null },
+                        onTabSelected = { viewModel.selectTab(it) },
+                        onCloseAppTab = { viewModel.closeTab(it) },
+                        onSwipeLeft = { viewModel.selectNextTab() },
+                        onSwipeRight = { viewModel.selectPreviousTab() },
+                        onHeaderDragUp = { controller.stepUp() },
+                        onHeaderDragDown = { controller.stepDown() },
+                        onSaveClick = {
+                            controller.hide()
+                            onSaveClick()
+                        },
+                        onSettingsClick = {
+                            controller.hide()
+                            onSettingsClick()
+                        },
+                        onClearClick = {
+                            val now = System.currentTimeMillis()
+                            if (now - lastClearAt < 3000L) {
+                                controller.hide()
+                                lastClearAt = 0L
+                            } else {
+                                viewModel.clearActiveTab()
+                                lastClearAt = now
+                            }
+                        },
+                        onCopyLine = { line ->
+                            clipboardManager.setText(AnnotatedString(line.text))
+                            selectedLineId = null
+                        },
+                        onSearchLine = { line ->
+                            // Cap the query — full log lines (stack traces) can blow past the URL/intent
+                            // size limits and silently fail to launch the browser.
+                            val query = java.net.URLEncoder.encode(line.text.take(500), "UTF-8")
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://www.google.com/search?q=$query")).apply {
+                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            runCatching { context.startActivity(intent) }
+                            selectedLineId = null
+                        },
+                        onProhibitLine = { line ->
+                            viewModel.prohibitLog(line.text)
+                            selectedLineId = null
+                        },
+                    )
+                }
+            }
         }
     }
 }
 
+/**
+ * Invisible swipe-up zone. A vertical drag fires [onSwipeUp] once per gesture, advancing
+ * the sheet by one detent. No visible handle — the user finds it via the same edge-swipe
+ * affordance the system uses for the app drawer (the launcher itself disables this zone
+ * via [SheetController.isEnabled], so the gestures don't conflict there).
+ */
 @Composable
-private fun HiddenHandle(
+private fun HiddenSwipeZone(
     modifier: Modifier,
     onSwipeUp: () -> Unit,
-    onTap: () -> Unit,
 ) {
     Box(
-        modifier = modifier
-            .pointerInputVerticalDrag(
-                threshold = 16f,
-                onUp = onSwipeUp,
-                onDown = { }
-            )
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) { onTap() },
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .width(48.dp)
-                .height(2.dp)
-                .clip(RoundedCornerShape(1.dp))
-                .background(Color.White.copy(alpha = 0.35f))
+        modifier = modifier.pointerInputVerticalDrag(
+            threshold = 16f,
+            onUp = onSwipeUp,
+            onDown = { }
         )
-    }
+    )
 }
 
 @Composable
@@ -283,31 +294,18 @@ private fun PeekStrip(
                 .fillMaxHeight(),
             contentAlignment = Alignment.CenterStart
         ) {
-            ThinHandle(modifier = Modifier.align(Alignment.TopCenter))
             Text(
                 text = displayText,
                 fontFamily = fontFamily,
                 fontSize = fontSize.sp,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = Color.White
             )
         }
     }
-}
-
-@Composable
-private fun ThinHandle(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .padding(top = 4.dp)
-            .width(48.dp)
-            .height(2.dp)
-            .clip(RoundedCornerShape(1.dp))
-            .background(Color.White.copy(alpha = 0.4f))
-    )
 }
 
 @Composable
@@ -340,22 +338,14 @@ private fun ExpandedView(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // --- Header zone: handle + tabs + icons (vertical drag = detent, horizontal = tab swap) ---
+        // --- Header zone: tabs + icons (vertical drag = detent, horizontal = tab swap) ---
+        // No visible handle — the header itself is the drag target.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInputVerticalDrag(threshold = 18f, onUp = onHeaderDragUp, onDown = onHeaderDragDown)
                 .pointerInputHorizontalDrag(threshold = 48f, onLeft = onSwipeLeft, onRight = onSwipeRight)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                ThinHandle()
-            }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -463,7 +453,9 @@ private fun ExpandedView(
                 LazyColumn(
                     state = listState,
                     reverseLayout = isLogReversed,
-                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = navBarHeight + 8.dp),
+                    // No nav-bar bottom inset — the log is allowed to draw behind the system
+                    // navigation bar so as many lines as possible are visible.
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(indexedLog, key = { it.id }) { line ->
