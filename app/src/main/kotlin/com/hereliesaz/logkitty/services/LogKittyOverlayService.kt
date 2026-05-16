@@ -207,11 +207,16 @@ class LogKittyOverlayService : Service() {
         try { windowManager.addView(composeView, params) }
         catch (e: Exception) { e.printStackTrace() }
 
-        // React to detent + enabled changes: resize the window, toggle focusability for back support.
+        // React to detent + enabled + font-size changes: resize the window, toggle focusability
+        // for back support. Including fontSize here means the PEEK strip resizes immediately
+        // when the user changes it in settings, instead of waiting for the next detent change.
         serviceScope.launch {
-            combine(controller.detentFlow, controller.isEnabledFlow) { d, e -> d to e }
-                .collect { (detent, enabled) ->
-                    val fontSize = viewModel.fontSize.value
+            combine(
+                controller.detentFlow,
+                controller.isEnabledFlow,
+                viewModel.fontSize,
+            ) { detent, enabled, fontSize -> Triple(detent, enabled, fontSize) }
+                .collect { (detent, enabled, fontSize) ->
                     val targetHeight = heightForDetent(
                         detent, enabled, density, navBarHeightPx, fontSize, screenHeightPx
                     )
