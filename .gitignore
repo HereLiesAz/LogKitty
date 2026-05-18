@@ -30,3 +30,4 @@ gha-creds-*.json
 /.vscode/
 *.log
 *.keystore
+/app/release/app-release.aab
