@@ -10,31 +10,21 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
-import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
-import android.view.Gravity
-import android.view.KeyEvent
-import android.view.WindowManager
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
+import com.hereliesaz.aznavrail.bottomsheet.AzBottomSheetWindowHost
+import com.hereliesaz.aznavrail.bottomsheet.AzSheetController
+import com.hereliesaz.aznavrail.model.AzSheetConfig
+import com.hereliesaz.aznavrail.model.AzSheetDetent
 import com.hereliesaz.logkitty.MainActivity
 import com.hereliesaz.logkitty.MainApplication
 import com.hereliesaz.logkitty.ui.LogBottomSheet
 import com.hereliesaz.logkitty.ui.MainViewModel
-import com.hereliesaz.logkitty.ui.SheetController
-import com.hereliesaz.logkitty.ui.SheetDetent
+import com.hereliesaz.logkitty.ui.hide
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
 import kotlinx.coroutines.CoroutineScope
@@ -45,43 +35,27 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
- * [LogKittyOverlayService] hosts the always-on Compose overlay.
+ * [LogKittyOverlayService] hosts the always-on Compose overlay using AzNavRail 8.13's
+ * [AzBottomSheetWindowHost]. The library owns:
  *
- * **Touch confinement**
- * The WindowManager view is resized per detent. HIDDEN and PEEK shrink to a strip at the bottom
- * so the rest of the screen reaches the underlying app. HALF and FULL extend to full screen height
- * so the Compose layer can render a transparent scrim above the sheet — a tap on that scrim
- * steps the detent down by one.
+ *   - The `TYPE_APPLICATION_OVERLAY` window and the per-detent `WindowManager` resize bridge.
+ *   - The accumulated-delta vertical drag, the scrim above HALF/FULL, and the hidden swipe strip.
+ *   - The companion `TYPE_ACCESSIBILITY_OVERLAY` window that paints over the system nav bar so the
+ *     bar's opaque background blends with the sheet color (attached via [AzBottomSheetWindowHost.attachNavBarDecor]).
  *
- * **Launcher passthrough**
- * The accessibility service exposes the foreground package via the shared ViewModel. While the
- * launcher is foreground the overlay disables itself ([SheetController.isEnabled] = false) and
- * the window shrinks to 1 px so the system swipe-up-for-app-drawer gesture is untouched.
- *
- * **Back-button handling**
- * When the sheet is HALF or FULL the window is focusable, so the system delivers back events.
- * Pressing back collapses the sheet to HIDDEN, and the window immediately drops focus so a second
- * back is delivered to the underlying app.
- *
- * **Home / Recents**
- * The accessibility service broadcasts [LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY] with
- * a reason; this service collapses the sheet without performing any further action (the system
- * already handled the home/recents gesture).
+ * This Service retains responsibility for:
+ *   - The foreground notification.
+ *   - Launcher passthrough: while the launcher is foreground we flip [AzSheetController.isEnabled]
+ *     so the window shrinks to a HIDDEN strip and the swipe-up-for-app-drawer gesture is untouched.
+ *   - Reactive [AzSheetConfig] updates so the PEEK height and sheet color track the user's
+ *     settings (font size, overlay opacity, background color).
+ *   - The collapse-overlay broadcast from [LogKittyAccessibilityService] (home/recents handling).
  */
 class LogKittyOverlayService : Service() {
 
-    private lateinit var windowManager: WindowManager
-    private var composeView: ComposeView? = null
-    private var lifecycleHelper: ComposeLifecycleHelper? = null
-
-    // The second, non-touchable overlay window painted on top of the system navigation bar.
-    // It uses TYPE_ACCESSIBILITY_OVERLAY so it sits *above* the nav bar in z-order, hiding
-    // the bar's opaque background with our sheet color. FLAG_NOT_TOUCHABLE + NOT_TOUCH_MODAL
-    // means touches pass through to the nav bar buttons / gesture area below.
-    private var navDecorView: ComposeView? = null
-    private var navDecorLifecycle: ComposeLifecycleHelper? = null
-
-    private val controller = SheetController()
+    private var sheetHost: AzBottomSheetWindowHost? = null
+    private var owners: ComposeLifecycleHelper? = null
+    private val controller = AzSheetController(initial = AzSheetDetent.HIDDEN)
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val receiver = object : BroadcastReceiver() {
@@ -113,7 +87,6 @@ class LogKittyOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
         val notification = createNotification()
         try {
@@ -139,109 +112,76 @@ class LogKittyOverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
-        composeView?.let { view ->
-            try {
-                lifecycleHelper?.onStop()
-                lifecycleHelper?.onDestroy()
-                windowManager.removeView(view)
-            } catch (e: Exception) { e.printStackTrace() }
+        sheetHost?.detach()
+        sheetHost = null
+        owners?.let {
+            it.onStop()
+            it.onDestroy()
         }
-        navDecorView?.let { view ->
-            try {
-                navDecorLifecycle?.onStop()
-                navDecorLifecycle?.onDestroy()
-                windowManager.removeView(view)
-            } catch (e: Exception) { e.printStackTrace() }
-        }
+        owners = null
         try { unregisterReceiver(receiver) } catch (e: Exception) { e.printStackTrace() }
     }
 
     private fun setupOverlay() {
         val app = applicationContext as MainApplication
         val viewModel = app.mainViewModel
-        val density = resources.displayMetrics.density
-        val screenHeightPx = resources.displayMetrics.heightPixels
+        val navBarHeightPx = run {
+            val resId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
+            if (resId > 0) resources.getDimensionPixelSize(resId) else 0
+        }
 
-        val resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        val navBarHeightPx = if (resourceId > 0) resources.getDimensionPixelSize(resourceId) else 0
+        val composeOwners = ComposeLifecycleHelper().also {
+            it.onCreate()
+            it.onStart()
+        }
+        owners = composeOwners
 
-        composeView = ComposeView(this).apply {
-            // ComposeView is final in modern Compose, so we intercept back via an OnKeyListener
-            // instead of subclassing. The listener fires only when the window is focusable
-            // (HALF/FULL detent), which is exactly when we want to capture back.
-            setOnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                    if (onBack()) return@setOnKeyListener true
-                }
-                false
-            }
-            setContent {
-                val composeDensity = LocalDensity.current
-                val fontSizeInt by viewModel.fontSize.collectAsState()
-                val fontSpPx = with(composeDensity) { fontSizeInt.sp.toPx() }
-                val paddingPx = with(composeDensity) { 24.dp.toPx() }
-                val peekContentPx = (fontSpPx * 1.5f) + paddingPx
-                val peekTotalPx = (peekContentPx + navBarHeightPx).toInt()
-                val peekDp = with(composeDensity) { peekTotalPx.toDp() }
-                val navBarDp = with(composeDensity) { navBarHeightPx.toDp() }
-                val screenHeightDp = with(composeDensity) { screenHeightPx.toDp() }
-
-                LogKittyTheme {
-                    LogBottomSheet(
-                        controller = controller,
-                        viewModel = viewModel,
-                        screenHeight = screenHeightDp,
-                        navBarHeight = navBarDp,
-                        collapsedHeightDp = peekDp,
-                        onSaveClick = {
-                            val intent = Intent(this@LogKittyOverlayService,
-                                com.hereliesaz.logkitty.FileSaverActivity::class.java)
-                                .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                            startActivity(intent)
-                        },
-                        onSettingsClick = {
-                            val intent = Intent(this@LogKittyOverlayService, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                putExtra("EXTRA_SHOW_SETTINGS", true)
-                            }
-                            startActivity(intent)
-                        },
-                    )
-                }
+        val host = AzBottomSheetWindowHost(
+            context = this,
+            controller = controller,
+            config = sheetConfig(viewModel, navBarHeightPx),
+            lifecycleOwner = composeOwners,
+            viewModelStoreOwner = composeOwners,
+            savedStateRegistryOwner = composeOwners,
+            navBarHeightPx = navBarHeightPx,
+        ) {
+            LogKittyTheme {
+                LogBottomSheet(
+                    controller = controller,
+                    viewModel = viewModel,
+                    onSaveClick = {
+                        val intent = Intent(this@LogKittyOverlayService,
+                            com.hereliesaz.logkitty.FileSaverActivity::class.java)
+                            .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                        startActivity(intent)
+                    },
+                    onSettingsClick = {
+                        val intent = Intent(this@LogKittyOverlayService, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            putExtra("EXTRA_SHOW_SETTINGS", true)
+                        }
+                        startActivity(intent)
+                    },
+                )
             }
         }
-        lifecycleHelper = ComposeLifecycleHelper(composeView!!)
-        lifecycleHelper!!.onCreate()
-        lifecycleHelper!!.onStart()
+        sheetHost = host
+        host.attach()
 
-        // Initial layout params match the controller's starting detent (HIDDEN, enabled).
-        val initialHeight = heightForDetent(
-            controller.detent,
-            controller.isEnabled,
-            density,
-            navBarHeightPx,
-            viewModel.fontSize.value,
-            screenHeightPx,
-        )
-        val params = baseLayoutParams(initialHeight, focusable = false)
-        try { windowManager.addView(composeView, params) }
-        catch (e: Exception) { e.printStackTrace() }
+        // Nav-bar color sync requires a bound accessibility service; if the user hasn't granted it
+        // the library will throw inside the attach call. Swallow that and fall back silently.
+        runCatching { host.attachNavBarDecor() }
 
-        // React to detent + enabled + font-size changes: resize the window, toggle focusability
-        // for back support. Including fontSize here means the PEEK strip resizes immediately
-        // when the user changes it in settings, instead of waiting for the next detent change.
+        // React to font size / overlay opacity / background color: rebuild the sheet config so the
+        // PEEK strip height and sheet chrome track the user's settings live.
         serviceScope.launch {
             combine(
-                controller.detentFlow,
-                controller.isEnabledFlow,
                 viewModel.fontSize,
-            ) { detent, enabled, fontSize -> Triple(detent, enabled, fontSize) }
-                .collect { (detent, enabled, fontSize) ->
-                    val targetHeight = heightForDetent(
-                        detent, enabled, density, navBarHeightPx, fontSize, screenHeightPx
-                    )
-                    val needsFocus = enabled && (detent == SheetDetent.HALF || detent == SheetDetent.FULL)
-                    updateWindow(targetHeight, focusable = needsFocus)
+                viewModel.overlayOpacity,
+                viewModel.backgroundColor,
+            ) { fs, op, bg -> Triple(fs, op, bg) }
+                .collect { (_, _, _) ->
+                    host.updateConfig(sheetConfig(viewModel, navBarHeightPx))
                 }
         }
 
@@ -252,140 +192,34 @@ class LogKittyOverlayService : Service() {
                 controller.isEnabled = !LogKittyAccessibilityService.isLauncherPackage(pkg)
             }
         }
-
-        setupNavBarDecoration(viewModel, navBarHeightPx)
     }
 
     /**
-     * Add a non-interactive overlay strip sitting on top of the system navigation bar so the
-     * bar's opaque background visually disappears — replaced by the same translucent sheet
-     * color. Uses TYPE_ACCESSIBILITY_OVERLAY because that window type renders *above* the
-     * nav bar (TYPE_APPLICATION_OVERLAY renders behind it). Requires that the user has
-     * granted accessibility permission to LogKittyAccessibilityService; if they haven't, the
-     * addView call will throw and we fall back to the un-decorated nav bar.
+     * Build an [AzSheetConfig] from the user's current settings.
      *
-     * FLAG_NOT_TOUCHABLE + FLAG_NOT_TOUCH_MODAL: touches in this strip pass through to the
-     * system nav bar below, so 3-button taps and gesture-nav swipes keep working.
+     * `peekDp` is computed dynamically from the user's font size so the PEEK strip always fits one
+     * line of the chosen size plus the system navigation bar's height (so the strip's content sits
+     * above the nav bar rather than behind it).
      */
-    private fun setupNavBarDecoration(
-        viewModel: MainViewModel,
-        navBarHeightPx: Int,
-    ) {
-        if (navBarHeightPx <= 0) return
-        val view = ComposeView(this).apply {
-            setContent {
-                val opacity by viewModel.overlayOpacity.collectAsState()
-                val bgInt by viewModel.backgroundColor.collectAsState()
-                val detent by controller.detentFlow.collectAsState()
-                val enabled by controller.isEnabledFlow.collectAsState()
-                // Match the sheet body: same translucent color, only visible when the
-                // sheet itself is visible. HIDDEN and the disabled-on-launcher state leave
-                // the nav bar untouched.
-                val visible = enabled && detent != SheetDetent.HIDDEN
-                val color = if (visible) Color(bgInt).copy(alpha = opacity) else Color.Transparent
-                Box(modifier = Modifier.fillMaxSize().background(color))
-            }
-        }
-        navDecorLifecycle = ComposeLifecycleHelper(view).apply {
-            onCreate()
-            onStart()
-        }
-
-        val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            navBarHeightPx,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            flags,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.BOTTOM
-            y = 0
-        }
-        try {
-            windowManager.addView(view, params)
-            navDecorView = view
-        } catch (e: Exception) {
-            // Likely no active AccessibilityService — fall back silently; the main overlay
-            // still works, the nav bar just stays opaque.
-            navDecorLifecycle?.onStop()
-            navDecorLifecycle?.onDestroy()
-            navDecorLifecycle = null
-            e.printStackTrace()
-        }
-    }
-
-    /**
-     * Sheet height in pixels for the given detent and enabled state.
-     *
-     * HALF and FULL use the full screen height — the Compose layer draws a transparent
-     * scrim above the sheet body so a tap outside steps the detent down by one.
-     */
-    private fun heightForDetent(
-        detent: SheetDetent,
-        enabled: Boolean,
-        density: Float,
-        navBarHeightPx: Int,
-        fontSize: Int,
-        screenHeightPx: Int,
-    ): Int {
-        if (!enabled) return 1
-        return when (detent) {
-            SheetDetent.HIDDEN -> (14f * density).toInt().coerceAtLeast(1)
-            SheetDetent.PEEK -> peekHeightPx(density, navBarHeightPx, fontSize)
-            SheetDetent.HALF, SheetDetent.FULL -> screenHeightPx
-        }
-    }
-
-    private fun peekHeightPx(density: Float, navBarHeightPx: Int, fontSize: Int): Int {
-        val fontPx = fontSize.toFloat() * density
-        val paddingPx = 24f * density
-        return ((fontPx * 1.5f) + paddingPx + navBarHeightPx).toInt()
-    }
-
-    private fun baseLayoutParams(heightPx: Int, focusable: Boolean): WindowManager.LayoutParams {
-        // FLAG_NOT_TOUCH_MODAL is the key flag for passthrough — without it, any touch on the
-        // screen targets this window even outside its drawn bounds. With it, only touches inside
-        // the window's bounds reach us; everything else continues to the underlying app.
-        val flagsBase = WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-        val flags = if (focusable) flagsBase
-        else flagsBase or
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
-        return WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            heightPx,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            flags,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.BOTTOM
-            y = 0
-        }
-    }
-
-    private fun updateWindow(heightPx: Int, focusable: Boolean) {
-        val view = composeView ?: return
-        if (!view.isAttachedToWindow) return
-        val params = view.layoutParams as? WindowManager.LayoutParams ?: return
-        params.height = heightPx
-        params.flags = baseLayoutParams(heightPx, focusable).flags
-        try { windowManager.updateViewLayout(view, params) }
-        catch (e: Exception) { e.printStackTrace() }
-    }
-
-    /** Intercepts back-button so HALF/FULL collapses to HIDDEN before the app gets it. */
-    private fun onBack(): Boolean {
-        return when (controller.detent) {
-            SheetDetent.HALF, SheetDetent.FULL -> { controller.hide(); true }
-            else -> false
-        }
+    private fun sheetConfig(viewModel: MainViewModel, navBarHeightPx: Int): AzSheetConfig {
+        val density = resources.displayMetrics.density
+        val fontSize = viewModel.fontSize.value
+        val peekPx = (fontSize.toFloat() * density * 1.5f) + (24f * density) + navBarHeightPx
+        val peekDp = (peekPx / density).dp
+        return AzSheetConfig(
+            backgroundColor = Color(viewModel.backgroundColor.value),
+            backgroundAlpha = viewModel.overlayOpacity.value,
+            peekDp = peekDp,
+            hiddenStripDp = 14.dp,
+            halfFraction = 0.5f,
+            fullFraction = 0.9f,
+            collapseOnBack = true,
+            // Horizontal swipe at the shell level is not wired by AzBottomSheetWindowHost; the
+            // LogBottomSheet content handles tab swipes itself.
+            horizontalSwipeEnabled = false,
+            handleVisible = false,
+            cornerRadiusDp = 0.dp,
+        )
     }
 
     private fun createNotificationChannel() {
