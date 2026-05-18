@@ -5,8 +5,8 @@
 *   `build.gradle.kts`: Project-level build configuration.
 *   `settings.gradle.kts`: Module inclusion settings.
 *   `gradle.properties`: Gradle build properties.
-*   `version.properties`: Source of truth for project versioning.
-*   `get_version.sh`: Script to extract version info.
+*   `version.properties`: Source of truth for project versioning. The `build` field is automatically incremented by `app/build.gradle.kts` during build tasks.
+*   `get_version.sh`: Script to extract version info (major.minor.patch.build).
 *   `lint-baseline.xml`: Baseline file for lint warnings.
 *   `proguard-rules.pro`: ProGuard/R8 configuration rules.
 

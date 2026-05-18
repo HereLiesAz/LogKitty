@@ -12,6 +12,7 @@
 - [x] Comprehensive color schemes: Material, Android Studio, Pidcat, Monochrome, Solarized, Custom. Tag-based highlights for common Android components (toggleable).
 - [x] Settings now houses the Prohibited list, Color Scheme editor, and Preferences export / import (JSON via SAF + clipboard).
 - [x] Removed the legacy AI-prompt placeholder.
+- [x] **Automatic Versioning**: `build` number in `version.properties` now increments automatically on every `assemble`, `bundle`, or `install` task.
 
 
 

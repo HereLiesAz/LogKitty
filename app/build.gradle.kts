@@ -1,13 +1,13 @@
+import java.util.Properties
+import java.io.FileInputStream
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
 }
-
-import java.util.Properties
-import java.io.FileInputStream
-import java.io.File
 
 // Helper to load properties securely
 fun getLocalProperty(key: String, rootDir: File): String {
@@ -28,7 +28,25 @@ if (versionPropsFile.exists()) {
 val major = versionProps.getProperty("major")?.toIntOrNull() ?: 1
 val minor = versionProps.getProperty("minor")?.toIntOrNull() ?: 0
 val patch = versionProps.getProperty("patch")?.toIntOrNull() ?: 0
-val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
+var buildNumber = versionProps.getProperty("build")?.toIntOrNull() ?: 0
+
+// Automatic build number increment logic: increments only for actual build tasks
+val taskNames = gradle.startParameter.taskNames
+val isBuildTask = taskNames.any {
+    it.contains("assemble") || it.contains("bundle") || it.contains("install")
+}
+
+if (isBuildTask && System.getProperty("version.incremented") != "true") {
+    buildNumber++
+    versionProps.setProperty("build", buildNumber.toString())
+    val writer = versionPropsFile.writer()
+    try {
+        versionProps.store(writer, null)
+    } finally {
+        writer.close()
+    }
+    System.setProperty("version.incremented", "true")
+}
 
 android {
     namespace = "com.hereliesaz.logkitty"
@@ -37,7 +55,7 @@ android {
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"
         minSdk = 30
-        targetSdk = 36
+        targetSdk = 37
         versionCode = major * 1000000 + minor * 10000 + patch * 100 + buildNumber
         versionName = "$major.$minor.$patch.$buildNumber"
 
