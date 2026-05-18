@@ -32,7 +32,7 @@ val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
 
 android {
     namespace = "com.hereliesaz.logkitty"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"
@@ -175,7 +175,7 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    implementation("androidx.compose.ui:ui-text-google-fonts:1.6.1")
+    implementation("androidx.compose.ui:ui-text-google-fonts:1.11.1")
 
     // Custom UI components we kept
     implementation(libs.dokar3.sheets.m3)
