@@ -37,12 +37,16 @@ data class IndexedLogLine(val id: Long, val text: String)
  */
 class StateDelegate(
     scope: CoroutineScope,
-    dispatcher: CoroutineDispatcher = Dispatchers.Default
+    dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    bufferSizeFlow: kotlinx.coroutines.flow.StateFlow<Int>? = null,
 ) {
     companion object {
-        private const val MAX_LOG_SIZE = 5000
+        private const val DEFAULT_maxLogSize = 5000
         private const val BATCH_INTERVAL_MS = 100L
     }
+
+    @Volatile
+    private var maxLogSize: Int = bufferSizeFlow?.value ?: DEFAULT_maxLogSize
 
     private sealed interface LogEvent {
         data class System(val msg: String) : LogEvent
@@ -52,6 +56,12 @@ class StateDelegate(
     private val logChannel = Channel<LogEvent>(Channel.UNLIMITED)
 
     init {
+        if (bufferSizeFlow != null) {
+            scope.launch(dispatcher) {
+                bufferSizeFlow.collect { maxLogSize = it }
+            }
+        }
+
         scope.launch(dispatcher) {
             val buffer = mutableListOf<LogEvent>()
             while (true) {
@@ -110,14 +120,14 @@ class StateDelegate(
     private fun MutableStateFlow<List<IndexedLogLine>>.appendCapped(lines: List<IndexedLogLine>) {
         this.update { current ->
             val totalSize = current.size + lines.size
-            if (totalSize <= MAX_LOG_SIZE) {
+            if (totalSize <= maxLogSize) {
                 current + lines
             } else {
-                val keepFromCurrent = MAX_LOG_SIZE - lines.size
+                val keepFromCurrent = maxLogSize - lines.size
                 if (keepFromCurrent <= 0) {
-                    lines.takeLast(MAX_LOG_SIZE)
+                    lines.takeLast(maxLogSize)
                 } else {
-                    val result = java.util.ArrayList<IndexedLogLine>(MAX_LOG_SIZE)
+                    val result = java.util.ArrayList<IndexedLogLine>(maxLogSize)
                     val start = current.size - keepFromCurrent
                     for (i in start until current.size) result.add(current[i])
                     result.addAll(lines)

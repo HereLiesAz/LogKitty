@@ -2,6 +2,7 @@ package com.hereliesaz.logkitty.services
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
@@ -26,8 +27,12 @@ class LogKittyAccessibilityService : AccessibilityService() {
         const val REASON_HOME = "home"
         const val REASON_RECENTS = "recents"
 
+        @Volatile
+        private var resolvedLauncherPackage: String? = null
+
         fun isLauncherPackage(pkg: String?): Boolean {
             if (pkg.isNullOrBlank()) return false
+            resolvedLauncherPackage?.let { return pkg == it }
             return pkg == "com.google.android.apps.nexuslauncher" ||
                 pkg == "com.sec.android.app.launcher" ||
                 pkg == "com.android.launcher" ||
@@ -39,6 +44,14 @@ class LogKittyAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(TAG, "Accessibility Service Connected")
+        resolvedLauncherPackage = try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            @Suppress("DEPRECATION")
+            packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+                ?.activityInfo?.packageName
+        } catch (e: Exception) {
+            null
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

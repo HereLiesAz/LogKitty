@@ -56,15 +56,15 @@ object LogcatReader {
                 process = pb.start()
 
                 // Read from the process's combined output stream.
-                val reader = BufferedReader(InputStreamReader(process.inputStream))
-                
-                // Read line by line. This blocks until a line is available.
-                var line: String? = reader.readLine()
+                BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+                    // Read line by line. This blocks until a line is available.
+                    var line: String? = reader.readLine()
 
-                // Inner loop: Stream data while the process is alive.
-                while (currentCoroutineContext().isActive && line != null) {
-                    emit(line)
-                    line = reader.readLine()
+                    // Inner loop: Stream data while the process is alive.
+                    while (currentCoroutineContext().isActive && line != null) {
+                        emit(line)
+                        line = reader.readLine()
+                    }
                 }
             } catch (e: IOException) {
                 // IO Exceptions usually mean the stream broke (EPIPE) or the process crashed.
@@ -77,7 +77,7 @@ object LogcatReader {
                 delay(5000)
             } finally {
                 // Ensure the zombie process is cleaned up before we loop around.
-                process?.destroy()
+                process?.destroyForcibly()
             }
             
             // If the coroutine is still active but the loop exited, wait a bit before restarting.

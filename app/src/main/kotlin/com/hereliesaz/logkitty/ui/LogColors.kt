@@ -20,20 +20,19 @@ enum class LogLevel(val letter: String, val defaultColor: Color) {
         private val tagWithLetterRegex = Regex("""\s([VDIWEA])/([^\s:]+)""")
         private val spacedLevelRegex = Regex("""\s([VDIWEA])\s""")
 
-        fun fromLine(line: String): LogLevel = when {
-            tagWithLetterRegex.find(line)?.groupValues?.getOrNull(1) == "V" -> VERBOSE
-            tagWithLetterRegex.find(line)?.groupValues?.getOrNull(1) == "D" -> DEBUG
-            tagWithLetterRegex.find(line)?.groupValues?.getOrNull(1) == "I" -> INFO
-            tagWithLetterRegex.find(line)?.groupValues?.getOrNull(1) == "W" -> WARNING
-            tagWithLetterRegex.find(line)?.groupValues?.getOrNull(1) == "E" -> ERROR
-            tagWithLetterRegex.find(line)?.groupValues?.getOrNull(1) == "A" -> ASSERT
-            spacedLevelRegex.find(line)?.groupValues?.getOrNull(1) == "E" -> ERROR
-            spacedLevelRegex.find(line)?.groupValues?.getOrNull(1) == "W" -> WARNING
-            spacedLevelRegex.find(line)?.groupValues?.getOrNull(1) == "A" -> ASSERT
-            spacedLevelRegex.find(line)?.groupValues?.getOrNull(1) == "I" -> INFO
-            spacedLevelRegex.find(line)?.groupValues?.getOrNull(1) == "D" -> DEBUG
-            spacedLevelRegex.find(line)?.groupValues?.getOrNull(1) == "V" -> VERBOSE
-            else -> VERBOSE
+        private val letterToLevel = mapOf(
+            "V" to VERBOSE, "D" to DEBUG, "I" to INFO,
+            "W" to WARNING, "E" to ERROR, "A" to ASSERT,
+        )
+
+        fun fromLine(line: String): LogLevel {
+            tagWithLetterRegex.find(line)?.groupValues?.getOrNull(1)?.let {
+                return letterToLevel[it] ?: VERBOSE
+            }
+            spacedLevelRegex.find(line)?.groupValues?.getOrNull(1)?.let {
+                return letterToLevel[it] ?: VERBOSE
+            }
+            return VERBOSE
         }
 
         fun tagFromLine(line: String): String? {

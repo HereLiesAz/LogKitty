@@ -65,7 +65,7 @@ class MainViewModel(
     private val userPreferences = UserPreferences(application)
 
     // Delegate to handle the heavy lifting of log buffering.
-    val stateDelegate = StateDelegate(viewModelScope)
+    val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize)
 
     // --- State Flows ---
 
@@ -147,7 +147,7 @@ class MainViewModel(
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }
             }
             result
-        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
 
     /**
@@ -155,7 +155,7 @@ class MainViewModel(
      */
     val filteredSystemLog: StateFlow<List<String>> = filteredIndexedLog
         .map { list -> list.map { it.text } }
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // --- Accessibility Receiver ---
     // Listens for broadcasts from LogKittyAccessibilityService.
@@ -320,22 +320,9 @@ class MainViewModel(
         userPreferences.resetLogColors()
     }
 
-    /**
-     * Intelligent tag extraction for the "Prohibit" feature.
-     * Tries to parse the tag from the log line using Regex.
-     */
     fun prohibitLog(logLine: String) {
-        // Standard Android Logcat format: "MM-DD HH:MM:SS.mmm PID TID L Tag: Message"
-        // We look for " L Tag:" where L is a single letter log level.
-        val tagRegex = Regex("""\s([A-Z])\/(.*?):""")
-        val match = tagRegex.find(logLine)
-        
-        val tag = if (match != null) {
-            match.groupValues.getOrNull(2)?.trim()
-        } else {
-            // Fallback: Just take the start of the line up to the first colon.
-            logLine.split(":").firstOrNull()?.takeLast(20)
-        }
+        val tag = LogLevel.tagFromLine(logLine)
+            ?: logLine.split(":").firstOrNull()?.takeLast(20)?.trim()
 
         if (!tag.isNullOrBlank()) {
             userPreferences.addProhibitedTag(tag)

@@ -126,10 +126,20 @@ fun LogBottomSheet(
     }
 
     when (controller.detent) {
-        AzSheetDetent.HIDDEN -> Unit
+        AzSheetDetent.HIDDEN -> PeekStrip(
+            modifier = Modifier.fillMaxSize(),
+            lines = listOf(indexedLog.lastOrNull()?.text ?: "LogKitty Ready"),
+            showTimestamp = showTimestamp,
+            fontFamily = currentFontFamily,
+            fontSize = fontSize,
+            onTap = { controller.stepUp() },
+            onSwipeLeft = { viewModel.selectNextTab() },
+            onSwipeRight = { viewModel.selectPreviousTab() },
+        )
         AzSheetDetent.PEEK -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
-            latest = indexedLog.lastOrNull()?.text ?: "LogKitty Ready",
+            lines = if (indexedLog.isEmpty()) listOf("LogKitty Ready")
+                    else indexedLog.takeLast(3).map { it.text },
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -218,7 +228,7 @@ fun LogBottomSheet(
 @Composable
 private fun PeekStrip(
     modifier: Modifier,
-    latest: String,
+    lines: List<String>,
     showTimestamp: Boolean,
     fontFamily: androidx.compose.ui.text.font.FontFamily?,
     fontSize: Int,
@@ -226,9 +236,7 @@ private fun PeekStrip(
     onSwipeLeft: () -> Unit,
     onSwipeRight: () -> Unit,
 ) {
-    val displayText = if (showTimestamp) latest else latest.replace(
-        Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+"), ""
-    )
+    val timestampRegex = remember { Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+") }
 
     Box(
         modifier = modifier
@@ -238,22 +246,26 @@ private fun PeekStrip(
                 interactionSource = remember { MutableInteractionSource() }
             ) { onTap() }
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(),
-            contentAlignment = Alignment.CenterStart
+                .fillMaxHeight()
+                .padding(horizontal = 12.dp),
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = displayText,
-                fontFamily = fontFamily,
-                fontSize = fontSize.sp,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 12.dp),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = Color.White
-            )
+            lines.forEach { line ->
+                val displayText = if (showTimestamp) line else line.replace(timestampRegex, "")
+                Text(
+                    text = displayText,
+                    fontFamily = fontFamily,
+                    fontSize = fontSize.sp,
+                    lineHeight = (fontSize * 1.35f).sp,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color.White
+                )
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.text.SimpleDateFormat
@@ -28,6 +29,14 @@ import java.util.Locale
  * and attempts to upload them to GitHub Issues on the next launch.
  */
 class CrashReporter(private val context: Context) : Thread.UncaughtExceptionHandler {
+
+    private companion object {
+        val httpClient: OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
     // Keep a reference to the system's default handler (usually the one that crashes the app).
     private val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
@@ -101,7 +110,6 @@ class CrashReporter(private val context: Context) : Thread.UncaughtExceptionHand
             return@withContext
         }
 
-        val client = OkHttpClient()
         val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
         for (file in crashFiles) {
@@ -135,7 +143,7 @@ class CrashReporter(private val context: Context) : Thread.UncaughtExceptionHand
                     .post(requestBody)
                     .build()
 
-                val response = client.newCall(request).execute()
+                val response = httpClient.newCall(request).execute()
                 if (response.isSuccessful) {
                     // Delete the file only if upload succeeded
                     file.delete()

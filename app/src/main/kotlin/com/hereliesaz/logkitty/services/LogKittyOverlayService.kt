@@ -197,20 +197,25 @@ class LogKittyOverlayService : Service() {
     /**
      * Build an [AzSheetConfig] from the user's current settings.
      *
-     * `peekDp` is computed dynamically from the user's font size so the PEEK strip always fits one
-     * line of the chosen size plus the system navigation bar's height (so the strip's content sits
-     * above the nav bar rather than behind it).
+     * `hiddenStripDp` fits 1 line of text + padding + nav bar.
+     * `peekDp` fits 3 lines of text + padding + nav bar.
      */
     private fun sheetConfig(viewModel: MainViewModel, navBarHeightPx: Int): AzSheetConfig {
         val density = resources.displayMetrics.density
         val fontSize = viewModel.fontSize.value
-        val peekPx = (fontSize.toFloat() * density * 1.5f) + (24f * density) + navBarHeightPx
+        val lineHeightPx = fontSize.toFloat() * density * 1.5f
+        val paddingPx = 24f * density
+
+        val hiddenPx = (lineHeightPx * 1) + paddingPx + navBarHeightPx
+        val hiddenDp = (hiddenPx / density).dp
+
+        val peekPx = (lineHeightPx * 3) + paddingPx + navBarHeightPx
         val peekDp = (peekPx / density).dp
         return AzSheetConfig(
             backgroundColor = Color(viewModel.backgroundColor.value),
             backgroundAlpha = viewModel.overlayOpacity.value,
             peekDp = peekDp,
-            hiddenStripDp = 14.dp,
+            hiddenStripDp = hiddenDp,
             halfFraction = 0.5f,
             fullFraction = 0.9f,
             collapseOnBack = true,
