@@ -67,7 +67,7 @@ import com.hereliesaz.logkitty.ui.theme.getGoogleFontFamily
 import kotlin.math.abs
 
 /** Convenience for callers that used to call `SheetController.hide()`. */
-fun AzSheetController.hide() { detent = AzSheetDetent.HIDDEN }
+fun AzSheetController.hide() { snapTo(AzSheetDetent.HIDDEN) }
 
 /**
  * The log-viewing content slot for `AzBottomSheetWindowHost`.
