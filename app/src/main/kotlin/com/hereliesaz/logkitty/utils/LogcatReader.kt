@@ -33,11 +33,15 @@ object LogcatReader {
      */
     fun observe(useRoot: Boolean): Flow<String> = flow {
         // Construct the command.
-        // "-v time" ensures we get the timestamp in a known format for parsing.
+        // "-v time" gives the timestamp in a known format for parsing; "-v uid" prepends the
+        // logged process's UID so [StateDelegate] can attribute each line to an app (used for
+        // per-app monitoring). The UID prefix is stripped back off before display, so downstream
+        // parsing still sees the familiar "-v time" line shape. Requires READ_LOGS or root to see
+        // other apps' UIDs; without either it simply reports this app's own logs.
         val cmd = if (useRoot) {
-            listOf("su", "-c", "logcat -v time")
+            listOf("su", "-c", "logcat -v uid -v time")
         } else {
-            listOf("logcat", "-v", "time")
+            listOf("logcat", "-v", "uid", "-v", "time")
         }
         
         // Endless loop: The "Resurrection Loop".

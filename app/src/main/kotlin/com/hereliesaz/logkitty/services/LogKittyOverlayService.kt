@@ -197,19 +197,27 @@ class LogKittyOverlayService : Service() {
     /**
      * Build an [AzSheetConfig] from the user's current settings.
      *
-     * `hiddenStripDp` fits 1 line of text + padding + nav bar.
-     * `peekDp` fits 3 lines of text + padding + nav bar.
+     * The overlay window is resized to exactly these heights by the library, so they directly
+     * control how the HIDDEN/PEEK strips look. The nav-bar height is folded in because the
+     * sheet draws behind the system navigation bar (gravity-bottom, no-limits window).
+     *
+     * `hiddenStripDp` — a thin one-line strip so the sheet visibly *collapses* (only minimal
+     * vertical padding above the nav bar; the [LogBottomSheet] HIDDEN branch renders one line).
+     * `peekDp` — room for four lines so that at least three are always fully visible above the
+     * nav bar (the PEEK branch renders the last four lines).
      */
     private fun sheetConfig(viewModel: MainViewModel, navBarHeightPx: Int): AzSheetConfig {
         val density = resources.displayMetrics.density
         val fontSize = viewModel.fontSize.value
-        val lineHeightPx = fontSize.toFloat() * density * 1.5f
-        val paddingPx = 24f * density
+        // Keep in sync with the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35).
+        val lineHeightPx = fontSize.toFloat() * density * 1.4f
 
-        val hiddenPx = (lineHeightPx * 1) + paddingPx + navBarHeightPx
+        // HIDDEN: one line + a small breathing margin → reads as a collapsed strip.
+        val hiddenPx = (lineHeightPx * 1) + (8f * density) + navBarHeightPx
         val hiddenDp = (hiddenPx / density).dp
 
-        val peekPx = (lineHeightPx * 3) + paddingPx + navBarHeightPx
+        // PEEK: size for four lines so three are reliably visible once the nav bar is subtracted.
+        val peekPx = (lineHeightPx * 4) + (16f * density) + navBarHeightPx
         val peekDp = (peekPx / density).dp
         return AzSheetConfig(
             backgroundColor = Color(viewModel.backgroundColor.value),
@@ -240,11 +248,12 @@ class LogKittyOverlayService : Service() {
         val settingsIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_OPEN_SETTINGS }
         val settingsPending = PendingIntent.getService(this, 1, settingsIntent, PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("LogKitty Running")
-            .setContentText("Tap to Stop. Expand for Settings.")
+            .setContentTitle("LogKitty is running")
+            .setContentText("Tap to turn off. Expand for App Settings.")
             .setSmallIcon(android.R.drawable.ic_menu_view)
+            // Body tap and the prominent first action both stop the service (tears down the overlay).
             .setContentIntent(stopPending)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop Service", stopPending)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Turn Off LogKitty", stopPending)
             .addAction(android.R.drawable.ic_menu_preferences, "App Settings", settingsPending)
             .setOngoing(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)

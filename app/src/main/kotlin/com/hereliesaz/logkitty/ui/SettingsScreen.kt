@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -110,9 +111,11 @@ private fun SettingsMainScreen(
     val colorScheme by viewModel.colorScheme.collectAsState()
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
     val prohibitedCount by viewModel.prohibitedTags.collectAsState()
+    val monitoredApps by viewModel.monitoredApps.collectAsState()
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
+    var showAppPicker by remember { mutableStateOf(false) }
 
     if (showColorPicker) {
         ColorPickerDialog(
@@ -121,6 +124,16 @@ private fun SettingsMainScreen(
             onColorSelected = {
                 viewModel.setBackgroundColor(it.toArgb())
                 showColorPicker = false
+            }
+        )
+    }
+
+    if (showAppPicker) {
+        AppPickerDialog(
+            onDismiss = { showAppPicker = false },
+            onAppSelected = {
+                viewModel.addMonitoredApp(it)
+                showAppPicker = false
             }
         )
     }
@@ -348,6 +361,49 @@ private fun SettingsMainScreen(
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            SettingsSectionHeader("App Monitoring")
+            Text(
+                "Pin an app to get a dedicated tab showing only its logs, in addition to the full system log.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            if (monitoredApps.isEmpty()) {
+                Text(
+                    "No apps pinned",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                monitoredApps.forEach { pkg ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(appLabel(context, pkg), style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                pkg,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = { viewModel.removeMonitoredApp(pkg) }) {
+                            Icon(Icons.Default.Close, contentDescription = "Stop monitoring $pkg")
+                        }
+                    }
+                }
+            }
+            AzButton(
+                onClick = { showAppPicker = true },
+                text = "Add App to Monitor",
+                shape = AzButtonShape.RECTANGLE,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
             SettingsSectionHeader("Filters")
             AzButton(
                 onClick = onOpenProhibited,
@@ -397,6 +453,12 @@ private fun SettingsMainScreen(
         }
     }
 }
+
+/** Resolves a user-facing app label for a package, falling back to the package name. */
+private fun appLabel(context: android.content.Context, pkg: String): String = try {
+    val pm = context.packageManager
+    pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+} catch (e: Exception) { pkg }
 
 @Composable
 fun SettingsSectionHeader(text: String) {

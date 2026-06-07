@@ -16,8 +16,13 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * The id is the basis for **per-tab clearing**: each tab records the highest id it has
  * "dismissed", and only lines with a larger id are rendered when that tab is selected.
+ *
+ * [uid] is the Android UID of the process that emitted the line, parsed from the `-v uid`
+ * column (see [StateDelegate.parseUidPrefix]). It powers reliable per-app filtering. It is
+ * `null` for lines without a recognizable UID prefix (e.g. reader warnings or stack-trace
+ * continuation lines).
  */
-data class IndexedLogLine(val id: Long, val text: String)
+data class IndexedLogLine(val id: Long, val text: String, val uid: Int? = null)
 
 /**
  * [StateDelegate] is the single source of truth for the raw log data.
@@ -43,6 +48,45 @@ class StateDelegate(
     companion object {
         private const val DEFAULT_maxLogSize = 5000
         private const val BATCH_INTERVAL_MS = 100L
+
+        /** Anchors the start of a standard `-v time` line: `MM-DD HH:MM:SS.mmm`. */
+        private val TIMESTAMP_ANCHOR = Regex("""\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}""")
+
+        /** App-UID name form printed by some devices' `-v uid`, e.g. `u0_a123`. */
+        private val APP_UID_NAME = Regex("""^u(\d+)_a(\d+)$""")
+
+        /**
+         * Splits the optional `-v uid` prefix off a raw logcat line.
+         *
+         * The line shape is `<uid> MM-DD HH:MM:SS.mmm L/Tag( pid): msg`. We locate the timestamp
+         * and treat everything before it as the UID token, returning the remainder as the
+         * display [text] so it matches the plain `-v time` format every downstream parser expects.
+         * Lines with no timestamp (reader warnings, wrapped stack-trace lines) yield `null` UID
+         * and the full line as text.
+         */
+        internal fun parseUidPrefix(raw: String): Pair<Int?, String> {
+            val match = TIMESTAMP_ANCHOR.find(raw) ?: return null to raw
+            val start = match.range.first
+            if (start == 0) return null to raw
+            val prefix = raw.substring(0, start).trim()
+            val text = raw.substring(start)
+            return parseUid(prefix) to text
+        }
+
+        /**
+         * Converts a logcat UID token to a numeric Android UID. Handles plain numbers and the
+         * `u<user>_a<appId>` app-UID name form; returns `null` for anything else.
+         */
+        internal fun parseUid(token: String): Int? {
+            token.toIntOrNull()?.let { return it }
+            APP_UID_NAME.matchEntire(token)?.let { m ->
+                val user = m.groupValues[1].toIntOrNull() ?: return null
+                val appId = m.groupValues[2].toIntOrNull() ?: return null
+                // App UIDs for user N: N * 100000 + (10000 + appId).
+                return user * 100_000 + 10_000 + appId
+            }
+            return null
+        }
     }
 
     @Volatile
@@ -88,7 +132,8 @@ class StateDelegate(
                 is LogEvent.System -> {
                     event.msg.split('\n').forEach { raw ->
                         if (raw.isNotBlank()) {
-                            systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), raw))
+                            val (uid, text) = parseUidPrefix(raw)
+                            systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), text, uid))
                         }
                     }
                 }

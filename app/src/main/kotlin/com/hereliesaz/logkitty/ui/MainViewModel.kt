@@ -33,7 +33,12 @@ data class LogTab(
     val id: String,
     val title: String,
     val type: TabType,
-    val filterValue: String? = null
+    val filterValue: String? = null,
+    /**
+     * `true` for user-pinned, app-specific tabs (from "Monitor specific apps" in settings) that
+     * persist across sessions; `false` for the transient tabs auto-created from the foreground app.
+     */
+    val pinned: Boolean = false
 )
 
 enum class TabType {
@@ -63,6 +68,30 @@ class MainViewModel(
 
     // Repositories
     private val userPreferences = UserPreferences(application)
+
+    // Cache of package name -> Android UID (-1 = resolved-but-unknown). Used to filter the log
+    // stream to a specific app reliably (UID is stable across process restarts, unlike PID).
+    private val appUidCache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+
+    private fun uidFor(pkg: String): Int? {
+        appUidCache[pkg]?.let { return it.takeIf { v -> v >= 0 } }
+        val resolved = try {
+            getApplication<Application>().packageManager.getApplicationInfo(pkg, 0).uid
+        } catch (e: Exception) { -1 }
+        appUidCache[pkg] = resolved
+        return resolved.takeIf { it >= 0 }
+    }
+
+    private fun appLabel(pkg: String): String = try {
+        val pm = getApplication<Application>().packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+    } catch (e: Exception) { pkg }
+
+    /** Packages the user has pinned for dedicated app-specific log tabs. */
+    val monitoredApps: StateFlow<Set<String>> = userPreferences.monitoredApps
+
+    fun addMonitoredApp(pkg: String) = userPreferences.addMonitoredApp(pkg)
+    fun removeMonitoredApp(pkg: String) = userPreferences.removeMonitoredApp(pkg)
 
     // Delegate to handle the heavy lifting of log buffering.
     val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize)
@@ -140,7 +169,13 @@ class MainViewModel(
                 }
                 TabType.APP -> {
                     val pkg = input.tab.filterValue
-                    if (!pkg.isNullOrBlank()) result = result.filter { it.text.contains(pkg, ignoreCase = true) }
+                    if (!pkg.isNullOrBlank()) {
+                        val targetUid = uidFor(pkg)
+                        // Prefer reliable UID matching; fall back to substring if the package's
+                        // UID can't be resolved (e.g. it isn't installed).
+                        result = if (targetUid != null) result.filter { it.uid == targetUid }
+                                 else result.filter { it.text.contains(pkg, ignoreCase = true) }
+                    }
                 }
             }
             if (input.userFilter.isNotBlank()) {
@@ -190,6 +225,11 @@ class MainViewModel(
             }
         }
 
+        // Keep pinned, app-specific tabs in sync with the user's "Monitor specific apps" choices.
+        viewModelScope.launch {
+            userPreferences.monitoredApps.collect { syncMonitoredTabs(it) }
+        }
+
         // Register the Accessibility Receiver
         val filter = IntentFilter(LogKittyAccessibilityService.ACTION_FOREGROUND_APP_CHANGED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -200,14 +240,38 @@ class MainViewModel(
     }
 
     /**
-     * Adds a temporary tab for a specific application package.
+     * Reconciles the pinned app tabs with the set of [packages] the user is monitoring: adds a
+     * pinned tab for each new package, promotes any matching transient (foreground) tab, and
+     * removes pinned tabs that are no longer monitored.
+     */
+    private fun syncMonitoredTabs(packages: Set<String>) {
+        _tabs.update { current ->
+            val kept = current.filterNot { it.pinned && it.filterValue !in packages }
+            val result = kept.toMutableList()
+            packages.forEach { pkg ->
+                val existingIdx = result.indexOfFirst { it.filterValue == pkg }
+                if (existingIdx < 0) {
+                    result.add(LogTab("app_$pkg", appLabel(pkg), TabType.APP, pkg, pinned = true))
+                } else if (!result[existingIdx].pinned) {
+                    result[existingIdx] = result[existingIdx].copy(pinned = true, title = appLabel(pkg))
+                }
+            }
+            result
+        }
+        if (_tabs.value.none { it.id == _selectedTab.value.id }) {
+            _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
+        }
+    }
+
+    /**
+     * Adds a transient tab for a foreground application package (auto-created via accessibility).
      */
     private fun addAppTab(pkg: String) {
         _tabs.update { currentTabs ->
             if (currentTabs.any { it.filterValue == pkg }) {
-                currentTabs // Tab already exists
+                currentTabs // Tab already exists (transient or pinned)
             } else {
-                currentTabs + LogTab("app_$pkg", pkg, TabType.APP, pkg)
+                currentTabs + LogTab("app_$pkg", appLabel(pkg), TabType.APP, pkg)
             }
         }
     }
@@ -230,9 +294,14 @@ class MainViewModel(
 
     fun closeTab(tab: LogTab) {
         if (tab.type == TabType.APP) {
-            _tabs.update { it - tab }
-            if (_selectedTab.value == tab) {
-                _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
+            if (tab.pinned) {
+                // Unpinning a monitored app removes its tab via the monitoredApps flow.
+                tab.filterValue?.let { userPreferences.removeMonitoredApp(it) }
+            } else {
+                _tabs.update { it - tab }
+                if (_selectedTab.value == tab) {
+                    _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
+                }
             }
             _tabClearMarks.update { it - tab.id }
         }
