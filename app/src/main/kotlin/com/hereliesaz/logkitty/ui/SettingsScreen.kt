@@ -41,8 +41,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -377,13 +380,17 @@ private fun SettingsMainScreen(
                 )
             } else {
                 monitoredApps.forEach { pkg ->
+                    // Resolve the app label off the main thread to avoid blocking PackageManager IPC.
+                    val label by produceState(initialValue = pkg, pkg) {
+                        value = withContext(Dispatchers.IO) { appLabel(context, pkg) }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(appLabel(context, pkg), style = MaterialTheme.typography.bodyLarge)
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
                             Text(
                                 pkg,
                                 style = MaterialTheme.typography.bodySmall,

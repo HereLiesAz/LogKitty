@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 
@@ -226,7 +227,8 @@ class MainViewModel(
         }
 
         // Keep pinned, app-specific tabs in sync with the user's "Monitor specific apps" choices.
-        viewModelScope.launch {
+        // Collected on IO because syncMonitoredTabs resolves app labels/UIDs via PackageManager.
+        viewModelScope.launch(Dispatchers.IO) {
             userPreferences.monitoredApps.collect { syncMonitoredTabs(it) }
         }
 
@@ -245,15 +247,19 @@ class MainViewModel(
      * removes pinned tabs that are no longer monitored.
      */
     private fun syncMonitoredTabs(packages: Set<String>) {
+        // Resolve labels/UIDs up front (this runs off the main thread); uidFor also primes the
+        // cache so the hot filter path never touches PackageManager on the main thread.
+        val labels = packages.associateWith { pkg -> appLabel(pkg).also { uidFor(pkg) } }
         _tabs.update { current ->
             val kept = current.filterNot { it.pinned && it.filterValue !in packages }
             val result = kept.toMutableList()
             packages.forEach { pkg ->
+                val title = labels[pkg] ?: pkg
                 val existingIdx = result.indexOfFirst { it.filterValue == pkg }
                 if (existingIdx < 0) {
-                    result.add(LogTab("app_$pkg", appLabel(pkg), TabType.APP, pkg, pinned = true))
+                    result.add(LogTab("app_$pkg", title, TabType.APP, pkg, pinned = true))
                 } else if (!result[existingIdx].pinned) {
-                    result[existingIdx] = result[existingIdx].copy(pinned = true, title = appLabel(pkg))
+                    result[existingIdx] = result[existingIdx].copy(pinned = true, title = title)
                 }
             }
             result
@@ -265,13 +271,15 @@ class MainViewModel(
 
     /**
      * Adds a transient tab for a foreground application package (auto-created via accessibility).
+     * Runs on the main thread (broadcast receiver), so it intentionally uses the package name as the
+     * title rather than a blocking PackageManager label lookup.
      */
     private fun addAppTab(pkg: String) {
         _tabs.update { currentTabs ->
             if (currentTabs.any { it.filterValue == pkg }) {
                 currentTabs // Tab already exists (transient or pinned)
             } else {
-                currentTabs + LogTab("app_$pkg", appLabel(pkg), TabType.APP, pkg)
+                currentTabs + LogTab("app_$pkg", pkg, TabType.APP, pkg)
             }
         }
     }

@@ -55,22 +55,25 @@ class StateDelegate(
         /** App-UID name form printed by some devices' `-v uid`, e.g. `u0_a123`. */
         private val APP_UID_NAME = Regex("""^u(\d+)_a(\d+)$""")
 
+        /** Result of parsing a raw logcat line into its UID prefix and display text. */
+        internal data class ParsedLogLine(val uid: Int?, val text: String, val hasTimestamp: Boolean)
+
         /**
          * Splits the optional `-v uid` prefix off a raw logcat line.
          *
          * The line shape is `<uid> MM-DD HH:MM:SS.mmm L/Tag( pid): msg`. We locate the timestamp
          * and treat everything before it as the UID token, returning the remainder as the
          * display [text] so it matches the plain `-v time` format every downstream parser expects.
-         * Lines with no timestamp (reader warnings, wrapped stack-trace lines) yield `null` UID
-         * and the full line as text.
+         * Lines with no timestamp (reader warnings, wrapped stack-trace lines) are reported with
+         * [hasTimestamp]`= false` so the caller can attribute continuation lines to the preceding
+         * entry's UID.
          */
-        internal fun parseUidPrefix(raw: String): Pair<Int?, String> {
-            val match = TIMESTAMP_ANCHOR.find(raw) ?: return null to raw
+        internal fun parseUidPrefix(raw: String): ParsedLogLine {
+            val match = TIMESTAMP_ANCHOR.find(raw) ?: return ParsedLogLine(null, raw, false)
             val start = match.range.first
-            if (start == 0) return null to raw
+            if (start == 0) return ParsedLogLine(null, raw, true)
             val prefix = raw.substring(0, start).trim()
-            val text = raw.substring(start)
-            return parseUid(prefix) to text
+            return ParsedLogLine(parseUid(prefix), raw.substring(start), true)
         }
 
         /**
@@ -98,6 +101,11 @@ class StateDelegate(
 
     private val idCounter = AtomicLong(0L)
     private val logChannel = Channel<LogEvent>(Channel.UNLIMITED)
+
+    // UID of the most recent log entry that carried a timestamp. Header-less continuation lines
+    // (e.g. stack traces) inherit it so they stay attributed to the same app. Only ever touched
+    // from the single batch-processing coroutine below, so no synchronization is needed.
+    private var lastSeenUid: Int? = null
 
     init {
         if (bufferSizeFlow != null) {
@@ -132,8 +140,17 @@ class StateDelegate(
                 is LogEvent.System -> {
                     event.msg.split('\n').forEach { raw ->
                         if (raw.isNotBlank()) {
-                            val (uid, text) = parseUidPrefix(raw)
-                            systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), text, uid))
+                            val parsed = parseUidPrefix(raw)
+                            val uid = if (parsed.hasTimestamp) {
+                                // New log entry: trust its own UID (may be null) and remember it.
+                                lastSeenUid = parsed.uid
+                                parsed.uid
+                            } else {
+                                // Header-less continuation line (stack trace, wrapped message):
+                                // inherit the preceding entry's UID so it isn't dropped from the app tab.
+                                parsed.uid ?: lastSeenUid
+                            }
+                            systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), parsed.text, uid))
                         }
                     }
                 }

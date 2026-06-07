@@ -209,8 +209,10 @@ class LogKittyOverlayService : Service() {
     private fun sheetConfig(viewModel: MainViewModel, navBarHeightPx: Int): AzSheetConfig {
         val density = resources.displayMetrics.density
         val fontSize = viewModel.fontSize.value
-        // Keep in sync with the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35).
-        val lineHeightPx = fontSize.toFloat() * density * 1.4f
+        // Matches the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35). PEEK is
+        // sized for four lines and top-aligns its content, so at least three stay visible above the
+        // nav bar without needing extra per-line headroom here.
+        val lineHeightPx = fontSize.toFloat() * density * 1.35f
 
         // HIDDEN: one line + a small breathing margin → reads as a collapsed strip.
         val hiddenPx = (lineHeightPx * 1) + (8f * density) + navBarHeightPx
