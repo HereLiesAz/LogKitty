@@ -481,6 +481,10 @@ private fun SettingsMainScreen(
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            SettingsFooter(context)
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -491,6 +495,58 @@ private fun appLabel(context: android.content.Context, pkg: String): String = tr
     val pm = context.packageManager
     pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
 } catch (e: Exception) { pkg }
+
+/**
+ * Bottom-of-settings footer mirroring AzNavRail's footer: About (repo), Feedback (email),
+ * and the author's handle (Instagram).
+ */
+@Composable
+private fun SettingsFooter(context: android.content.Context) {
+    fun open(intent: android.content.Intent) {
+        runCatching { context.startActivity(intent) }
+            .onFailure { Toast.makeText(context, "No app found to handle this", Toast.LENGTH_SHORT).show() }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // padding before clickable so the whole padded area is the touch target / ripple bounds.
+        Text(
+            "About",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(8.dp)
+                .clickable {
+                    open(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/HereLiesAz/LogKitty")))
+                }
+        )
+        Text(
+            "Feedback",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(8.dp)
+                .clickable {
+                    open(android.content.Intent(android.content.Intent.ACTION_SENDTO,
+                        Uri.parse("mailto:hereliesaz@gmail.com?subject=LogKitty")))
+                }
+        )
+        Text(
+            "@HereLiesAz",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(8.dp)
+                .clickable {
+                    open(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        Uri.parse("https://instagram.com/HereLiesAz")))
+                }
+        )
+    }
+}
 
 @Composable
 fun SettingsSectionHeader(text: String) {
