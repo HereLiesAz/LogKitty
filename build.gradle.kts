@@ -9,6 +9,11 @@ buildscript {
             val g = requested.group
             val n = requested.name
             when {
+                g == "com.google.guava" && n == "guava" -> {
+                    val suffix = if (requested.version?.endsWith("-android") == true) "-android" else "-jre"
+                    useVersion("33.3.1$suffix")
+                    because("Security fixes: CVE-2023-2976 & CVE-2020-8908 (insecure temp-dir use / info disclosure)")
+                }
                 g == "io.netty" && !n.startsWith("netty-tcnative") -> {
                     useVersion("4.1.133.Final")
                     because("Security fixes: CVE-2025-67735, CVE-2026-42583, CVE-2026-42587, et al.")
