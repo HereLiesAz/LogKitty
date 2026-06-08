@@ -1,7 +1,7 @@
 [versions]
 agp = "9.2.1"
 aetherTransportFile = "2.0.14"
-aznavrail = "9.9"
+aznavrail = "9.10"
 playServicesAds = "23.3.0"
 coreKtx = "1.18.0"
 kotlinxCoroutinesCore = "1.11.0"
