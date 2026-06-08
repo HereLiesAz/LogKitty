@@ -68,6 +68,7 @@
     <string name="settings_footer_about">About</string>
     <string name="settings_footer_feedback">Feedback</string>
     <string name="settings_footer_handle">\@HereLiesAz</string>
+    <string name="settings_version">LogKitty v%1$s</string>
 
     <!-- Toasts -->
     <string name="toast_prefs_exported">Preferences exported</string>

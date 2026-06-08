@@ -518,31 +518,6 @@ private fun SettingsFooter(context: android.content.Context) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // padding before clickable so the whole padded area is the touch target / ripple bounds.
-        Text(
-            stringResource(R.string.settings_footer_about),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .padding(8.dp)
-                .clickable {
-                    open(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/HereLiesAz/LogKitty")))
-                }
-        )
-        Text(
-            stringResource(R.string.settings_footer_feedback),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .padding(8.dp)
-                .clickable {
-                    open(android.content.Intent(android.content.Intent.ACTION_SENDTO,
-                        Uri.parse("mailto:hereliesaz@gmail.com?subject=LogKitty")))
-                }
-        )
-        Text(
-            stringResource(R.string.settings_footer_handle),
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -550,7 +525,7 @@ private fun SettingsFooter(context: android.content.Context) {
         ) {
             // clickable before padding so the whole padded area is the touch target / ripple bounds.
             Text(
-                "About",
+                stringResource(R.string.settings_footer_about),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -561,7 +536,7 @@ private fun SettingsFooter(context: android.content.Context) {
                     .padding(8.dp)
             )
             Text(
-                "Feedback",
+                stringResource(R.string.settings_footer_feedback),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -572,7 +547,7 @@ private fun SettingsFooter(context: android.content.Context) {
                     .padding(8.dp)
             )
             Text(
-                "@HereLiesAz",
+                stringResource(R.string.settings_footer_handle),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -584,7 +559,7 @@ private fun SettingsFooter(context: android.content.Context) {
             )
         }
         Text(
-            "LogKitty v${BuildConfig.VERSION_NAME}",
+            stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp)
