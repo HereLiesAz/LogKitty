@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -36,6 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -130,6 +132,38 @@ private fun SettingsMainScreen(
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf(false) }
+    var showAccessibilityDisclosure by remember { mutableStateOf(false) }
+
+    // Track whether the accessibility service is actually enabled, refreshed on resume so the
+    // Context Mode warning and toggle behavior stay accurate after the user returns from settings.
+    var isAccessibilityEnabled by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
+    val accessibilityLifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(accessibilityLifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
+            }
+        }
+        accessibilityLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { accessibilityLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (showAccessibilityDisclosure) {
+        AccessibilityDisclosureDialog(
+            onDismiss = { showAccessibilityDisclosure = false },
+            onAgree = {
+                showAccessibilityDisclosure = false
+                viewModel.toggleContextMode() // enable
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    )
+                }.onFailure {
+                    Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
 
     if (showColorPicker) {
         ColorPickerDialog(
@@ -358,8 +392,30 @@ private fun SettingsMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = isContextMode, onCheckedChange = { viewModel.toggleContextMode() })
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
+                    // Warn if Context Mode is on but the accessibility service isn't actually enabled,
+                    // so the user knows the feature won't work until they turn it on in settings.
+                    if (isContextMode && !isAccessibilityEnabled) {
+                        Text(
+                            stringResource(R.string.accessibility_service_disabled_warning),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+                Switch(
+                    checked = isContextMode,
+                    onCheckedChange = { enable ->
+                        // Enabling relies on the accessibility service: if it's already enabled just
+                        // toggle; otherwise show the prominent disclosure + consent first. Disabling
+                        // needs no gate.
+                        if (enable) {
+                            if (isAccessibilityEnabled) viewModel.toggleContextMode()
+                            else showAccessibilityDisclosure = true
+                        } else viewModel.toggleContextMode()
+                    }
+                )
             }
 
             Row(
@@ -577,9 +633,10 @@ private fun SettingsFooter(context: android.content.Context) {
 }
 
 /**
- * AdMob banner shown at the bottom of Settings. Uses Google's official TEST ad unit for now.
- * TODO: replace [TEST_BANNER_AD_UNIT] with the real ad-unit ID and add a UMP consent flow
- * (the app ID lives in AndroidManifest; SDK init is in MainApplication).
+ * AdMob banner shown at the bottom of Settings. The unit ID comes from build config
+ * (BuildConfig.ADMOB_BANNER_UNIT_ID): Google's test unit for debug, the real unit for release when
+ * configured in local.properties/env. The app ID lives in AndroidManifest; SDK init is in
+ * MainApplication. TODO: add a UMP consent flow before serving personalized ads.
  */
 @Composable
 private fun SettingsAdBanner() {
@@ -589,7 +646,7 @@ private fun SettingsAdBanner() {
     val adView = remember {
         com.google.android.gms.ads.AdView(context).apply {
             setAdSize(com.google.android.gms.ads.AdSize.BANNER)
-            adUnitId = TEST_BANNER_AD_UNIT
+            adUnitId = BuildConfig.ADMOB_BANNER_UNIT_ID
             loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
         }
     }
@@ -617,8 +674,6 @@ private fun SettingsAdBanner() {
         factory = { adView }
     )
 }
-
-private const val TEST_BANNER_AD_UNIT = "ca-app-pub-3940256099942544/6300978111"
 
 /** A single requested permission and whether it is currently granted. */
 private data class PermissionStatus(val permission: String, val granted: Boolean)
@@ -674,6 +729,81 @@ private fun hasUsageStatsAccess(context: android.content.Context): Boolean = try
     false
 }
 
+/**
+ * Returns the most specific system-settings intent for a permission so tapping a row takes the user
+ * straight to where they can change it. Permissions with no dedicated screen (normal/install-time
+ * grants, or ADB-only ones like READ_LOGS) fall back to the app's details page.
+ */
+private fun permissionSettingsIntent(context: android.content.Context, permission: String): android.content.Intent {
+    val pkgUri = Uri.parse("package:${context.packageName}")
+    return when (permission) {
+        android.Manifest.permission.SYSTEM_ALERT_WINDOW ->
+            android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkgUri)
+        android.Manifest.permission.PACKAGE_USAGE_STATS ->
+            android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        android.Manifest.permission.POST_NOTIFICATIONS ->
+            android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        else ->
+            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)
+    }
+}
+
+/** Opens the system settings screen for a permission, with an OEM fallback for the overlay one. */
+private fun openPermissionSettings(context: android.content.Context, permission: String) {
+    runCatching { context.startActivity(permissionSettingsIntent(context, permission)) }
+        .onFailure {
+            // Some OEM ROMs reject ACTION_MANAGE_OVERLAY_PERMISSION with a package: URI — retry
+            // without it (opens the general overlay list) before giving up.
+            val fallback = if (permission == android.Manifest.permission.SYSTEM_ALERT_WINDOW) {
+                android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+            } else null
+            val recovered = fallback != null && runCatching { context.startActivity(fallback) }.isSuccess
+            if (!recovered) {
+                Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+            }
+        }
+}
+
+/** Popup explaining why LogKitty uses a permission, with a shortcut to its system settings screen. */
+@Composable
+private fun PermissionInfoDialog(
+    title: String,
+    body: String,
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(body) },
+        confirmButton = {
+            TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.perm_open_settings)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.perm_close)) }
+        }
+    )
+}
+
+/** Why LogKitty requests each permission, shown in the per-permission info popup. */
+@Composable
+private fun permissionJustification(permission: String): String {
+    val res = when (permission) {
+        "android.permission.POST_NOTIFICATIONS" -> R.string.perm_why_post_notifications
+        "android.permission.INTERNET" -> R.string.perm_why_internet
+        "android.permission.PACKAGE_USAGE_STATS" -> R.string.perm_why_package_usage_stats
+        "android.permission.FOREGROUND_SERVICE" -> R.string.perm_why_foreground_service
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_why_foreground_service_special
+        "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_why_system_alert_window
+        "android.permission.READ_LOGS" -> R.string.perm_why_read_logs
+        "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_why_query_all_packages
+        "com.google.android.gms.permission.AD_ID" -> R.string.perm_why_ad_id
+        else -> 0
+    }
+    return if (res != 0) stringResource(res) else permission
+}
+
 /** Maps a permission name to a friendly, localized label; unknown permissions show their short name. */
 @Composable
 private fun permissionLabel(permission: String): String {
@@ -715,10 +845,28 @@ private fun PermissionsSection(context: android.content.Context) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // Tapping a row opens a popup explaining why LogKitty uses that permission, with a button to
+    // jump to the relevant system settings screen.
+    var infoPermission by remember { mutableStateOf<String?>(null) }
+    infoPermission?.let { perm ->
+        PermissionInfoDialog(
+            title = permissionLabel(perm),
+            body = permissionJustification(perm),
+            onOpenSettings = {
+                openPermissionSettings(context, perm)
+                infoPermission = null
+            },
+            onDismiss = { infoPermission = null }
+        )
+    }
+
     SettingsSectionHeader(stringResource(R.string.settings_section_permissions))
     statuses.forEach { status ->
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { infoPermission = status.permission }
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -734,6 +882,38 @@ private fun PermissionsSection(context: android.content.Context) {
             )
         }
     }
+}
+
+/**
+ * Prominent disclosure shown before Context Mode is enabled, since that feature relies on the
+ * accessibility service. Explains what is accessed (foreground app, home/recents transitions), why,
+ * and that no screen content / personal data is read — required by Google Play's User Data policy.
+ */
+/** True if LogKitty's accessibility service is currently enabled in system settings. */
+private fun isAccessibilityServiceEnabled(context: android.content.Context): Boolean = runCatching {
+    val am = context.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE)
+        as android.view.accessibility.AccessibilityManager
+    am.getEnabledAccessibilityServiceList(
+        android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+    ).any {
+        it.resolveInfo.serviceInfo.packageName == context.packageName &&
+            it.resolveInfo.serviceInfo.name == com.hereliesaz.logkitty.services.LogKittyAccessibilityService::class.java.name
+    }
+}.getOrDefault(false)
+
+@Composable
+private fun AccessibilityDisclosureDialog(onDismiss: () -> Unit, onAgree: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.accessibility_disclosure_title)) },
+        text = { Text(stringResource(R.string.accessibility_disclosure_body)) },
+        confirmButton = {
+            TextButton(onClick = onAgree) { Text(stringResource(R.string.accessibility_disclosure_agree)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
 }
 
 @Composable
