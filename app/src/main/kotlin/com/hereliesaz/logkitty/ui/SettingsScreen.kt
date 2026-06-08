@@ -520,39 +520,39 @@ private fun SettingsFooter(context: android.content.Context) {
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // padding before clickable so the whole padded area is the touch target / ripple bounds.
+            // clickable before padding so the whole padded area is the touch target / ripple bounds.
             Text(
                 "About",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .padding(8.dp)
                     .clickable {
                         open(android.content.Intent(android.content.Intent.ACTION_VIEW,
                             Uri.parse("https://github.com/HereLiesAz/LogKitty")))
                     }
+                    .padding(8.dp)
             )
             Text(
                 "Feedback",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .padding(8.dp)
                     .clickable {
                         open(android.content.Intent(android.content.Intent.ACTION_SENDTO,
                             Uri.parse("mailto:hereliesaz@gmail.com?subject=LogKitty")))
                     }
+                    .padding(8.dp)
             )
             Text(
                 "@HereLiesAz",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .padding(8.dp)
                     .clickable {
                         open(android.content.Intent(android.content.Intent.ACTION_VIEW,
                             Uri.parse("https://instagram.com/HereLiesAz")))
                     }
+                    .padding(8.dp)
             )
         }
         Text(
