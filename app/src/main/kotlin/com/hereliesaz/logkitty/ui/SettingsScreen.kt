@@ -132,6 +132,38 @@ private fun SettingsMainScreen(
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf(false) }
+    var showAccessibilityDisclosure by remember { mutableStateOf(false) }
+
+    // Track whether the accessibility service is actually enabled, refreshed on resume so the
+    // Context Mode warning and toggle behavior stay accurate after the user returns from settings.
+    var isAccessibilityEnabled by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
+    val accessibilityLifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(accessibilityLifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
+            }
+        }
+        accessibilityLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { accessibilityLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (showAccessibilityDisclosure) {
+        AccessibilityDisclosureDialog(
+            onDismiss = { showAccessibilityDisclosure = false },
+            onAgree = {
+                showAccessibilityDisclosure = false
+                viewModel.toggleContextMode() // enable
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    )
+                }.onFailure {
+                    Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
 
     if (showColorPicker) {
         ColorPickerDialog(
@@ -360,8 +392,30 @@ private fun SettingsMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = isContextMode, onCheckedChange = { viewModel.toggleContextMode() })
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
+                    // Warn if Context Mode is on but the accessibility service isn't actually enabled,
+                    // so the user knows the feature won't work until they turn it on in settings.
+                    if (isContextMode && !isAccessibilityEnabled) {
+                        Text(
+                            stringResource(R.string.accessibility_service_disabled_warning),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+                Switch(
+                    checked = isContextMode,
+                    onCheckedChange = { enable ->
+                        // Enabling relies on the accessibility service: if it's already enabled just
+                        // toggle; otherwise show the prominent disclosure + consent first. Disabling
+                        // needs no gate.
+                        if (enable) {
+                            if (isAccessibilityEnabled) viewModel.toggleContextMode()
+                            else showAccessibilityDisclosure = true
+                        } else viewModel.toggleContextMode()
+                    }
+                )
             }
 
             Row(
@@ -829,6 +883,38 @@ private fun PermissionsSection(context: android.content.Context) {
             )
         }
     }
+}
+
+/**
+ * Prominent disclosure shown before Context Mode is enabled, since that feature relies on the
+ * accessibility service. Explains what is accessed (foreground app, home/recents transitions), why,
+ * and that no screen content / personal data is read — required by Google Play's User Data policy.
+ */
+/** True if LogKitty's accessibility service is currently enabled in system settings. */
+private fun isAccessibilityServiceEnabled(context: android.content.Context): Boolean = runCatching {
+    val am = context.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE)
+        as android.view.accessibility.AccessibilityManager
+    am.getEnabledAccessibilityServiceList(
+        android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+    ).any {
+        it.resolveInfo.serviceInfo.packageName == context.packageName &&
+            it.resolveInfo.serviceInfo.name == com.hereliesaz.logkitty.services.LogKittyAccessibilityService::class.java.name
+    }
+}.getOrDefault(false)
+
+@Composable
+private fun AccessibilityDisclosureDialog(onDismiss: () -> Unit, onAgree: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.accessibility_disclosure_title)) },
+        text = { Text(stringResource(R.string.accessibility_disclosure_body)) },
+        confirmButton = {
+            TextButton(onClick = onAgree) { Text(stringResource(R.string.accessibility_disclosure_agree)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
 }
 
 @Composable
