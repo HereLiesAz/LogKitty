@@ -88,11 +88,13 @@ app you share to). This only happens on your action.
 
 ### Crash reports (optional, build‑dependent)
 
-Some builds can file a crash report (including a stack trace and recent log
-context) to the project's issue tracker to help fix bugs. This feature is only
-active when the build was configured with a reporting token; if it is not
-configured, no crash data is sent. Crash reports may contain log content; do not
-submit logs you consider sensitive.
+Some builds can file a crash report to the project's issue tracker to help fix
+bugs. A report contains the **exception type and message, the stack trace, and
+basic device metadata** (Android version, SDK level, device manufacturer and
+model) — it does **not** include logcat or any of the log content you were
+viewing. The report is stored locally and only uploaded if the build was
+configured with a reporting token; if it is not configured, no crash data is
+sent.
 
 ## Data retention
 
