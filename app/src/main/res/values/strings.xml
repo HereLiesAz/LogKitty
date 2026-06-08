@@ -49,6 +49,7 @@
     <string name="accessibility_disclosure_title">Enable Context Mode</string>
     <string name="accessibility_disclosure_body">Context Mode uses Android\'s Accessibility Service so LogKitty can detect which app is currently in the foreground and when you switch to Home or Recents. LogKitty uses this only to (1) automatically filter the log to the app you\'re using and (2) collapse the overlay when you leave an app.\n\nIt does not read screen contents, the text you type, passwords, or any personal data, and this information never leaves your device. To turn Context Mode on, you\'ll be taken to Accessibility settings to enable LogKitty.</string>
     <string name="accessibility_disclosure_agree">Agree &amp; open settings</string>
+    <string name="accessibility_service_disabled_warning">Accessibility service is off — Context Mode won\'t work until you enable it.</string>
     <string name="settings_root_access">Root Access</string>
     <string name="settings_reverse_log_order">Reverse Log Order</string>
     <string name="settings_section_app_monitoring">App Monitoring</string>
