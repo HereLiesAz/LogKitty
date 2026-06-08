@@ -38,6 +38,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,12 +57,15 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import com.hereliesaz.logkitty.BuildConfig
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
+import com.hereliesaz.logkitty.BuildConfig
 import com.hereliesaz.logkitty.R
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogSources
@@ -186,6 +192,9 @@ private fun SettingsMainScreen(
                 .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
+            PermissionsSection(context)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
             SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
 
             Row(
@@ -610,6 +619,122 @@ private fun SettingsAdBanner() {
 }
 
 private const val TEST_BANNER_AD_UNIT = "ca-app-pub-3940256099942544/6300978111"
+
+/** A single requested permission and whether it is currently granted. */
+private data class PermissionStatus(val permission: String, val granted: Boolean)
+
+/**
+ * Reads every permission declared in the manifest and resolves its current grant state.
+ *
+ * Most permissions are answered by the package-info granted flag, but two are special: the overlay
+ * permission is an app-op surfaced via [Settings.canDrawOverlays], and usage access is an app-op
+ * checked through [android.app.AppOpsManager] — neither is reflected reliably by the grant flag.
+ */
+private fun collectPermissionStatuses(context: android.content.Context): List<PermissionStatus> {
+    val pm = context.packageManager
+    val info = try {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            pm.getPackageInfo(
+                context.packageName,
+                android.content.pm.PackageManager.PackageInfoFlags.of(
+                    android.content.pm.PackageManager.GET_PERMISSIONS.toLong()
+                )
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
+        }
+    } catch (e: Exception) {
+        return emptyList()
+    }
+    val requested = info.requestedPermissions ?: return emptyList()
+    val flags = info.requestedPermissionsFlags ?: IntArray(requested.size)
+    return requested.mapIndexed { i, perm ->
+        val grantedByFlag = i < flags.size &&
+            (flags[i] and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
+        val granted = when (perm) {
+            android.Manifest.permission.SYSTEM_ALERT_WINDOW -> android.provider.Settings.canDrawOverlays(context)
+            android.Manifest.permission.PACKAGE_USAGE_STATS -> hasUsageStatsAccess(context)
+            else -> grantedByFlag
+        }
+        PermissionStatus(perm, granted)
+    }
+}
+
+/** Usage-access (PACKAGE_USAGE_STATS) is an app-op, not a normal grant — check it via AppOps. */
+private fun hasUsageStatsAccess(context: android.content.Context): Boolean = try {
+    val appOps = context.getSystemService(android.content.Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+    val mode = appOps.unsafeCheckOpNoThrow(
+        android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+        android.os.Process.myUid(),
+        context.packageName
+    )
+    mode == android.app.AppOpsManager.MODE_ALLOWED
+} catch (e: Exception) {
+    false
+}
+
+/** Maps a permission name to a friendly, localized label; unknown permissions show their short name. */
+@Composable
+private fun permissionLabel(permission: String): String {
+    val res = when (permission) {
+        "android.permission.POST_NOTIFICATIONS" -> R.string.perm_post_notifications
+        "android.permission.INTERNET" -> R.string.perm_internet
+        "android.permission.PACKAGE_USAGE_STATS" -> R.string.perm_package_usage_stats
+        "android.permission.FOREGROUND_SERVICE" -> R.string.perm_foreground_service
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_foreground_service_special
+        "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_system_alert_window
+        "android.permission.READ_LOGS" -> R.string.perm_read_logs
+        "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_query_all_packages
+        "com.google.android.gms.permission.AD_ID" -> R.string.perm_ad_id
+        else -> 0
+    }
+    return if (res != 0) stringResource(res) else permission.substringAfterLast('.')
+}
+
+/**
+ * Lists every permission the app declares and whether it is currently granted. Re-reads grant state
+ * on ON_RESUME so it updates after the user grants something in system settings and returns.
+ */
+@Composable
+private fun PermissionsSection(context: android.content.Context) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+    var statuses by remember { mutableStateOf<List<PermissionStatus>>(emptyList()) }
+    // Resolve grant state off the main thread (binder IPC); recompute whenever the screen resumes
+    // (addObserver replays ON_RESUME to a new observer, so this also drives the initial load).
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                coroutineScope.launch {
+                    statuses = withContext(Dispatchers.IO) { collectPermissionStatuses(context) }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    SettingsSectionHeader(stringResource(R.string.settings_section_permissions))
+    statuses.forEach { status ->
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                permissionLabel(status.permission),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                stringResource(if (status.granted) R.string.perm_granted else R.string.perm_not_granted),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (status.granted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
 
 @Composable
 fun SettingsSectionHeader(text: String) {
