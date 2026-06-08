@@ -485,6 +485,9 @@ private fun SettingsMainScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             SettingsFooter(context)
 
+            Spacer(modifier = Modifier.height(16.dp))
+            SettingsAdBanner()
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -547,6 +550,50 @@ private fun SettingsFooter(context: android.content.Context) {
         )
     }
 }
+
+/**
+ * AdMob banner shown at the bottom of Settings. Uses Google's official TEST ad unit for now.
+ * TODO: replace [TEST_BANNER_AD_UNIT] with the real ad-unit ID and add a UMP consent flow
+ * (the app ID lives in AndroidManifest; SDK init is in MainApplication).
+ */
+@Composable
+private fun SettingsAdBanner() {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+
+    val adView = remember {
+        com.google.android.gms.ads.AdView(context).apply {
+            setAdSize(com.google.android.gms.ads.AdSize.BANNER)
+            adUnitId = TEST_BANNER_AD_UNIT
+            loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
+        }
+    }
+
+    // Pause/resume/destroy with the host lifecycle (AdMob policy + battery/memory).
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> adView.resume()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> adView.pause()
+                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> adView.destroy()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            adView.destroy()
+        }
+    }
+
+    // Fixed banner height avoids a layout shift (and accidental taps) when the ad loads.
+    androidx.compose.ui.viewinterop.AndroidView(
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+        factory = { adView }
+    )
+}
+
+private const val TEST_BANNER_AD_UNIT = "ca-app-pub-3940256099942544/6300978111"
 
 @Composable
 fun SettingsSectionHeader(text: String) {

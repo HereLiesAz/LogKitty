@@ -1,6 +1,7 @@
 package com.hereliesaz.logkitty
 
 import android.app.Application
+import com.google.android.gms.ads.MobileAds
 import com.hereliesaz.logkitty.ui.MainViewModel
 import com.hereliesaz.logkitty.utils.CrashReporter
 import kotlinx.coroutines.CoroutineScope
@@ -39,5 +40,11 @@ class MainApplication : Application() {
         // Initialize the shared ViewModel.
         // We pass 'this' (Application Context) to it.
         mainViewModel = MainViewModel(this)
+
+        // Initialize the Google Mobile Ads SDK (off the main thread per Google's guidance) for the
+        // banner shown at the bottom of Settings. Uses test IDs for now (see AndroidManifest).
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { MobileAds.initialize(this@MainApplication) }
+        }
     }
 }
