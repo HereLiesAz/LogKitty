@@ -151,7 +151,7 @@ class LogKittyOverlayService : Service() {
         val host = AzBottomSheetWindowHost(
             context = this,
             controller = controller,
-            config = sheetConfig(viewModel, navBarHeightPx),
+            config = sheetConfig(viewModel),
             lifecycleOwner = composeOwners,
             viewModelStoreOwner = composeOwners,
             savedStateRegistryOwner = composeOwners,
@@ -161,7 +161,6 @@ class LogKittyOverlayService : Service() {
                 LogBottomSheet(
                     controller = controller,
                     viewModel = viewModel,
-                    navBarHeightPx = navBarHeightPx,
                     onSaveClick = {
                         val intent = Intent(this@LogKittyOverlayService,
                             com.hereliesaz.logkitty.FileSaverActivity::class.java)
@@ -194,7 +193,7 @@ class LogKittyOverlayService : Service() {
                 viewModel.backgroundColor,
             ) { fs, op, bg -> Triple(fs, op, bg) }
                 .collect { (_, _, _) ->
-                    host.updateConfig(sheetConfig(viewModel, navBarHeightPx))
+                    host.updateConfig(sheetConfig(viewModel))
                 }
         }
 
@@ -211,28 +210,22 @@ class LogKittyOverlayService : Service() {
      * Build an [AzSheetConfig] from the user's current settings.
      *
      * The overlay window is resized to exactly these heights by the library, so they directly
-     * control how the HIDDEN/PEEK strips look. The nav-bar height is folded in because the
-     * sheet draws behind the system navigation bar (gravity-bottom, no-limits window).
-     *
-     * `hiddenStripDp` — a thin one-line strip so the sheet visibly *collapses*; the line is pinned
-     * to the bottom (just above the nav bar) by [LogBottomSheet]'s PeekStrip so there's no dead
-     * space beneath it.
-     * `peekDp` — room for three lines, likewise bottom-pinned above the nav bar.
+     * control how the HIDDEN/PEEK strips look. The nav bar is NOT folded in: the library's
+     * nav-bar decor window tints the system nav bar separately, so the sheet sits above it — each
+     * strip is sized to exactly its text lines, and the bottom line sits right above the nav bar.
      */
-    private fun sheetConfig(viewModel: MainViewModel, navBarHeightPx: Int): AzSheetConfig {
+    private fun sheetConfig(viewModel: MainViewModel): AzSheetConfig {
         val density = resources.displayMetrics.density
         val fontSize = viewModel.fontSize.value
-        // Matches the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35). The
-        // strip content is bottom-aligned above the nav bar, so each strip is sized to exactly
-        // its text lines plus the nav-bar band the sheet draws behind — no extra padding.
+        // Matches the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35).
         val lineHeightPx = fontSize.toFloat() * density * 1.35f
 
-        // HIDDEN: exactly one line sitting right above the nav bar.
-        val hiddenPx = (lineHeightPx * 1) + navBarHeightPx
+        // HIDDEN: exactly one line.
+        val hiddenPx = (lineHeightPx * 1)
         val hiddenDp = (hiddenPx / density).dp
 
-        // PEEK: exactly three lines above the nav bar.
-        val peekPx = (lineHeightPx * 3) + navBarHeightPx
+        // PEEK: exactly three lines.
+        val peekPx = (lineHeightPx * 3)
         val peekDp = (peekPx / density).dp
         return AzSheetConfig(
             backgroundColor = Color(viewModel.backgroundColor.value),
