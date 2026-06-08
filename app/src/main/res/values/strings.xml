@@ -161,4 +161,17 @@
     <string name="perm_read_logs">Read system logs</string>
     <string name="perm_query_all_packages">Query installed apps</string>
     <string name="perm_ad_id">Advertising ID</string>
+
+    <!-- Per-permission justification popup -->
+    <string name="perm_open_settings">Open settings</string>
+    <string name="perm_close">Close</string>
+    <string name="perm_why_post_notifications">Shows LogKitty\'s persistent, silent notification so you can start/stop log capture and see at a glance that it\'s running. Required to display notifications on Android 13+.</string>
+    <string name="perm_why_internet">Used to download the code fonts you pick, show the ad at the bottom of Settings, and (in some builds) upload crash reports. LogKitty never uploads your logs.</string>
+    <string name="perm_why_package_usage_stats">Lets Context Mode detect which app is in the foreground so it can auto-filter the log to that app. Processed on your device only.</string>
+    <string name="perm_why_foreground_service">Lets LogKitty run the log-capture overlay as a foreground service so it keeps working while you use other apps.</string>
+    <string name="perm_why_foreground_service_special">Declares the foreground service\'s special use: a persistent on-screen log overlay for real-time debugging while you interact with other apps.</string>
+    <string name="perm_why_system_alert_window">Lets LogKitty draw its floating log overlay on top of other apps so you can read logs without leaving the app you\'re debugging.</string>
+    <string name="perm_why_read_logs">The core of the app: reads the system log (logcat) so it can be displayed. Granted via ADB or root; it can\'t be granted from a normal prompt.</string>
+    <string name="perm_why_query_all_packages">Lets you pick any installed app to monitor and labels each log line with its source app and category. Used on your device only.</string>
+    <string name="perm_why_ad_id">Used by Google\'s ad SDK to show the banner in Settings. You can reset or opt out of personalization in your device\'s Google ad settings.</string>
 </resources>
