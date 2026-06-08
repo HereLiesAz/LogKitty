@@ -8,7 +8,7 @@ items Play flagged.
 
 LogKitty is an on-device developer log (logcat) viewer. It has no account
 system, no analytics, and no server of its own — your logs are read and shown
-locally and are never uploaded by the app. See `docs/PRIVACY_POLICY.md`.
+locally and are never uploaded by the app. See [PRIVACY_POLICY.md](PRIVACY_POLICY.md).
 
 ---
 
