@@ -149,7 +149,6 @@ class LogKittyOverlayService : Service() {
                 LogBottomSheet(
                     controller = controller,
                     viewModel = viewModel,
-                    navBarHeightPx = navBarHeightPx,
                     onSaveClick = {
                         val intent = Intent(this@LogKittyOverlayService,
                             com.hereliesaz.logkitty.FileSaverActivity::class.java)
