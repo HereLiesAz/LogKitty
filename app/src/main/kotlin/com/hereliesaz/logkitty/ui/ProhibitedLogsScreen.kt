@@ -11,9 +11,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
+import com.hereliesaz.logkitty.R
 
 /**
  * [ProhibitedLogsScreen] allows the user to manage the list of "Blacklisted" tags.
@@ -32,10 +34,10 @@ fun ProhibitedLogsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Prohibited Logs") },
+                title = { Text(stringResource(R.string.prohibited_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_back))
                     }
                 }
             )
@@ -49,7 +51,7 @@ fun ProhibitedLogsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No prohibited logs.",
+                    text = stringResource(R.string.prohibited_empty),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -99,7 +101,7 @@ fun ProhibitedTagItem(
             // Remove Button
             AzButton(
                 onClick = onDelete,
-                text = "Remove",
+                text = stringResource(R.string.remove),
                 shape = AzButtonShape.RECTANGLE,
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
             )

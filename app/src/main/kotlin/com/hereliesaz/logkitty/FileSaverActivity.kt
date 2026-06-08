@@ -30,13 +30,13 @@ class FileSaverActivity : ComponentActivity() {
                         output.write(logs.toByteArray())
                     }
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@FileSaverActivity, "Logs saved successfully", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@FileSaverActivity, getString(R.string.toast_logs_saved), Toast.LENGTH_SHORT).show()
                         finish()
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@FileSaverActivity, "Failed to save logs: ${e.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@FileSaverActivity, getString(R.string.toast_save_logs_failed, e.message), Toast.LENGTH_LONG).show()
                         finish()
                     }
                 }

@@ -1,6 +1,7 @@
 package com.hereliesaz.logkitty.ui
 
 import androidx.compose.ui.graphics.Color
+import com.hereliesaz.logkitty.R
 
 /**
  * [LogLevel] mirrors the canonical Android Logcat priorities.
@@ -52,8 +53,8 @@ enum class LogLevel(val letter: String, val defaultColor: Color) {
  * - [SOLARIZED]: Solarized Dark palette for prolonged sessions.
  * - [CUSTOM]: User-defined per-level colors stored via [com.hereliesaz.logkitty.utils.UserPreferences].
  */
-enum class LogColorScheme(val displayName: String, val palette: Map<LogLevel, Color>) {
-    MATERIAL("Material", mapOf(
+enum class LogColorScheme(val displayNameRes: Int, val palette: Map<LogLevel, Color>) {
+    MATERIAL(R.string.scheme_material, mapOf(
         LogLevel.VERBOSE to Color(0xFFBDBDBD),
         LogLevel.DEBUG to Color(0xFF2196F3),
         LogLevel.INFO to Color(0xFF4CAF50),
@@ -61,7 +62,7 @@ enum class LogColorScheme(val displayName: String, val palette: Map<LogLevel, Co
         LogLevel.ERROR to Color(0xFFF44336),
         LogLevel.ASSERT to Color(0xFF9C27B0),
     )),
-    AOSP("Android Studio", mapOf(
+    AOSP(R.string.scheme_aosp, mapOf(
         LogLevel.VERBOSE to Color(0xFFBBBBBB),
         LogLevel.DEBUG to Color(0xFF6897BB),
         LogLevel.INFO to Color(0xFF6A8759),
@@ -69,7 +70,7 @@ enum class LogColorScheme(val displayName: String, val palette: Map<LogLevel, Co
         LogLevel.ERROR to Color(0xFFFF6B68),
         LogLevel.ASSERT to Color(0xFFCC7832),
     )),
-    PIDCAT("Pidcat", mapOf(
+    PIDCAT(R.string.scheme_pidcat, mapOf(
         LogLevel.VERBOSE to Color(0xFFAAAAAA),
         LogLevel.DEBUG to Color(0xFF00FFFF),
         LogLevel.INFO to Color(0xFF00FF00),
@@ -77,7 +78,7 @@ enum class LogColorScheme(val displayName: String, val palette: Map<LogLevel, Co
         LogLevel.ERROR to Color(0xFFFF0033),
         LogLevel.ASSERT to Color(0xFFFF66FF),
     )),
-    MONOCHROME("Monochrome", mapOf(
+    MONOCHROME(R.string.scheme_monochrome, mapOf(
         LogLevel.VERBOSE to Color(0xFF666666),
         LogLevel.DEBUG to Color(0xFF888888),
         LogLevel.INFO to Color(0xFFAAAAAA),
@@ -85,7 +86,7 @@ enum class LogColorScheme(val displayName: String, val palette: Map<LogLevel, Co
         LogLevel.ERROR to Color(0xFFFFFFFF),
         LogLevel.ASSERT to Color(0xFFFFFFFF),
     )),
-    SOLARIZED("Solarized Dark", mapOf(
+    SOLARIZED(R.string.scheme_solarized, mapOf(
         LogLevel.VERBOSE to Color(0xFF93A1A1),
         LogLevel.DEBUG to Color(0xFF268BD2),
         LogLevel.INFO to Color(0xFF859900),
@@ -93,7 +94,7 @@ enum class LogColorScheme(val displayName: String, val palette: Map<LogLevel, Co
         LogLevel.ERROR to Color(0xFFDC322F),
         LogLevel.ASSERT to Color(0xFFD33682),
     )),
-    CUSTOM("Custom", MATERIAL.palette);
+    CUSTOM(R.string.scheme_custom, MATERIAL.palette);
 
     fun colorFor(level: LogLevel): Color = palette[level] ?: Color.White
 }

@@ -11,8 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.hereliesaz.logkitty.R
 
 /**
  * A simple RGB color picker dialog.
@@ -43,7 +45,7 @@ fun ColorPickerDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Pick Background Color",
+                    text = stringResource(R.string.color_picker_title),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -62,9 +64,9 @@ fun ColorPickerDialog(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // RGB Sliders
-                ColorSlider(value = red, onValueChange = { red = it }, label = "R", color = Color.Red)
-                ColorSlider(value = green, onValueChange = { green = it }, label = "G", color = Color.Green)
-                ColorSlider(value = blue, onValueChange = { blue = it }, label = "B", color = Color.Blue)
+                ColorSlider(value = red, onValueChange = { red = it }, label = stringResource(R.string.color_picker_channel_red), color = Color.Red)
+                ColorSlider(value = green, onValueChange = { green = it }, label = stringResource(R.string.color_picker_channel_green), color = Color.Green)
+                ColorSlider(value = blue, onValueChange = { blue = it }, label = stringResource(R.string.color_picker_channel_blue), color = Color.Blue)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -74,11 +76,11 @@ fun ColorPickerDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(onClick = { onColorSelected(currentColor) }) {
-                        Text("Select")
+                        Text(stringResource(R.string.select))
                     }
                 }
             }

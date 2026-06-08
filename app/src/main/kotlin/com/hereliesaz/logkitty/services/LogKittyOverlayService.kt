@@ -22,6 +22,7 @@ import com.hereliesaz.aznavrail.model.AzSheetConfig
 import com.hereliesaz.aznavrail.model.AzSheetDetent
 import com.hereliesaz.logkitty.MainActivity
 import com.hereliesaz.logkitty.MainApplication
+import com.hereliesaz.logkitty.R
 import com.hereliesaz.logkitty.ui.LogBottomSheet
 import com.hereliesaz.logkitty.ui.MainViewModel
 import com.hereliesaz.logkitty.ui.hide
@@ -266,7 +267,7 @@ class LogKittyOverlayService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "Overlay Service", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
@@ -289,9 +290,9 @@ class LogKittyOverlayService : Service() {
         val pausePending = PendingIntent.getService(this, 2, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("LogKitty is running")
+            .setContentTitle(getString(R.string.notif_title))
             .setContentText(
-                if (isPaused) "Logging paused. Tap to turn off." else "Logging. Tap to turn off."
+                if (isPaused) getString(R.string.notif_text_paused) else getString(R.string.notif_text_running)
             )
             .setSmallIcon(android.R.drawable.ic_menu_view)
             // Body tap and the "Turn Off" action both stop the service (tears down the overlay).
@@ -299,11 +300,11 @@ class LogKittyOverlayService : Service() {
             // Start/Stop toggles log capture (mirrors the sheet's play/pause).
             .addAction(
                 if (isPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause,
-                if (isPaused) "Start" else "Stop",
+                if (isPaused) getString(R.string.notif_action_start) else getString(R.string.notif_action_stop),
                 pausePending
             )
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Turn Off LogKitty", stopPending)
-            .addAction(android.R.drawable.ic_menu_preferences, "App Settings", settingsPending)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.notif_action_turn_off), stopPending)
+            .addAction(android.R.drawable.ic_menu_preferences, getString(R.string.notif_action_app_settings), settingsPending)
             .setOngoing(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()

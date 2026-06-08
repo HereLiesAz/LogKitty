@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -66,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hereliesaz.aznavrail.bottomsheet.AzSheetController
 import com.hereliesaz.aznavrail.model.AzSheetDetent
+import com.hereliesaz.logkitty.R
 import com.hereliesaz.logkitty.ui.delegates.IndexedLogLine
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.ui.theme.getGoogleFontFamily
@@ -141,7 +143,7 @@ fun LogBottomSheet(
         AzSheetDetent.HIDDEN -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
             // Newest line stays above the bar; older lines flow down through the see-through bar.
-            lines = if (indexedLog.isEmpty()) listOf("LogKitty Ready")
+            lines = if (indexedLog.isEmpty()) listOf(stringResource(R.string.sheet_ready))
                     else indexedLog.takeLast(1 + extraNavBarLines).map { it.text }.asReversed(),
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
@@ -152,7 +154,7 @@ fun LogBottomSheet(
         )
         AzSheetDetent.PEEK -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
-            lines = if (indexedLog.isEmpty()) listOf("LogKitty Ready")
+            lines = if (indexedLog.isEmpty()) listOf(stringResource(R.string.sheet_ready))
                     else indexedLog.takeLast(3 + extraNavBarLines).map { it.text }.asReversed(),
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
@@ -363,7 +365,7 @@ private fun ExpandedView(
                                         ) {
                                             Icon(
                                                 Icons.Default.Close,
-                                                contentDescription = "Close tab",
+                                                contentDescription = stringResource(R.string.cd_close_tab),
                                                 modifier = Modifier.size(14.dp)
                                             )
                                         }
@@ -376,23 +378,23 @@ private fun ExpandedView(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onSaveClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Save, "Save", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.Save, stringResource(R.string.cd_save), tint = MaterialTheme.colorScheme.onSurface)
                     }
                     IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.Settings, stringResource(R.string.settings), tint = MaterialTheme.colorScheme.onSurface)
                     }
                     IconButton(onClick = onTogglePause, modifier = Modifier.size(36.dp)) {
                         Icon(
                             if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                            contentDescription = if (isPaused) "Resume logging" else "Pause logging",
+                            contentDescription = if (isPaused) stringResource(R.string.cd_resume_logging) else stringResource(R.string.cd_pause_logging),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(onClick = onClearClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.DeleteSweep, "Clear logs", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.DeleteSweep, stringResource(R.string.cd_clear_logs), tint = MaterialTheme.colorScheme.onSurface)
                     }
                     IconButton(onClick = onCloseClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Close, "Close", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.Close, stringResource(R.string.cd_close), tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
@@ -412,25 +414,25 @@ private fun ExpandedView(
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
-                    text = if (count <= 1) "Selected entry" else "$count selected",
+                    text = if (count <= 1) stringResource(R.string.sheet_selected_entry) else stringResource(R.string.sheet_count_selected, count),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.75f),
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = onCopySelected, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.ContentCopy, "Copy selected", tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Default.ContentCopy, stringResource(R.string.cd_copy_selected), tint = MaterialTheme.colorScheme.onSurface)
                 }
                 if (count == 1) {
                     val only = selectedLines.first()
                     IconButton(onClick = { onSearchLine(only) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Search, "Search Google", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.Search, stringResource(R.string.cd_search_google), tint = MaterialTheme.colorScheme.onSurface)
                     }
                     IconButton(onClick = { onProhibitLine(only) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Block, "Prohibit this tag", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.Block, stringResource(R.string.cd_prohibit_tag), tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
                 IconButton(onClick = onClearSelection, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Close, "Deselect", tint = MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Default.Close, stringResource(R.string.cd_deselect), tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -445,7 +447,7 @@ private fun ExpandedView(
         ) {
             if (indexedLog.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No logs", color = Color.Gray)
+                    Text(stringResource(R.string.sheet_no_logs), color = Color.Gray)
                 }
             } else {
                 LazyColumn(

@@ -31,7 +31,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.hereliesaz.logkitty.R
 
 /**
  * Per-level color customization. Selecting a swatch opens the [ColorPickerDialog] for that
@@ -62,10 +64,10 @@ fun ColorSchemeEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Log Colors — ${scheme.displayName}") },
+                title = { Text(stringResource(R.string.colors_title, stringResource(scheme.displayNameRes))) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.cd_back))
                     }
                 }
             )
@@ -78,7 +80,7 @@ fun ColorSchemeEditorScreen(
                 .padding(16.dp)
         ) {
             Text(
-                "Tap a swatch to customize. Editing any color switches the active scheme to Custom.",
+                stringResource(R.string.colors_editor_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -96,7 +98,7 @@ fun ColorSchemeEditorScreen(
                     Column {
                         Text(level.name, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "Letter: ${level.letter}",
+                            stringResource(R.string.colors_letter, level.letter),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

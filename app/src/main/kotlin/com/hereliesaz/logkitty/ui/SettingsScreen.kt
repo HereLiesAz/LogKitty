@@ -54,11 +54,13 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.hereliesaz.logkitty.BuildConfig
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
+import com.hereliesaz.logkitty.R
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogSources
 
@@ -151,8 +153,8 @@ private fun SettingsMainScreen(
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(viewModel.exportPreferences().toByteArray())
             }
-            Toast.makeText(context, "Preferences exported", Toast.LENGTH_SHORT).show()
-        }.onFailure { Toast.makeText(context, "Export failed: ${it.message}", Toast.LENGTH_LONG).show() }
+            Toast.makeText(context, context.getString(R.string.toast_prefs_exported), Toast.LENGTH_SHORT).show()
+        }.onFailure { Toast.makeText(context, context.getString(R.string.toast_export_failed, it.message), Toast.LENGTH_LONG).show() }
     }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -161,17 +163,17 @@ private fun SettingsMainScreen(
         if (uri != null) runCatching {
             val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
             val ok = viewModel.importPreferences(text)
-            Toast.makeText(context, if (ok) "Preferences imported" else "Invalid file", Toast.LENGTH_SHORT).show()
-        }.onFailure { Toast.makeText(context, "Import failed: ${it.message}", Toast.LENGTH_LONG).show() }
+            Toast.makeText(context, context.getString(if (ok) R.string.toast_prefs_imported else R.string.toast_invalid_file), Toast.LENGTH_SHORT).show()
+        }.onFailure { Toast.makeText(context, context.getString(R.string.toast_import_failed, it.message), Toast.LENGTH_LONG).show() }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.cd_back))
                     }
                 }
             )
@@ -184,7 +186,7 @@ private fun SettingsMainScreen(
                 .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
-            SettingsSectionHeader("Appearance")
+            SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
 
             Row(
                 modifier = Modifier
@@ -194,7 +196,7 @@ private fun SettingsMainScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Background Color", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_background_color), style = MaterialTheme.typography.bodyLarge)
                 Box(
                     modifier = Modifier
                         .size(32.dp)
@@ -206,7 +208,7 @@ private fun SettingsMainScreen(
             HorizontalDivider()
 
             Text(
-                "Background Opacity: ${(overlayOpacity * 100).toInt()}%",
+                stringResource(R.string.settings_background_opacity, (overlayOpacity * 100).toInt()),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(top = 12.dp)
             )
@@ -218,19 +220,19 @@ private fun SettingsMainScreen(
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader("Log Colors")
+            SettingsSectionHeader(stringResource(R.string.settings_section_log_colors))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Color Scheme", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_color_scheme), style = MaterialTheme.typography.bodyLarge)
                 Box {
-                    OutlinedButton(onClick = { showSchemeMenu = true }) { Text(colorScheme.displayName) }
+                    OutlinedButton(onClick = { showSchemeMenu = true }) { Text(stringResource(colorScheme.displayNameRes)) }
                     DropdownMenu(expanded = showSchemeMenu, onDismissRequest = { showSchemeMenu = false }) {
                         LogColorScheme.values().forEach { scheme ->
                             DropdownMenuItem(
-                                text = { Text(scheme.displayName) },
+                                text = { Text(stringResource(scheme.displayNameRes)) },
                                 onClick = {
                                     viewModel.setColorScheme(scheme)
                                     showSchemeMenu = false
@@ -245,20 +247,20 @@ private fun SettingsMainScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Tag-Based Coloring", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_tag_based_coloring), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = tagColoringEnabled, onCheckedChange = { viewModel.setTagColoringEnabled(it) })
             }
             AzButton(
                 onClick = onOpenColorEditor,
-                text = "Customize Per-Level Colors",
+                text = stringResource(R.string.settings_customize_per_level_colors),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader("Typography")
-            Text("Font Size: ${fontSize}sp", style = MaterialTheme.typography.bodyLarge)
+            SettingsSectionHeader(stringResource(R.string.settings_section_typography))
+            Text(stringResource(R.string.settings_font_size, fontSize), style = MaterialTheme.typography.bodyLarge)
             Slider(
                 value = fontSize.toFloat(),
                 onValueChange = { viewModel.setFontSize(it.toInt()) },
@@ -273,12 +275,15 @@ private fun SettingsMainScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RectangleShape
                 ) {
-                    Text("Font: $fontFamilyName")
+                    val currentFont = remember(fontFamilyName) {
+                        try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
+                    }
+                    Text(stringResource(R.string.settings_font, stringResource(currentFont.displayNameRes)))
                 }
                 DropdownMenu(expanded = fontExpanded, onDismissRequest = { fontExpanded = false }) {
                     CodingFont.values().forEach { font ->
                         DropdownMenuItem(
-                            text = { Text(font.displayName) },
+                            text = { Text(stringResource(font.displayNameRes)) },
                             onClick = {
                                 viewModel.setFontFamily(font)
                                 fontExpanded = false
@@ -293,14 +298,14 @@ private fun SettingsMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Show Timestamps", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_show_timestamps), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = showTimestamp, onCheckedChange = { viewModel.setShowTimestamp(it) })
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader("Behavior")
+            SettingsSectionHeader(stringResource(R.string.settings_section_behavior))
 
-            Text("Active Log Levels", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.settings_active_log_levels), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -322,13 +327,13 @@ private fun SettingsMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Buffer Size", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_buffer_size), style = MaterialTheme.typography.bodyLarge)
                 Box {
                     OutlinedButton(onClick = { bufferExpanded = true }) { Text(bufferSize.toString()) }
                     DropdownMenu(expanded = bufferExpanded, onDismissRequest = { bufferExpanded = false }) {
                         listOf(1000, 2000, 5000, 10000).forEach { size ->
                             DropdownMenuItem(
-                                text = { Text("$size lines") },
+                                text = { Text(stringResource(R.string.settings_buffer_lines, size)) },
                                 onClick = {
                                     viewModel.setBufferSize(size)
                                     bufferExpanded = false
@@ -344,7 +349,7 @@ private fun SettingsMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Context Mode (Auto-Filter)", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = isContextMode, onCheckedChange = { viewModel.toggleContextMode() })
             }
 
@@ -353,7 +358,7 @@ private fun SettingsMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Root Access", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_root_access), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
             }
 
@@ -362,21 +367,21 @@ private fun SettingsMainScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Reverse Log Order", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_reverse_log_order), style = MaterialTheme.typography.bodyLarge)
                 Switch(checked = isLogReversed, onCheckedChange = { viewModel.setLogReversed(it) })
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader("App Monitoring")
+            SettingsSectionHeader(stringResource(R.string.settings_section_app_monitoring))
             Text(
-                "Pin an app to get a dedicated tab showing only its logs, in addition to the full system log.",
+                stringResource(R.string.settings_app_monitoring_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 4.dp)
             )
             if (monitoredApps.isEmpty()) {
                 Text(
-                    "No apps pinned",
+                    stringResource(R.string.settings_no_apps_pinned),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp)
@@ -401,70 +406,68 @@ private fun SettingsMainScreen(
                             )
                         }
                         IconButton(onClick = { viewModel.removeMonitoredApp(pkg) }) {
-                            Icon(Icons.Default.Close, contentDescription = "Stop monitoring $pkg")
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_stop_monitoring, pkg))
                         }
                     }
                 }
             }
             AzButton(
                 onClick = { showAppPicker = true },
-                text = "Add App to Monitor",
+                text = stringResource(R.string.settings_add_app_to_monitor),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader("Log sources")
+            SettingsSectionHeader(stringResource(R.string.settings_section_log_sources))
             Text(
-                "Add tabs that show only logs from a chosen source. The All tab always shows " +
-                    "everything. (Source/category classification needs the UID column — root or " +
-                    "ADB READ_LOGS; lines without a UID appear only in All.)",
+                stringResource(R.string.settings_log_sources_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             SourceFilterGroup(
-                title = "Sources",
+                title = stringResource(R.string.settings_sources),
                 keys = LogSources.SOURCE_BUCKETS,
                 enabled = activeSourceFilters,
                 onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
             )
             SourceFilterGroup(
-                title = "Categories",
+                title = stringResource(R.string.settings_categories),
                 keys = LogSources.CATEGORY_BUCKETS,
                 enabled = activeSourceFilters,
                 onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader("Filters")
+            SettingsSectionHeader(stringResource(R.string.settings_section_filters))
             AzButton(
                 onClick = onOpenProhibited,
-                text = "Prohibited Tags (${prohibitedCount.size})",
+                text = stringResource(R.string.settings_prohibited_tags, prohibitedCount.size),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader("Backup")
+            SettingsSectionHeader(stringResource(R.string.settings_section_backup))
             AzButton(
                 onClick = { exportLauncher.launch("logkitty_prefs.json") },
-                text = "Export Preferences",
+                text = stringResource(R.string.settings_export_preferences),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
             AzButton(
                 onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
-                text = "Import Preferences",
+                text = stringResource(R.string.settings_import_preferences),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
             AzButton(
                 onClick = {
                     clipboardManager.setText(AnnotatedString(viewModel.exportPreferences()))
-                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()
                 },
-                text = "Copy Preferences JSON",
+                text = stringResource(R.string.settings_copy_preferences_json),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
@@ -472,13 +475,13 @@ private fun SettingsMainScreen(
 
             AzButton(
                 onClick = { viewModel.clearLog() },
-                text = "Clear Log",
+                text = stringResource(R.string.settings_clear_log),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
             AzButton(
                 onClick = { viewModel.resetLogColors() },
-                text = "Reset Colors",
+                text = stringResource(R.string.settings_reset_colors),
                 shape = AzButtonShape.RECTANGLE,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
@@ -509,12 +512,37 @@ private fun appLabel(context: android.content.Context, pkg: String): String = tr
 private fun SettingsFooter(context: android.content.Context) {
     fun open(intent: android.content.Intent) {
         runCatching { context.startActivity(intent) }
-            .onFailure { Toast.makeText(context, "No app found to handle this", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show() }
     }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // padding before clickable so the whole padded area is the touch target / ripple bounds.
+        Text(
+            stringResource(R.string.settings_footer_about),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(8.dp)
+                .clickable {
+                    open(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/HereLiesAz/LogKitty")))
+                }
+        )
+        Text(
+            stringResource(R.string.settings_footer_feedback),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(8.dp)
+                .clickable {
+                    open(android.content.Intent(android.content.Intent.ACTION_SENDTO,
+                        Uri.parse("mailto:hereliesaz@gmail.com?subject=LogKitty")))
+                }
+        )
+        Text(
+            stringResource(R.string.settings_footer_handle),
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,

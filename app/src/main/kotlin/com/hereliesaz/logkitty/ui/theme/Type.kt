@@ -21,15 +21,15 @@ val provider = GoogleFont.Provider(
  * Enumeration of supported Monospace fonts for code rendering.
  * These map to Google Fonts available via the provider.
  */
-enum class CodingFont(val fontName: String, val displayName: String) {
-    SYSTEM("System", "System Default"),
-    ROBOTO_MONO("Roboto Mono", "Roboto Mono"),
-    SOURCE_CODE_PRO("Source Code Pro", "Source Code Pro"),
-    JETBRAINS_MONO("JetBrains Mono", "JetBrains Mono"),
-    FIRA_CODE("Fira Code", "Fira Code"),
-    INCONSOLATA("Inconsolata", "Inconsolata"),
-    SPACE_MONO("Space Mono", "Space Mono"),
-    UBUNTU_MONO("Ubuntu Mono", "Ubuntu Mono")
+enum class CodingFont(val fontName: String, val displayNameRes: Int) {
+    SYSTEM("System", R.string.font_system),
+    ROBOTO_MONO("Roboto Mono", R.string.font_roboto_mono),
+    SOURCE_CODE_PRO("Source Code Pro", R.string.font_source_code_pro),
+    JETBRAINS_MONO("JetBrains Mono", R.string.font_jetbrains_mono),
+    FIRA_CODE("Fira Code", R.string.font_fira_code),
+    INCONSOLATA("Inconsolata", R.string.font_inconsolata),
+    SPACE_MONO("Space Mono", R.string.font_space_mono),
+    UBUNTU_MONO("Ubuntu Mono", R.string.font_ubuntu_mono)
 }
 
 /**
