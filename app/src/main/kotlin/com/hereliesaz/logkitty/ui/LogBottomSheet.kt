@@ -283,7 +283,7 @@ private fun PeekStrip(
                         // block hugs the bottom edge tightly.
                         style = MaterialTheme.typography.bodySmall.copy(
                             lineHeightStyle = LineHeightStyle(
-                                alignment = LineHeightStyle.Alignment.Bottom,
+                                alignment = LineHeightStyle.Alignment.Proportional,
                                 trim = LineHeightStyle.Trim.Both
                             )
                         ),
