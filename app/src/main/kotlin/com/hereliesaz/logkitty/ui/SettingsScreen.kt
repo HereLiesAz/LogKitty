@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.ui.theme.CodingFont
+import com.hereliesaz.logkitty.utils.LogSources
 
 /**
  * [SettingsScreen] provides a full-screen configuration UI with three navigation targets:
@@ -115,6 +116,7 @@ private fun SettingsMainScreen(
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
     val prohibitedCount by viewModel.prohibitedTags.collectAsState()
     val monitoredApps by viewModel.monitoredApps.collectAsState()
+    val activeSourceFilters by viewModel.activeSourceFilters.collectAsState()
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
@@ -411,6 +413,29 @@ private fun SettingsMainScreen(
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            SettingsSectionHeader("Log sources")
+            Text(
+                "Add tabs that show only logs from a chosen source. The All tab always shows " +
+                    "everything. (Source/category classification needs the UID column — root or " +
+                    "ADB READ_LOGS; lines without a UID appear only in All.)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            SourceFilterGroup(
+                title = "Sources",
+                keys = LogSources.SOURCE_BUCKETS,
+                enabled = activeSourceFilters,
+                onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
+            )
+            SourceFilterGroup(
+                title = "Categories",
+                keys = LogSources.CATEGORY_BUCKETS,
+                enabled = activeSourceFilters,
+                onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
             SettingsSectionHeader("Filters")
             AzButton(
                 onClick = onOpenProhibited,
@@ -475,4 +500,37 @@ fun SettingsSectionHeader(text: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(bottom = 8.dp)
     )
+}
+
+/** A labelled sub-group of source-filter checkboxes (e.g. "Sources" or "Categories"). */
+@Composable
+private fun SourceFilterGroup(
+    title: String,
+    keys: List<String>,
+    enabled: Set<String>,
+    onToggle: (String, Boolean) -> Unit,
+) {
+    Text(
+        title,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+    )
+    keys.forEach { key ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle(key, key !in enabled) }
+                .padding(vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // onCheckedChange = null: the Row's clickable owns the toggle, merging both into one
+            // accessible touch target.
+            Checkbox(
+                checked = key in enabled,
+                onCheckedChange = null
+            )
+            Text(LogSources.label(key), style = MaterialTheme.typography.bodyLarge)
+        }
+    }
 }
