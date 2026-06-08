@@ -214,8 +214,9 @@ class LogKittyOverlayService : Service() {
         // nav bar without needing extra per-line headroom here.
         val lineHeightPx = fontSize.toFloat() * density * 1.35f
 
-        // HIDDEN: one line + a small breathing margin → reads as a collapsed strip.
-        val hiddenPx = (lineHeightPx * 1) + (8f * density) + navBarHeightPx
+        // HIDDEN: a single line sitting right under the sheet's top edge, plus the nav bar the
+        // sheet draws behind. Keep the non-line margin tiny so the strip hugs one line.
+        val hiddenPx = (lineHeightPx * 1) + (1f * density) + navBarHeightPx
         val hiddenDp = (hiddenPx / density).dp
 
         // PEEK: size for four lines so three are reliably visible once the nav bar is subtracted.

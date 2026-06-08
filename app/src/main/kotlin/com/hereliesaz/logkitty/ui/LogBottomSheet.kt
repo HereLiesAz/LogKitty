@@ -58,6 +58,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -258,8 +259,7 @@ private fun PeekStrip(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight()
-                    .padding(horizontal = 12.dp)
-                    .padding(top = 3.dp),
+                    .padding(horizontal = 12.dp),
                 // Top-align so the lines pack from the top and stay clear of the system nav bar
                 // that overlays the bottom of the strip.
                 verticalArrangement = Arrangement.Top
@@ -271,7 +271,14 @@ private fun PeekStrip(
                         fontFamily = fontFamily,
                         fontSize = fontSize.sp,
                         lineHeight = (fontSize * 1.35f).sp,
-                        style = MaterialTheme.typography.bodySmall,
+                        // Trim the first line's top leading so the text hugs the top edge of the
+                        // sheet instead of floating below it.
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            lineHeightStyle = LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Top,
+                                trim = LineHeightStyle.Trim.FirstLineTop
+                            )
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = Color.White
