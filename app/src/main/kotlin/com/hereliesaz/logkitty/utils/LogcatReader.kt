@@ -21,6 +21,9 @@ import java.io.IOException
  */
 object LogcatReader {
 
+    /** Matches a standard logcat timestamp (`MM-DD HH:MM:SS.mmm`); used to detect real log output. */
+    private val TIMESTAMP_PATTERN = Regex("""\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}""")
+
     /**
      * Starts observing the logcat stream.
      *
@@ -32,23 +35,25 @@ object LogcatReader {
      *                to the app's own logs unless READ_LOGS is granted via ADB).
      */
     fun observe(useRoot: Boolean): Flow<String> = flow {
-        // Construct the command.
-        // "-v time" gives the timestamp in a known format for parsing; "-v uid" prepends the
-        // logged process's UID so [StateDelegate] can attribute each line to an app (used for
-        // per-app monitoring). The UID prefix is stripped back off before display, so downstream
-        // parsing still sees the familiar "-v time" line shape. Requires READ_LOGS or root to see
-        // other apps' UIDs; without either it simply reports this app's own logs.
-        val cmd = if (useRoot) {
-            listOf("su", "-c", "logcat -v uid -v time")
-        } else {
-            listOf("logcat", "-v", "uid", "-v", "time")
-        }
-        
+        // Prefer the uid-annotated format ("-v uid -v time") so per-app tabs can filter reliably by
+        // UID. Some devices' logcat reject the `uid` modifier and emit nothing; if the uid attempt
+        // exits without ever producing a real (timestamped) log line, permanently downgrade to the
+        // plain "-v time" format so logs always appear.
+        var useUidFormat = true
+
         // Endless loop: The "Resurrection Loop".
         // If the process dies (e.g., log buffer cleared, system kills it), we want to restart it
         // automatically so the user doesn't have to toggle the service.
         while (currentCoroutineContext().isActive) {
+            val formatArgs = if (useUidFormat) listOf("-v", "uid", "-v", "time") else listOf("-v", "time")
+            val cmd = if (useRoot) {
+                listOf("su", "-c", "logcat " + formatArgs.joinToString(" "))
+            } else {
+                listOf("logcat") + formatArgs
+            }
+
             var process: Process? = null
+            var sawValidLog = false
             try {
                 // Use ProcessBuilder for better control over streams than Runtime.exec()
                 val pb = ProcessBuilder(cmd)
@@ -66,6 +71,7 @@ object LogcatReader {
 
                     // Inner loop: Stream data while the process is alive.
                     while (currentCoroutineContext().isActive && line != null) {
+                        if (!sawValidLog && TIMESTAMP_PATTERN.containsMatchIn(line)) sawValidLog = true
                         emit(line)
                         line = reader.readLine()
                     }
@@ -83,7 +89,14 @@ object LogcatReader {
                 // Ensure the zombie process is cleaned up before we loop around.
                 process?.destroyForcibly()
             }
-            
+
+            // The uid format exited without ever emitting a real log line — this device likely
+            // rejects `-v uid`. Downgrade to plain `-v time` and retry immediately so logs appear.
+            if (useUidFormat && !sawValidLog) {
+                useUidFormat = false
+                continue
+            }
+
             // If the coroutine is still active but the loop exited, wait a bit before restarting.
             if (currentCoroutineContext().isActive) {
                 delay(1000)

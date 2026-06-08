@@ -172,10 +172,14 @@ class MainViewModel(
                     val pkg = input.tab.filterValue
                     if (!pkg.isNullOrBlank()) {
                         val targetUid = uidFor(pkg)
-                        // Prefer reliable UID matching; fall back to substring if the package's
-                        // UID can't be resolved (e.g. it isn't installed).
-                        result = if (targetUid != null) result.filter { it.uid == targetUid }
-                                 else result.filter { it.text.contains(pkg, ignoreCase = true) }
+                        result = result.filter { line ->
+                            // Use reliable UID matching when both the target UID and the line's UID
+                            // are known (uid-annotated stream); otherwise fall back to package-name
+                            // substring matching — e.g. when logcat is running in the plain
+                            // `-v time` fallback format and lines carry no UID.
+                            if (targetUid != null && line.uid != null) line.uid == targetUid
+                            else line.text.contains(pkg, ignoreCase = true)
+                        }
                     }
                 }
             }
