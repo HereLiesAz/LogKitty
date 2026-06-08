@@ -168,7 +168,9 @@ configurations.all {
                     because("Avoids duplicate classes with jcl-over-slf4j")
                 }
                 g == "com.google.guava" && n == "guava" -> {
-                    val suffix = if (requested.version?.endsWith("-android") == true) "-android" else "-jre"
+                    // App module runs on Android, so default to the -android flavor unless the
+                    // dependency explicitly asked for -jre.
+                    val suffix = if (requested.version?.endsWith("-jre") == true) "-jre" else "-android"
                     useVersion("33.3.1$suffix")
                     because("Security fixes: CVE-2023-2976 & CVE-2020-8908 (insecure temp-dir use / info disclosure)")
                 }
