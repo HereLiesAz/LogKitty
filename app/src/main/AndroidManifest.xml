@@ -36,8 +36,8 @@
             android:name="com.google.android.gms.fonts.API_KEY"
             android:value="${FONTS_API_KEY}" />
 
-        <!-- AdMob application ID, injected from build config: test ID for debug; real ID from
-             local.properties/env (ADMOB_APP_ID) for release — see app/build.gradle.kts. -->
+        <!-- AdMob application ID, injected from build config (ADMOB_APP_ID) — see
+             app/build.gradle.kts. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="${ADMOB_APP_ID}" />
