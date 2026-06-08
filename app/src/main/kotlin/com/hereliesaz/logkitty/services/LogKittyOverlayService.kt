@@ -177,7 +177,6 @@ class LogKittyOverlayService : Service() {
                 LogBottomSheet(
                     controller = controller,
                     viewModel = viewModel,
-                    navBarHeightPx = navBarHeightPx,
                     onSaveClick = {
                         val intent = Intent(this@LogKittyOverlayService,
                             com.hereliesaz.logkitty.FileSaverActivity::class.java)
@@ -237,10 +236,9 @@ class LogKittyOverlayService : Service() {
         // Matches the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35).
         val lineHeightPx = fontSize.toFloat() * density * 1.35f
 
-        // These are the EXPOSED heights above the nav bar (one line at HIDDEN, three at PEEK). With
-        // drawBehindNavBar, AzNavRail extends the sheet behind the bar by the nav-bar inset (passed
-        // to the host) and makes the bar see-through, so the exposed height — and the top edge —
-        // stays exactly as before; the extra lines LogBottomSheet renders show through the bar.
+        // Heights above the nav bar: one line at HIDDEN, three at PEEK. The host is given the
+        // measured nav-bar inset so the window sits cleanly above the bar (drawBehindNavBar is off
+        // because the overlay nav bar isn't actually see-through, which only cluttered the strips).
         val hiddenPx = (lineHeightPx * 1)
         val hiddenDp = (hiddenPx / density).dp
 
@@ -259,9 +257,9 @@ class LogKittyOverlayService : Service() {
             horizontalSwipeEnabled = false,
             handleVisible = false,
             cornerRadiusDp = 0.dp,
-            // Draw behind the system nav bar (button-nav only; no-op on gesture nav) so the extra
-            // log lines show through it.
-            drawBehindNavBar = true,
+            // Keep the sheet above the system nav bar. (Drawing behind a see-through bar needs an
+            // AzNavRail host change; until then this just cluttered HIDDEN with extra lines.)
+            drawBehindNavBar = false,
         )
     }
 

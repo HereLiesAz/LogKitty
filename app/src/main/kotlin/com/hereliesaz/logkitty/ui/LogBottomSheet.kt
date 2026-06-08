@@ -101,7 +101,6 @@ fun AzSheetController.hide() { snapTo(AzSheetDetent.HIDDEN) }
 fun LogBottomSheet(
     controller: AzSheetController,
     viewModel: MainViewModel,
-    navBarHeightPx: Int,
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
@@ -124,14 +123,6 @@ fun LogBottomSheet(
         getGoogleFontFamily(enumVal.fontName)
     }
 
-    // How many extra lines fit in the nav-bar band the sheet now draws behind (drawBehindNavBar).
-    // On gesture nav the inset is ~0, so this is 0 and the strips look exactly as before.
-    val density = LocalDensity.current.density
-    val extraNavBarLines = remember(navBarHeightPx, fontSize, density) {
-        val lineHeightPx = fontSize * 1.35f * density
-        if (lineHeightPx > 0f) (navBarHeightPx / lineHeightPx).toInt().coerceAtLeast(0) else 0
-    }
-
     var selectedLineIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var isMultiSelectMode by remember { mutableStateOf(false) }
     val selectedLines = remember(selectedLineIds, indexedLog) {
@@ -142,9 +133,9 @@ fun LogBottomSheet(
     when (controller.detent) {
         AzSheetDetent.HIDDEN -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
-            // Newest line stays above the bar; older lines flow down through the see-through bar.
+            // One line: the latest entry, sitting just above the nav bar.
             lines = if (indexedLog.isEmpty()) listOf(stringResource(R.string.sheet_ready))
-                    else indexedLog.takeLast(1 + extraNavBarLines).map { it.text }.asReversed(),
+                    else indexedLog.takeLast(1).map { it.text },
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -154,8 +145,9 @@ fun LogBottomSheet(
         )
         AzSheetDetent.PEEK -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
+            // The last three entries, oldest-to-newest, pinned above the nav bar.
             lines = if (indexedLog.isEmpty()) listOf(stringResource(R.string.sheet_ready))
-                    else indexedLog.takeLast(3 + extraNavBarLines).map { it.text }.asReversed(),
+                    else indexedLog.takeLast(3).map { it.text },
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -266,9 +258,9 @@ private fun PeekStrip(
                     .fillMaxWidth()
                     .fillMaxHeight()
                     .padding(horizontal = 12.dp),
-                // Top-align: the caller passes lines newest-first, so the newest sits at the top
-                // (above the nav bar) and older lines flow down through the see-through bar.
-                verticalArrangement = Arrangement.Top
+                // Bottom-align so the line(s) hug the bottom edge (just above the nav bar); when
+                // the log is shorter than the strip, the slack appears above the text, not below.
+                verticalArrangement = Arrangement.Bottom
             ) {
                 lines.forEach { line ->
                     val displayText = if (showTimestamp) line else line.replace(timestampRegex, "")
