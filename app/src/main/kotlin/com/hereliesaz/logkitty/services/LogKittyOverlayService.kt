@@ -105,10 +105,15 @@ class LogKittyOverlayService : Service() {
 
         if (Settings.canDrawOverlays(this)) setupOverlay()
 
+        val viewModel = (applicationContext as MainApplication).mainViewModel
+        // Each new service session starts actively logging — the app-scoped ViewModel would
+        // otherwise retain a stale paused state from a previous session.
+        viewModel.setPaused(false)
+
         // Keep the notification's Start/Stop action in sync with the capture state, whether it's
         // toggled from the notification or the bottom sheet's play/pause control.
         serviceScope.launch {
-            (applicationContext as MainApplication).mainViewModel.isPaused.collect { updateNotification() }
+            viewModel.isPaused.collect { updateNotification() }
         }
 
         val filter = IntentFilter(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)

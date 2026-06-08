@@ -109,7 +109,7 @@ class MainViewModel(
     private val _isPaused = MutableStateFlow(false)
     val isPaused: StateFlow<Boolean> = _isPaused
 
-    fun togglePause() { _isPaused.value = !_isPaused.value }
+    fun togglePause() { _isPaused.update { !it } }
     fun setPaused(paused: Boolean) { _isPaused.value = paused }
 
     // Preference Flows (Directly exposed from UserPreferences)
