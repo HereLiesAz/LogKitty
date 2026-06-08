@@ -132,6 +132,24 @@ private fun SettingsMainScreen(
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf(false) }
+    var showAccessibilityDisclosure by remember { mutableStateOf(false) }
+
+    if (showAccessibilityDisclosure) {
+        AccessibilityDisclosureDialog(
+            onDismiss = { showAccessibilityDisclosure = false },
+            onAgree = {
+                showAccessibilityDisclosure = false
+                viewModel.toggleContextMode() // enable
+                runCatching {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    )
+                }.onFailure {
+                    Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
 
     if (showColorPicker) {
         ColorPickerDialog(
@@ -361,7 +379,14 @@ private fun SettingsMainScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = isContextMode, onCheckedChange = { viewModel.toggleContextMode() })
+                Switch(
+                    checked = isContextMode,
+                    onCheckedChange = { enable ->
+                        // Enabling Context Mode relies on the accessibility service, so show the
+                        // prominent disclosure + consent first; disabling needs no gate.
+                        if (enable) showAccessibilityDisclosure = true else viewModel.toggleContextMode()
+                    }
+                )
             }
 
             Row(
@@ -829,6 +854,26 @@ private fun PermissionsSection(context: android.content.Context) {
             )
         }
     }
+}
+
+/**
+ * Prominent disclosure shown before Context Mode is enabled, since that feature relies on the
+ * accessibility service. Explains what is accessed (foreground app, home/recents transitions), why,
+ * and that no screen content / personal data is read — required by Google Play's User Data policy.
+ */
+@Composable
+private fun AccessibilityDisclosureDialog(onDismiss: () -> Unit, onAgree: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.accessibility_disclosure_title)) },
+        text = { Text(stringResource(R.string.accessibility_disclosure_body)) },
+        confirmButton = {
+            TextButton(onClick = onAgree) { Text(stringResource(R.string.accessibility_disclosure_agree)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        }
+    )
 }
 
 @Composable
