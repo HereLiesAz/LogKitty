@@ -35,7 +35,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
- * [LogKittyOverlayService] hosts the always-on Compose overlay using AzNavRail 8.13's
+ * [LogKittyOverlayService] hosts the always-on Compose overlay using AzNavRail's
  * [AzBottomSheetWindowHost]. The library owns:
  *
  *   - The `TYPE_APPLICATION_OVERLAY` window and the per-detent `WindowManager` resize bridge.
