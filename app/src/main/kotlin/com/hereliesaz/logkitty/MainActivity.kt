@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -230,18 +231,18 @@ fun MainScreenContent(
         ) {
             androidx.compose.foundation.Image(
                 painter = androidx.compose.ui.res.painterResource(id = R.drawable.logkitty),
-                contentDescription = "LogKitty Logo",
+                contentDescription = stringResource(R.string.cd_app_logo),
                 modifier = Modifier.size(120.dp).padding(bottom = 16.dp)
             )
-            Text(text = "LogKitty", style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.primary)
+            Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(32.dp))
 
             // Step 1: Overlay Permission
             if (!isOverlayGranted) {
                 PermissionCard(
-                    title = "Overlay Permission Required",
-                    description = "LogKitty needs to draw over other apps.",
-                    buttonText = "Grant Overlay",
+                    title = stringResource(R.string.main_overlay_permission_title),
+                    description = stringResource(R.string.main_overlay_permission_desc),
+                    buttonText = stringResource(R.string.main_grant_overlay),
                     onClick = onGrantOverlay
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -251,16 +252,16 @@ fun MainScreenContent(
             if (!isReadLogsGranted && !isRootEnabled) {
                 Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
                     Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Standard Permission Required", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.main_standard_permission_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Run this ADB command:", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.main_run_adb_command), style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         val command = "adb shell pm grant ${BuildConfig.APPLICATION_ID} android.permission.READ_LOGS"
                         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)), modifier = Modifier.fillMaxWidth()) {
                             Text(command, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp), fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        AzButton(onClick = { clipboardManager.setText(AnnotatedString(command)) }, text = "Copy Command", shape = AzButtonShape.RECTANGLE, modifier = Modifier.fillMaxWidth())
+                        AzButton(onClick = { clipboardManager.setText(AnnotatedString(command)) }, text = stringResource(R.string.main_copy_command), shape = AzButtonShape.RECTANGLE, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -268,18 +269,18 @@ fun MainScreenContent(
 
             // Step 3: Start Button
             if (canStart) {
-                Text("Ready to Purr", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.tertiary)
+                Text(stringResource(R.string.main_ready_to_purr), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.tertiary)
                 Spacer(modifier = Modifier.height(16.dp))
                 AzButton(
                     onClick = onToggleService,
-                    text = if (isServiceRunning) "Stop Service" else "Start Service",
+                    text = if (isServiceRunning) stringResource(R.string.main_stop_service) else stringResource(R.string.main_start_service),
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = AzButtonShape.RECTANGLE,
                     colors = if (isServiceRunning) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
-            AzButton(onClick = onOpenSettings, text = "Settings", modifier = Modifier.fillMaxWidth().height(56.dp), shape = AzButtonShape.RECTANGLE)
+            AzButton(onClick = onOpenSettings, text = stringResource(R.string.settings), modifier = Modifier.fillMaxWidth().height(56.dp), shape = AzButtonShape.RECTANGLE)
         }
     }
 }
