@@ -40,6 +40,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -51,10 +52,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -76,8 +80,8 @@ fun AzSheetController.hide() { snapTo(AzSheetDetent.HIDDEN) }
  * strip, and the accumulated-delta vertical drag — so this composable only renders what fills
  * each detent's body:
  *
- *   HIDDEN — nothing (the host's window is sized to a 14dp invisible strip; touches there step up).
- *   PEEK   — a one-line ticker of the latest log entry.
+ *   HIDDEN — a one-line strip showing the latest log entry; tapping it steps up.
+ *   PEEK   — the last four log lines (sized so at least three are visible above the nav bar).
  *   HALF / FULL — tabs, optional selection action bar, and the log list.
  *
  * Horizontal-drag tab switching is implemented here because the system-overlay flavor of the host
@@ -139,7 +143,7 @@ fun LogBottomSheet(
         AzSheetDetent.PEEK -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
             lines = if (indexedLog.isEmpty()) listOf("LogKitty Ready")
-                    else indexedLog.takeLast(3).map { it.text },
+                    else indexedLog.takeLast(4).map { it.text },
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -237,6 +241,7 @@ private fun PeekStrip(
     onSwipeRight: () -> Unit,
 ) {
     val timestampRegex = remember { Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+") }
+    val density = LocalDensity.current
 
     Box(
         modifier = modifier
@@ -246,25 +251,39 @@ private fun PeekStrip(
                 interactionSource = remember { MutableInteractionSource() }
             ) { onTap() }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            lines.forEach { line ->
-                val displayText = if (showTimestamp) line else line.replace(timestampRegex, "")
-                Text(
-                    text = displayText,
-                    fontFamily = fontFamily,
-                    fontSize = fontSize.sp,
-                    lineHeight = (fontSize * 1.35f).sp,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = Color.White
-                )
+        // Force fontScale = 1 so the rendered line height always equals the height the detent was
+        // sized for (sheetConfig in LogKittyOverlayService) — otherwise a user with a large system
+        // font scale would overflow the strip and only one line would fit.
+        CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 1f)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(horizontal = 12.dp),
+                // Top-align so the lines pack from the top and stay clear of the system nav bar
+                // that overlays the bottom of the strip.
+                verticalArrangement = Arrangement.Top
+            ) {
+                lines.forEach { line ->
+                    val displayText = if (showTimestamp) line else line.replace(timestampRegex, "")
+                    Text(
+                        text = displayText,
+                        fontFamily = fontFamily,
+                        fontSize = fontSize.sp,
+                        lineHeight = (fontSize * 1.35f).sp,
+                        // Trim the first line's top leading so the text hugs the top edge of the
+                        // sheet instead of floating below it.
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            lineHeightStyle = LineHeightStyle(
+                                alignment = LineHeightStyle.Alignment.Top,
+                                trim = LineHeightStyle.Trim.FirstLineTop
+                            )
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.White
+                    )
+                }
             }
         }
     }
@@ -473,6 +492,7 @@ private fun LogRow(
     }
 
     val bg = if (isSelected) Color.White.copy(alpha = 0.10f) else Color.Transparent
+    val density = LocalDensity.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -485,14 +505,18 @@ private fun LogRow(
             )
             .padding(horizontal = 4.dp, vertical = 1.dp)
     ) {
-        Text(
-            text = annotated,
-            fontFamily = fontFamily,
-            fontSize = fontSize.sp,
-            lineHeight = (fontSize * 1.35f).sp,
-            style = MaterialTheme.typography.bodySmall,
-            overflow = TextOverflow.Visible,
-        )
+        // Force fontScale = 1 so log lines always render at the user's chosen size, independent of
+        // the device's system font-size setting.
+        CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 1f)) {
+            Text(
+                text = annotated,
+                fontFamily = fontFamily,
+                fontSize = fontSize.sp,
+                lineHeight = (fontSize * 1.35f).sp,
+                style = MaterialTheme.typography.bodySmall,
+                overflow = TextOverflow.Visible,
+            )
+        }
     }
 }
 

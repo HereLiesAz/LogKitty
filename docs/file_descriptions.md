@@ -22,17 +22,18 @@
 *   `LogKittyAccessibilityService.kt`: Background service that detects `TYPE_WINDOW_STATE_CHANGED` events to identify the foreground package for context-aware filtering.
 
 ### ui/
-*   `LogBottomSheet.kt`: The primary UI composable. Custom 4-detent overlay (HIDDEN/PEEK/HALF/FULL) with tab row, gesture zones, and selectable log items.
+*   `LogBottomSheet.kt`: The primary UI composable. Custom 4-detent overlay (HIDDEN shows one line, PEEK the last four, HALF/FULL the full list) with tab row, gesture zones, and selectable log items. Forces `fontScale = 1` on log lines so the rendered line height always matches the detent strip sizing regardless of the device's system font setting.
 *   `SheetController.kt`: Shared state holder for the active detent — consumed by both the Compose UI (for animation) and the hosting Service (for window sizing).
-*   `MainViewModel.kt`: The central logic controller. Bridges the `LogcatReader` data, `UserPreferences`, and the UI. Handles per-tab clearing and side-swipe tab navigation.
-*   `SettingsScreen.kt`: A dedicated screen for configuring app behavior. Hosts navigation into the prohibited-tags list, the color scheme editor, and preferences export/import.
+*   `MainViewModel.kt`: The central logic controller. Bridges the `LogcatReader` data, `UserPreferences`, and the UI. Handles per-tab clearing, side-swipe tab navigation, and pinned per-app tabs filtered reliably by the app's UID.
+*   `SettingsScreen.kt`: A dedicated screen for configuring app behavior. Hosts navigation into the prohibited-tags list, the color scheme editor, preferences export/import, and the "Monitor specific apps" picker.
+*   `AppPickerDialog.kt`: A searchable dialog listing installed apps (label + icon); returns the chosen package so it can be pinned for a dedicated, UID-filtered log tab.
 *   `ProhibitedLogsScreen.kt`: UI for managing the list of prohibited log tags/strings.
 *   `ColorSchemeEditorScreen.kt`: Per-level color customization. Selecting any swatch flips the active scheme to CUSTOM.
 *   `LogColors.kt`: Log level enum plus the built-in `LogColorScheme` palettes (Material, AOSP, Pidcat, Monochrome, Solarized, Custom) and the tag-based highlight rules.
 *   `ColorPickerDialog.kt`: A dialog composable for picking colors (used in settings).
 
 ### ui/delegates/
-*   `StateDelegate.kt`: The data holder and processor. Tags every log line with a monotonically-increasing `IndexedLogLine.id` (the basis for per-tab clearing), batches incoming lines, and caps the rolling buffer.
+*   `StateDelegate.kt`: The data holder and processor. Tags every log line with a monotonically-increasing `IndexedLogLine.id` (the basis for per-tab clearing) and the emitting process's `uid` (parsed from the `-v uid` column, for per-app filtering), batches incoming lines, and caps the rolling buffer.
 
 ### ui/theme/
 *   `Theme.kt`: Jetpack Compose theme definition.

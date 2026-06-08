@@ -34,7 +34,8 @@ data class ExportedPreferences(
     val bufferSize: Int,
     val activeLogLevels: Set<String>,
     val colorScheme: String = LogColorScheme.MATERIAL.name,
-    val tagColoringEnabled: Boolean = true
+    val tagColoringEnabled: Boolean = true,
+    val monitoredApps: List<String> = emptyList()
 )
 
 /**
@@ -108,6 +109,13 @@ class UserPreferences(context: Context) {
     // Set of tag strings to block.
     private val _prohibitedTags = MutableStateFlow(loadProhibitedTags())
     val prohibitedTags: StateFlow<Set<String>> = _prohibitedTags.asStateFlow()
+
+    // --- Preference: Monitored Apps ---
+    // Package names the user has pinned for dedicated, app-specific log tabs.
+    private val _monitoredApps = MutableStateFlow(
+        prefs.getStringSet(KEY_MONITORED_APPS, emptySet()) ?: emptySet()
+    )
+    val monitoredApps: StateFlow<Set<String>> = _monitoredApps.asStateFlow()
 
     // --- Preference: Color Scheme ---
     private val _colorScheme = MutableStateFlow(loadColorScheme())
@@ -200,6 +208,25 @@ class UserPreferences(context: Context) {
         current.remove(tag)
         _prohibitedTags.value = current
         saveProhibitedTags(current)
+    }
+
+    /** Pins a package for a dedicated app-specific log tab. */
+    fun addMonitoredApp(packageName: String) {
+        if (packageName.isBlank()) return
+        val current = _monitoredApps.value.toMutableSet()
+        if (current.add(packageName)) {
+            prefs.edit().putStringSet(KEY_MONITORED_APPS, current).apply()
+            _monitoredApps.value = current
+        }
+    }
+
+    /** Unpins a previously monitored package. */
+    fun removeMonitoredApp(packageName: String) {
+        val current = _monitoredApps.value.toMutableSet()
+        if (current.remove(packageName)) {
+            prefs.edit().putStringSet(KEY_MONITORED_APPS, current).apply()
+            _monitoredApps.value = current
+        }
     }
 
     /**
@@ -311,7 +338,8 @@ class UserPreferences(context: Context) {
             bufferSize = _bufferSize.value,
             activeLogLevels = _activeLogLevels.value,
             colorScheme = _colorScheme.value.name,
-            tagColoringEnabled = _tagColoringEnabled.value
+            tagColoringEnabled = _tagColoringEnabled.value,
+            monitoredApps = _monitoredApps.value.toList()
         )
         return try {
             Json { prettyPrint = true }.encodeToString(exported)
@@ -345,6 +373,10 @@ class UserPreferences(context: Context) {
             val tags = imported.prohibitedTags.toSet()
             _prohibitedTags.value = tags
             saveProhibitedTags(tags)
+
+            val apps = imported.monitoredApps.toSet()
+            prefs.edit().putStringSet(KEY_MONITORED_APPS, apps).apply()
+            _monitoredApps.value = apps
 
             val scheme = try { LogColorScheme.valueOf(imported.colorScheme) } catch (e: Exception) { LogColorScheme.MATERIAL }
 
@@ -385,5 +417,6 @@ class UserPreferences(context: Context) {
         private const val KEY_ACTIVE_LOG_LEVELS = "active_log_levels"
         private const val KEY_COLOR_SCHEME = "color_scheme"
         private const val KEY_TAG_COLORING = "tag_coloring_enabled"
+        private const val KEY_MONITORED_APPS = "monitored_apps"
     }
 }
