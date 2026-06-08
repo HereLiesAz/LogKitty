@@ -147,4 +147,18 @@
     <string name="notif_action_stop">Stop</string>
     <string name="notif_action_turn_off">Turn Off LogKitty</string>
     <string name="notif_action_app_settings">App Settings</string>
+
+    <!-- Permissions section -->
+    <string name="settings_section_permissions">Permissions</string>
+    <string name="perm_granted">Granted</string>
+    <string name="perm_not_granted">Not granted</string>
+    <string name="perm_post_notifications">Notifications</string>
+    <string name="perm_internet">Internet</string>
+    <string name="perm_package_usage_stats">Usage access</string>
+    <string name="perm_foreground_service">Foreground service</string>
+    <string name="perm_foreground_service_special">Foreground service (special use)</string>
+    <string name="perm_system_alert_window">Display over other apps</string>
+    <string name="perm_read_logs">Read system logs</string>
+    <string name="perm_query_all_packages">Query installed apps</string>
+    <string name="perm_ad_id">Advertising ID</string>
 </resources>
