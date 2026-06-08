@@ -524,9 +524,11 @@ private fun SourceFilterGroup(
                 .padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // onCheckedChange = null: the Row's clickable owns the toggle, merging both into one
+            // accessible touch target.
             Checkbox(
                 checked = key in enabled,
-                onCheckedChange = { onToggle(key, it) }
+                onCheckedChange = null
             )
             Text(LogSources.label(key), style = MaterialTheme.typography.bodyLarge)
         }

@@ -206,7 +206,7 @@ class MainViewModel(
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }
             }
             result
-        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
 
     /**
