@@ -633,9 +633,10 @@ private fun SettingsFooter(context: android.content.Context) {
 }
 
 /**
- * AdMob banner shown at the bottom of Settings. Uses Google's official TEST ad unit for now.
- * TODO: replace [TEST_BANNER_AD_UNIT] with the real ad-unit ID and add a UMP consent flow
- * (the app ID lives in AndroidManifest; SDK init is in MainApplication).
+ * AdMob banner shown at the bottom of Settings. The unit ID comes from build config
+ * (BuildConfig.ADMOB_BANNER_UNIT_ID): Google's test unit for debug, the real unit for release when
+ * configured in local.properties/env. The app ID lives in AndroidManifest; SDK init is in
+ * MainApplication. TODO: add a UMP consent flow before serving personalized ads.
  */
 @Composable
 private fun SettingsAdBanner() {
@@ -645,7 +646,7 @@ private fun SettingsAdBanner() {
     val adView = remember {
         com.google.android.gms.ads.AdView(context).apply {
             setAdSize(com.google.android.gms.ads.AdSize.BANNER)
-            adUnitId = TEST_BANNER_AD_UNIT
+            adUnitId = BuildConfig.ADMOB_BANNER_UNIT_ID
             loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
         }
     }
@@ -673,8 +674,6 @@ private fun SettingsAdBanner() {
         factory = { adView }
     )
 }
-
-private const val TEST_BANNER_AD_UNIT = "ca-app-pub-3940256099942544/6300978111"
 
 /** A single requested permission and whether it is currently granted. */
 private data class PermissionStatus(val permission: String, val granted: Boolean)

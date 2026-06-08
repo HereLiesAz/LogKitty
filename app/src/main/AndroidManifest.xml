@@ -36,11 +36,11 @@
             android:name="com.google.android.gms.fonts.API_KEY"
             android:value="${FONTS_API_KEY}" />
 
-        <!-- AdMob application ID. This is Google's official TEST app ID. TODO: replace with the
-             real AdMob app ID before shipping (and add a UMP consent flow for personalized ads). -->
+        <!-- AdMob application ID, injected from build config: test ID for debug; real ID from
+             local.properties/env (ADMOB_APP_ID) for release — see app/build.gradle.kts. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="${ADMOB_APP_ID}" />
 
         <activity
             android:name=".MainActivity"

@@ -64,6 +64,12 @@ android {
         buildConfigField("String", "FONTS_API_KEY", "\"$apiKey\"")
         manifestPlaceholders["FONTS_API_KEY"] = apiKey // THIS WAS THE MISSING LINE
 
+        // AdMob IDs. Default to Google's official TEST IDs (serve only test ads, no policy risk).
+        // The release build type overrides these with real IDs from local.properties / env
+        // (ADMOB_APP_ID, ADMOB_BANNER_UNIT_ID) when set; debug always stays on the test IDs.
+        manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-3940256099942544~3347511713"
+        buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
+
         // Build Tools Config
         val toolsOwner = project.findProperty("build.tools.owner") as? String ?: "HereLiesAz"
         val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "LogKitty-buildtools"
@@ -102,6 +108,16 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Use real AdMob IDs in release when provided; otherwise fall back to the test IDs set
+            // in defaultConfig so the build never breaks.
+            val realAdmobAppId = getLocalProperty("ADMOB_APP_ID", rootProject.projectDir)
+            val realBannerUnitId = getLocalProperty("ADMOB_BANNER_UNIT_ID", rootProject.projectDir)
+            if (realAdmobAppId.isNotBlank()) {
+                manifestPlaceholders["ADMOB_APP_ID"] = realAdmobAppId
+            }
+            if (realBannerUnitId.isNotBlank()) {
+                buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"$realBannerUnitId\"")
+            }
         }
     }
     lint {
