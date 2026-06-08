@@ -35,7 +35,8 @@ data class ExportedPreferences(
     val activeLogLevels: Set<String>,
     val colorScheme: String = LogColorScheme.MATERIAL.name,
     val tagColoringEnabled: Boolean = true,
-    val monitoredApps: List<String> = emptyList()
+    val monitoredApps: List<String> = emptyList(),
+    val activeSourceFilters: List<String> = emptyList()
 )
 
 /**
@@ -116,6 +117,13 @@ class UserPreferences(context: Context) {
         prefs.getStringSet(KEY_MONITORED_APPS, emptySet()) ?: emptySet()
     )
     val monitoredApps: StateFlow<Set<String>> = _monitoredApps.asStateFlow()
+
+    // --- Preference: Active Log-Source Filters ---
+    // Source/category keys (see LogSources) the user has enabled as dedicated log tabs.
+    private val _activeSourceFilters = MutableStateFlow(
+        prefs.getStringSet(KEY_ACTIVE_SOURCE_FILTERS, emptySet()) ?: emptySet()
+    )
+    val activeSourceFilters: StateFlow<Set<String>> = _activeSourceFilters.asStateFlow()
 
     // --- Preference: Color Scheme ---
     private val _colorScheme = MutableStateFlow(loadColorScheme())
@@ -229,6 +237,14 @@ class UserPreferences(context: Context) {
         }
     }
 
+    /** Enables/disables a log-source filter tab (key from `LogSources`). */
+    fun setSourceFilterEnabled(key: String, enabled: Boolean) {
+        val current = _activeSourceFilters.value.toMutableSet()
+        if (enabled) current.add(key) else current.remove(key)
+        prefs.edit().putStringSet(KEY_ACTIVE_SOURCE_FILTERS, current).apply()
+        _activeSourceFilters.value = current
+    }
+
     /**
      * Customizes the color for a specific log level. Switches the scheme to CUSTOM so further
      * scheme changes don't silently overwrite the user's overrides.
@@ -339,7 +355,8 @@ class UserPreferences(context: Context) {
             activeLogLevels = _activeLogLevels.value,
             colorScheme = _colorScheme.value.name,
             tagColoringEnabled = _tagColoringEnabled.value,
-            monitoredApps = _monitoredApps.value.toList()
+            monitoredApps = _monitoredApps.value.toList(),
+            activeSourceFilters = _activeSourceFilters.value.toList()
         )
         return try {
             Json { prettyPrint = true }.encodeToString(exported)
@@ -377,6 +394,10 @@ class UserPreferences(context: Context) {
             val apps = imported.monitoredApps.toSet()
             prefs.edit().putStringSet(KEY_MONITORED_APPS, apps).apply()
             _monitoredApps.value = apps
+
+            val sources = imported.activeSourceFilters.toSet()
+            prefs.edit().putStringSet(KEY_ACTIVE_SOURCE_FILTERS, sources).apply()
+            _activeSourceFilters.value = sources
 
             val scheme = try { LogColorScheme.valueOf(imported.colorScheme) } catch (e: Exception) { LogColorScheme.MATERIAL }
 
@@ -418,5 +439,6 @@ class UserPreferences(context: Context) {
         private const val KEY_COLOR_SCHEME = "color_scheme"
         private const val KEY_TAG_COLORING = "tag_coloring_enabled"
         private const val KEY_MONITORED_APPS = "monitored_apps"
+        private const val KEY_ACTIVE_SOURCE_FILTERS = "active_source_filters"
     }
 }

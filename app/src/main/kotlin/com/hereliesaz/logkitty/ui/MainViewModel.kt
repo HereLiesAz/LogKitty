@@ -14,11 +14,14 @@ import com.hereliesaz.logkitty.ui.delegates.IndexedLogLine
 import com.hereliesaz.logkitty.ui.delegates.StateDelegate
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogcatReader
+import com.hereliesaz.logkitty.utils.LogSourceClassifier
+import com.hereliesaz.logkitty.utils.LogSources
 import com.hereliesaz.logkitty.utils.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -45,7 +48,8 @@ data class LogTab(
 enum class TabType {
     SYSTEM,
     ERRORS,
-    APP
+    APP,
+    SOURCE
 }
 
 /**
@@ -94,6 +98,15 @@ class MainViewModel(
     fun addMonitoredApp(pkg: String) = userPreferences.addMonitoredApp(pkg)
     fun removeMonitoredApp(pkg: String) = userPreferences.removeMonitoredApp(pkg)
 
+    // Classifies each log line's UID into source/category buckets for the per-source tabs.
+    private val sourceClassifier = LogSourceClassifier(application)
+
+    /** Source/category filter keys (see `LogSources`) the user has enabled as dedicated tabs. */
+    val activeSourceFilters: StateFlow<Set<String>> = userPreferences.activeSourceFilters
+
+    fun setSourceFilterEnabled(key: String, enabled: Boolean) =
+        userPreferences.setSourceFilterEnabled(key, enabled)
+
     // Delegate to handle the heavy lifting of log buffering.
     val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize)
 
@@ -102,6 +115,15 @@ class MainViewModel(
     // The package name of the app currently on screen (detected by Accessibility Service).
     private val _currentForegroundApp = MutableStateFlow<String?>(null)
     val currentForegroundApp: StateFlow<String?> = _currentForegroundApp
+
+    // Whether log capture is paused (frozen). Runtime-only: the logcat stream keeps running but new
+    // lines are dropped while paused so the view holds still. Toggled from the sheet's play/pause
+    // control and the notification's Start/Stop action.
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused
+
+    fun togglePause() { _isPaused.update { !it } }
+    fun setPaused(paused: Boolean) { _isPaused.value = paused }
 
     // Preference Flows (Directly exposed from UserPreferences)
     val isContextModeEnabled: StateFlow<Boolean> = userPreferences.isContextModeEnabled
@@ -127,7 +149,7 @@ class MainViewModel(
     private val _tabClearMarks = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     // Tab Management
-    private val systemTab = LogTab("system", "System", TabType.SYSTEM)
+    private val systemTab = LogTab("system", "All", TabType.SYSTEM)
     private val errorsTab = LogTab("errors", "Errors", TabType.ERRORS)
 
     private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab))
@@ -182,12 +204,18 @@ class MainViewModel(
                         }
                     }
                 }
+                TabType.SOURCE -> {
+                    val key = input.tab.filterValue
+                    if (!key.isNullOrBlank()) {
+                        result = result.filter { sourceClassifier.classify(it.uid).contains(key) }
+                    }
+                }
             }
             if (input.userFilter.isNotBlank()) {
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }
             }
             result
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
 
     /**
@@ -224,7 +252,7 @@ class MainViewModel(
                 stateDelegate.clearLog() // Clear old logs (optional, but cleaner)
                 logJob = launch {
                     LogcatReader.observe(useRoot).collect {
-                        stateDelegate.appendSystemLog(it)
+                        if (!_isPaused.value) stateDelegate.appendSystemLog(it)
                     }
                 }
             }
@@ -234,6 +262,11 @@ class MainViewModel(
         // Collected on IO because syncMonitoredTabs resolves app labels/UIDs via PackageManager.
         viewModelScope.launch(Dispatchers.IO) {
             userPreferences.monitoredApps.collect { syncMonitoredTabs(it) }
+        }
+
+        // Keep the per-source tabs in sync with the user's "Log sources" choices.
+        viewModelScope.launch {
+            userPreferences.activeSourceFilters.collect { syncSourceTabs(it) }
         }
 
         // Register the Accessibility Receiver
@@ -267,6 +300,24 @@ class MainViewModel(
                 }
             }
             result
+        }
+        if (_tabs.value.none { it.id == _selectedTab.value.id }) {
+            _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
+        }
+    }
+
+    /**
+     * Reconciles the per-source tabs (id prefix `source_`) with the user's enabled source filters,
+     * preserving order: Sources first, then Categories, matching the settings layout.
+     */
+    private fun syncSourceTabs(filters: Set<String>) {
+        _tabs.update { current ->
+            val withoutSources = current.filterNot { it.id.startsWith("source_") }
+            val ordered = (LogSources.SOURCE_BUCKETS + LogSources.CATEGORY_BUCKETS).filter { it in filters }
+            val sourceTabs = ordered.map { key ->
+                LogTab("source_$key", LogSources.label(key), TabType.SOURCE, key)
+            }
+            withoutSources + sourceTabs
         }
         if (_tabs.value.none { it.id == _selectedTab.value.id }) {
             _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
