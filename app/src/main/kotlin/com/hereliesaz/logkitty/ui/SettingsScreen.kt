@@ -674,6 +674,26 @@ private fun hasUsageStatsAccess(context: android.content.Context): Boolean = try
     false
 }
 
+/**
+ * Returns the most specific system-settings intent for a permission so tapping a row takes the user
+ * straight to where they can change it. Permissions with no dedicated screen (normal/install-time
+ * grants, or ADB-only ones like READ_LOGS) fall back to the app's details page.
+ */
+private fun permissionSettingsIntent(context: android.content.Context, permission: String): android.content.Intent {
+    val pkgUri = Uri.parse("package:${context.packageName}")
+    return when (permission) {
+        android.Manifest.permission.SYSTEM_ALERT_WINDOW ->
+            android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkgUri)
+        android.Manifest.permission.PACKAGE_USAGE_STATS ->
+            android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        android.Manifest.permission.POST_NOTIFICATIONS ->
+            android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        else ->
+            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkgUri)
+    }
+}
+
 /** Maps a permission name to a friendly, localized label; unknown permissions show their short name. */
 @Composable
 private fun permissionLabel(permission: String): String {
@@ -718,7 +738,15 @@ private fun PermissionsSection(context: android.content.Context) {
     SettingsSectionHeader(stringResource(R.string.settings_section_permissions))
     statuses.forEach { status ->
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    runCatching { context.startActivity(permissionSettingsIntent(context, status.permission)) }
+                        .onFailure {
+                            Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+                        }
+                }
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
