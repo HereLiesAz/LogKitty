@@ -631,7 +631,17 @@ private data class PermissionStatus(val permission: String, val granted: Boolean
 private fun collectPermissionStatuses(context: android.content.Context): List<PermissionStatus> {
     val pm = context.packageManager
     val info = try {
-        pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            pm.getPackageInfo(
+                context.packageName,
+                android.content.pm.PackageManager.PackageInfoFlags.of(
+                    android.content.pm.PackageManager.GET_PERMISSIONS.toLong()
+                )
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
+        }
     } catch (e: Exception) {
         return emptyList()
     }
@@ -687,13 +697,17 @@ private fun permissionLabel(permission: String): String {
 @Composable
 private fun PermissionsSection(context: android.content.Context) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    var statuses by remember { mutableStateOf(collectPermissionStatuses(context)) }
+    var refreshKey by remember { mutableStateOf(0) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) statuses = collectPermissionStatuses(context)
+            if (event == Lifecycle.Event.ON_RESUME) refreshKey++
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    // Resolve grant state off the main thread (binder IPC); recompute whenever the screen resumes.
+    val statuses by produceState(initialValue = emptyList<PermissionStatus>(), refreshKey) {
+        value = withContext(Dispatchers.IO) { collectPermissionStatuses(context) }
     }
 
     SettingsSectionHeader(stringResource(R.string.settings_section_permissions))
