@@ -113,10 +113,23 @@ android {
             val realAdmobAppId = getLocalProperty("ADMOB_APP_ID", rootProject.projectDir)
             val realBannerUnitId = getLocalProperty("ADMOB_BANNER_UNIT_ID", rootProject.projectDir)
             if (realAdmobAppId.isNotBlank()) {
+                if (!realAdmobAppId.startsWith("ca-app-pub-")) {
+                    logger.warn("LogKitty: ADMOB_APP_ID does not look like an AdMob ID (expected 'ca-app-pub-…').")
+                }
                 manifestPlaceholders["ADMOB_APP_ID"] = realAdmobAppId
             }
             if (realBannerUnitId.isNotBlank()) {
+                if (!realBannerUnitId.startsWith("ca-app-pub-")) {
+                    logger.warn("LogKitty: ADMOB_BANNER_UNIT_ID does not look like an AdMob ID (expected 'ca-app-pub-…').")
+                }
                 buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"$realBannerUnitId\"")
+            }
+            // Loud warning so a release isn't accidentally shipped with Google's test ad IDs.
+            if (realAdmobAppId.isBlank() || realBannerUnitId.isBlank()) {
+                logger.warn(
+                    "LogKitty: ADMOB_APP_ID / ADMOB_BANNER_UNIT_ID not set in local.properties or env — " +
+                        "this RELEASE build will use Google's TEST AdMob IDs (no real ads)."
+                )
             }
         }
     }
