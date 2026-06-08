@@ -743,7 +743,16 @@ private fun PermissionsSection(context: android.content.Context) {
                 .clickable {
                     runCatching { context.startActivity(permissionSettingsIntent(context, status.permission)) }
                         .onFailure {
-                            Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+                            // Some OEM ROMs reject ACTION_MANAGE_OVERLAY_PERMISSION with a package:
+                            // URI — retry without it (opens the general overlay list) before giving up.
+                            val fallback = if (status.permission == android.Manifest.permission.SYSTEM_ALERT_WINDOW) {
+                                android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                            } else null
+                            val recovered = fallback != null &&
+                                runCatching { context.startActivity(fallback) }.isSuccess
+                            if (!recovered) {
+                                Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+                            }
                         }
                 }
                 .padding(vertical = 6.dp),
