@@ -479,44 +479,46 @@ private fun appLabel(context: android.content.Context, pkg: String): String = tr
 private fun SettingsFooter(context: android.content.Context) {
     fun open(intent: android.content.Intent) {
         runCatching { context.startActivity(intent) }
+            .onFailure { Toast.makeText(context, "No app found to handle this", Toast.LENGTH_SHORT).show() }
     }
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // padding before clickable so the whole padded area is the touch target / ripple bounds.
         Text(
             "About",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
+                .padding(8.dp)
                 .clickable {
                     open(android.content.Intent(android.content.Intent.ACTION_VIEW,
                         Uri.parse("https://github.com/HereLiesAz/LogKitty")))
                 }
-                .padding(8.dp)
         )
         Text(
             "Feedback",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
+                .padding(8.dp)
                 .clickable {
                     open(android.content.Intent(android.content.Intent.ACTION_SENDTO,
                         Uri.parse("mailto:hereliesaz@gmail.com?subject=LogKitty")))
                 }
-                .padding(8.dp)
         )
         Text(
             "@HereLiesAz",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier
+                .padding(8.dp)
                 .clickable {
                     open(android.content.Intent(android.content.Intent.ACTION_VIEW,
                         Uri.parse("https://instagram.com/HereLiesAz")))
                 }
-                .padding(8.dp)
         )
     }
 }
