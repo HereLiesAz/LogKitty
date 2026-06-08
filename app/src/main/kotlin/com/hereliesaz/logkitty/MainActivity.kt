@@ -61,6 +61,14 @@ class MainActivity : ComponentActivity() {
         checkPermissions()
     }
 
+    // Runtime request for POST_NOTIFICATIONS (Android 13+). Without it the foreground-service
+    // notification — LogKitty's persistent silent control surface — is suppressed by the OS.
+    // Either way (granted or denied) we proceed to start the service; the notification simply
+    // appears once the permission is held.
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { startOverlayService() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -167,22 +175,36 @@ class MainActivity : ComponentActivity() {
      * Starts or Stops the Overlay Service based on current state.
      */
     private fun toggleOverlayService() {
-        val intent = Intent(this, LogKittyOverlayService::class.java)
         if (isServiceRunning) {
+            val intent = Intent(this, LogKittyOverlayService::class.java)
             intent.action = "com.hereliesaz.logkitty.STOP_SERVICE"
             startService(intent)
             isServiceRunning = false
-        } else {
-            // Start as Foreground Service.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try { startForegroundService(intent) } catch (e: Exception) { android.util.Log.e("MainActivity", "Failed to start foreground service", e) }
-            } else {
-                startService(intent)
-            }
-            isServiceRunning = true
-            // Close the activity so the user sees the overlay immediately.
-            finish()
+            return
         }
+        // Starting: on Android 13+ make sure we can post the foreground-service notification first.
+        // The launcher callback calls startOverlayService() once the user answers; if we already
+        // have the permission (or are pre-33) we start immediately.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            startOverlayService()
+        }
+    }
+
+    /** Starts the overlay foreground service and closes the dashboard so the overlay is visible. */
+    private fun startOverlayService() {
+        val intent = Intent(this, LogKittyOverlayService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try { startForegroundService(intent) } catch (e: Exception) { android.util.Log.e("MainActivity", "Failed to start foreground service", e) }
+        } else {
+            startService(intent)
+        }
+        isServiceRunning = true
+        // Close the activity so the user sees the overlay immediately.
+        finish()
     }
 
     /**
