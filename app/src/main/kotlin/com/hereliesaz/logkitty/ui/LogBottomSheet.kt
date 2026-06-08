@@ -24,9 +24,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -43,7 +45,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -113,14 +114,12 @@ fun LogBottomSheet(
     val logColors by viewModel.logColors.collectAsState()
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
+    val isPaused by viewModel.isPaused.collectAsState()
 
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
         getGoogleFontFamily(enumVal.fontName)
     }
-
-    // X-button double-press tracking (clear → hide).
-    var lastClearAt by remember { mutableLongStateOf(0L) }
 
     var selectedLineIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var isMultiSelectMode by remember { mutableStateOf(false) }
@@ -161,6 +160,7 @@ fun LogBottomSheet(
             fontSize = fontSize,
             showTimestamp = showTimestamp,
             isLogReversed = isLogReversed,
+            isPaused = isPaused,
             selectedLineIds = selectedLineIds,
             selectedLines = selectedLines,
             onTapLine = { id ->
@@ -192,16 +192,9 @@ fun LogBottomSheet(
                 controller.hide()
                 onSettingsClick()
             },
-            onClearClick = {
-                val now = System.currentTimeMillis()
-                if (now - lastClearAt < 3000L) {
-                    controller.hide()
-                    lastClearAt = 0L
-                } else {
-                    viewModel.clearActiveTab()
-                    lastClearAt = now
-                }
-            },
+            onTogglePause = { viewModel.togglePause() },
+            onClearClick = { viewModel.clearActiveTab() },
+            onCloseClick = { controller.hide() },
             onCopySelected = {
                 val joined = selectedLines.joinToString("\n") { it.text }
                 clipboardManager.setText(AnnotatedString(joined))
@@ -301,6 +294,7 @@ private fun ExpandedView(
     fontSize: Int,
     showTimestamp: Boolean,
     isLogReversed: Boolean,
+    isPaused: Boolean,
     selectedLineIds: Set<Long>,
     selectedLines: List<IndexedLogLine>,
     onTapLine: (Long) -> Unit,
@@ -312,7 +306,9 @@ private fun ExpandedView(
     onSwipeRight: () -> Unit,
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onTogglePause: () -> Unit,
     onClearClick: () -> Unit,
+    onCloseClick: () -> Unit,
     onCopySelected: () -> Unit,
     onSearchLine: (IndexedLogLine) -> Unit,
     onProhibitLine: (IndexedLogLine) -> Unit,
@@ -375,8 +371,18 @@ private fun ExpandedView(
                     IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurface)
                     }
+                    IconButton(onClick = onTogglePause, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = if (isPaused) "Resume logging" else "Pause logging",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = onClearClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Clear, "Clear / Hide", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.DeleteSweep, "Clear logs", tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    IconButton(onClick = onCloseClick, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Close, "Close", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }

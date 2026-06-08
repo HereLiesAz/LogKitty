@@ -103,6 +103,15 @@ class MainViewModel(
     private val _currentForegroundApp = MutableStateFlow<String?>(null)
     val currentForegroundApp: StateFlow<String?> = _currentForegroundApp
 
+    // Whether log capture is paused (frozen). Runtime-only: the logcat stream keeps running but new
+    // lines are dropped while paused so the view holds still. Toggled from the sheet's play/pause
+    // control and the notification's Start/Stop action.
+    private val _isPaused = MutableStateFlow(false)
+    val isPaused: StateFlow<Boolean> = _isPaused
+
+    fun togglePause() { _isPaused.value = !_isPaused.value }
+    fun setPaused(paused: Boolean) { _isPaused.value = paused }
+
     // Preference Flows (Directly exposed from UserPreferences)
     val isContextModeEnabled: StateFlow<Boolean> = userPreferences.isContextModeEnabled
     val customFilter: StateFlow<String> = userPreferences.customFilter
@@ -224,7 +233,7 @@ class MainViewModel(
                 stateDelegate.clearLog() // Clear old logs (optional, but cleaner)
                 logJob = launch {
                     LogcatReader.observe(useRoot).collect {
-                        stateDelegate.appendSystemLog(it)
+                        if (!_isPaused.value) stateDelegate.appendSystemLog(it)
                     }
                 }
             }

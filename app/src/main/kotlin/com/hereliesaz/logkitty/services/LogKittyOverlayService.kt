@@ -81,6 +81,10 @@ class LogKittyOverlayService : Service() {
                 }
                 startActivity(settingsIntent)
             }
+            ACTION_TOGGLE_PAUSE -> {
+                // The isPaused collector in onCreate refreshes the notification.
+                (applicationContext as MainApplication).mainViewModel.togglePause()
+            }
         }
         return START_STICKY
     }
@@ -100,6 +104,12 @@ class LogKittyOverlayService : Service() {
         }
 
         if (Settings.canDrawOverlays(this)) setupOverlay()
+
+        // Keep the notification's Start/Stop action in sync with the capture state, whether it's
+        // toggled from the notification or the bottom sheet's play/pause control.
+        serviceScope.launch {
+            (applicationContext as MainApplication).mainViewModel.isPaused.collect { updateNotification() }
+        }
 
         val filter = IntentFilter(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -250,17 +260,37 @@ class LogKittyOverlayService : Service() {
         }
     }
 
+    /** Rebuilds and re-posts the notification (e.g. to flip the Start/Stop action on pause toggle). */
+    private fun updateNotification() {
+        runCatching {
+            getSystemService(NotificationManager::class.java)?.notify(SERVICE_ID, createNotification())
+        }
+    }
+
     private fun createNotification(): Notification {
+        val isPaused = (applicationContext as MainApplication).mainViewModel.isPaused.value
+
         val stopIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_STOP_SERVICE }
         val stopPending = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
         val settingsIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_OPEN_SETTINGS }
         val settingsPending = PendingIntent.getService(this, 1, settingsIntent, PendingIntent.FLAG_IMMUTABLE)
+        val pauseIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_TOGGLE_PAUSE }
+        val pausePending = PendingIntent.getService(this, 2, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("LogKitty is running")
-            .setContentText("Tap to turn off. Expand for App Settings.")
+            .setContentText(
+                if (isPaused) "Logging paused. Tap to turn off." else "Logging. Tap to turn off."
+            )
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            // Body tap and the prominent first action both stop the service (tears down the overlay).
+            // Body tap and the "Turn Off" action both stop the service (tears down the overlay).
             .setContentIntent(stopPending)
+            // Start/Stop toggles log capture (mirrors the sheet's play/pause).
+            .addAction(
+                if (isPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause,
+                if (isPaused) "Start" else "Stop",
+                pausePending
+            )
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Turn Off LogKitty", stopPending)
             .addAction(android.R.drawable.ic_menu_preferences, "App Settings", settingsPending)
             .setOngoing(true)
@@ -273,5 +303,6 @@ class LogKittyOverlayService : Service() {
         private const val SERVICE_ID = 1001
         private const val ACTION_STOP_SERVICE = "com.hereliesaz.logkitty.STOP_SERVICE"
         private const val ACTION_OPEN_SETTINGS = "com.hereliesaz.logkitty.OPEN_SETTINGS"
+        private const val ACTION_TOGGLE_PAUSE = "com.hereliesaz.logkitty.TOGGLE_PAUSE"
     }
 }
