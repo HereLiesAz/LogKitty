@@ -64,10 +64,11 @@ android {
         buildConfigField("String", "FONTS_API_KEY", "\"$apiKey\"")
         manifestPlaceholders["FONTS_API_KEY"] = apiKey // THIS WAS THE MISSING LINE
 
-        // AdMob IDs. Default to Google's official TEST IDs (serve only test ads, no policy risk).
-        // The release build type overrides these with real IDs from local.properties / env
-        // (ADMOB_APP_ID, ADMOB_BANNER_UNIT_ID) when set; debug always stays on the test IDs.
-        manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-3940256099942544~3347511713"
+        // AdMob IDs. The real app ID is used everywhere (Google's recommended setup), while the
+        // banner ad-unit stays on Google's official TEST unit in debug so our own development
+        // clicks don't generate invalid traffic on the live unit. The release build type below
+        // swaps in the real banner unit. (App/unit IDs are public — they ship in the APK.)
+        manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-7304740804770627~9613583987"
         buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
 
         // Build Tools Config
@@ -108,29 +109,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Use real AdMob IDs in release when provided; otherwise fall back to the test IDs set
-            // in defaultConfig so the build never breaks.
-            val realAdmobAppId = getLocalProperty("ADMOB_APP_ID", rootProject.projectDir)
-            val realBannerUnitId = getLocalProperty("ADMOB_BANNER_UNIT_ID", rootProject.projectDir)
-            if (realAdmobAppId.isNotBlank()) {
-                if (!realAdmobAppId.startsWith("ca-app-pub-")) {
-                    logger.warn("LogKitty: ADMOB_APP_ID does not look like an AdMob ID (expected 'ca-app-pub-…').")
-                }
-                manifestPlaceholders["ADMOB_APP_ID"] = realAdmobAppId
-            }
-            if (realBannerUnitId.isNotBlank()) {
-                if (!realBannerUnitId.startsWith("ca-app-pub-")) {
-                    logger.warn("LogKitty: ADMOB_BANNER_UNIT_ID does not look like an AdMob ID (expected 'ca-app-pub-…').")
-                }
-                buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"$realBannerUnitId\"")
-            }
-            // Loud warning so a release isn't accidentally shipped with Google's test ad IDs.
-            if (realAdmobAppId.isBlank() || realBannerUnitId.isBlank()) {
-                logger.warn(
-                    "LogKitty: ADMOB_APP_ID / ADMOB_BANNER_UNIT_ID not set in local.properties or env — " +
-                        "this RELEASE build will use Google's TEST AdMob IDs (no real ads)."
-                )
-            }
+            // Production banner ad-unit (real). Debug keeps the test unit from defaultConfig so our
+            // own development clicks don't generate invalid traffic on the live unit. An optional
+            // ADMOB_BANNER_UNIT_ID in local.properties/env overrides it (e.g. for a staging unit).
+            val overrideBannerUnitId = getLocalProperty("ADMOB_BANNER_UNIT_ID", rootProject.projectDir)
+            val bannerUnitId = if (overrideBannerUnitId.isNotBlank()) overrideBannerUnitId
+                else "ca-app-pub-7304740804770627/1839035745"
+            buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"$bannerUnitId\"")
         }
     }
     lint {
