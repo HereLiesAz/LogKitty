@@ -30,22 +30,20 @@ val minor = versionProps.getProperty("minor")?.toIntOrNull() ?: 0
 val patch = versionProps.getProperty("patch")?.toIntOrNull() ?: 0
 var buildNumber = versionProps.getProperty("build")?.toIntOrNull() ?: 0
 
-// Automatic build number increment logic: increments only for actual build tasks
-val taskNames = gradle.startParameter.taskNames
-val isBuildTask = taskNames.any {
-    it.contains("assemble") || it.contains("bundle") || it.contains("install")
+// Automatic build-number increment: bump on every build that produces an artifact, regardless of
+// environment (CLI, Android Studio, CI) or which build task is invoked. This runs at configuration
+// time so the new number flows into versionCode/versionName below. Writing version.properties also
+// invalidates the configuration cache, so the next build re-runs this block and increments again.
+val isBuildTask = gradle.startParameter.taskNames.any { taskName ->
+    val name = taskName.substringAfterLast(':').lowercase()
+    name.startsWith("assemble") || name.startsWith("bundle") ||
+        name.startsWith("install") || name.startsWith("package") || name == "build"
 }
 
-if (isBuildTask && System.getProperty("version.incremented") != "true") {
+if (isBuildTask) {
     buildNumber++
     versionProps.setProperty("build", buildNumber.toString())
-    val writer = versionPropsFile.writer()
-    try {
-        versionProps.store(writer, null)
-    } finally {
-        writer.close()
-    }
-    System.setProperty("version.incremented", "true")
+    versionPropsFile.writer().use { versionProps.store(it, null) }
 }
 
 android {
