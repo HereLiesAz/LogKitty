@@ -558,16 +558,38 @@ private fun SettingsFooter(context: android.content.Context) {
  */
 @Composable
 private fun SettingsAdBanner() {
-    androidx.compose.ui.viewinterop.AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { ctx ->
-            com.google.android.gms.ads.AdView(ctx).apply {
-                setAdSize(com.google.android.gms.ads.AdSize.BANNER)
-                adUnitId = TEST_BANNER_AD_UNIT
-                loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+
+    val adView = remember {
+        com.google.android.gms.ads.AdView(context).apply {
+            setAdSize(com.google.android.gms.ads.AdSize.BANNER)
+            adUnitId = TEST_BANNER_AD_UNIT
+            loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
+        }
+    }
+
+    // Pause/resume/destroy with the host lifecycle (AdMob policy + battery/memory).
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> adView.resume()
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> adView.pause()
+                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> adView.destroy()
+                else -> {}
             }
-        },
-        onRelease = { it.destroy() }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            adView.destroy()
+        }
+    }
+
+    // Fixed banner height avoids a layout shift (and accidental taps) when the ad loads.
+    androidx.compose.ui.viewinterop.AndroidView(
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+        factory = { adView }
     )
 }
 
