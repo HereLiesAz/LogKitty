@@ -699,17 +699,20 @@ private fun permissionLabel(permission: String): String {
 @Composable
 private fun PermissionsSection(context: android.content.Context) {
     val lifecycleOwner = LocalLifecycleOwner.current
-    var refreshKey by remember { mutableStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
+    var statuses by remember { mutableStateOf<List<PermissionStatus>>(emptyList()) }
+    // Resolve grant state off the main thread (binder IPC); recompute whenever the screen resumes
+    // (addObserver replays ON_RESUME to a new observer, so this also drives the initial load).
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) refreshKey++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                coroutineScope.launch {
+                    statuses = withContext(Dispatchers.IO) { collectPermissionStatuses(context) }
+                }
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    // Resolve grant state off the main thread (binder IPC); recompute whenever the screen resumes.
-    val statuses by produceState(initialValue = emptyList<PermissionStatus>(), refreshKey) {
-        value = withContext(Dispatchers.IO) { collectPermissionStatuses(context) }
     }
 
     SettingsSectionHeader(stringResource(R.string.settings_section_permissions))
