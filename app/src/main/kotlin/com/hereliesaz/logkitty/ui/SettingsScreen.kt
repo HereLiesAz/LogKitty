@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import com.hereliesaz.logkitty.BuildConfig
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.ui.theme.CodingFont
@@ -488,7 +489,8 @@ private fun SettingsMainScreen(
             Spacer(modifier = Modifier.height(16.dp))
             SettingsAdBanner()
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // Large trailing margin so the footer can be scrolled well up the screen.
+            Spacer(modifier = Modifier.height(240.dp))
         }
     }
 }
@@ -509,44 +511,55 @@ private fun SettingsFooter(context: android.content.Context) {
         runCatching { context.startActivity(intent) }
             .onFailure { Toast.makeText(context, "No app found to handle this", Toast.LENGTH_SHORT).show() }
     }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // padding before clickable so the whole padded area is the touch target / ripple bounds.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // padding before clickable so the whole padded area is the touch target / ripple bounds.
+            Text(
+                "About",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .clickable {
+                        open(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            Uri.parse("https://github.com/HereLiesAz/LogKitty")))
+                    }
+            )
+            Text(
+                "Feedback",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .clickable {
+                        open(android.content.Intent(android.content.Intent.ACTION_SENDTO,
+                            Uri.parse("mailto:hereliesaz@gmail.com?subject=LogKitty")))
+                    }
+            )
+            Text(
+                "@HereLiesAz",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .clickable {
+                        open(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            Uri.parse("https://instagram.com/HereLiesAz")))
+                    }
+            )
+        }
         Text(
-            "About",
+            "LogKitty v${BuildConfig.VERSION_NAME}",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .padding(8.dp)
-                .clickable {
-                    open(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/HereLiesAz/LogKitty")))
-                }
-        )
-        Text(
-            "Feedback",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .padding(8.dp)
-                .clickable {
-                    open(android.content.Intent(android.content.Intent.ACTION_SENDTO,
-                        Uri.parse("mailto:hereliesaz@gmail.com?subject=LogKitty")))
-                }
-        )
-        Text(
-            "@HereLiesAz",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .padding(8.dp)
-                .clickable {
-                    open(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                        Uri.parse("https://instagram.com/HereLiesAz")))
-                }
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
         )
     }
 }
