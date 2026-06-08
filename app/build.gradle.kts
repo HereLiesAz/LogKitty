@@ -167,6 +167,11 @@ configurations.all {
                     useTarget("org.slf4j:jcl-over-slf4j:1.7.30")
                     because("Avoids duplicate classes with jcl-over-slf4j")
                 }
+                g == "com.google.guava" && n == "guava" -> {
+                    val suffix = if (requested.version?.endsWith("-android") == true) "-android" else "-jre"
+                    useVersion("33.3.1$suffix")
+                    because("Security fixes: CVE-2023-2976 & CVE-2020-8908 (insecure temp-dir use / info disclosure)")
+                }
                 g == "com.google.protobuf" && n == "protobuf-kotlin" -> {
                     useVersion("3.25.5")
                     because("Security fix")
