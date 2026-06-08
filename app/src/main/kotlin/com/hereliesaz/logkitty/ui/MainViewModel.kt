@@ -149,8 +149,8 @@ class MainViewModel(
     private val _tabClearMarks = MutableStateFlow<Map<String, Long>>(emptyMap())
 
     // Tab Management
-    private val systemTab = LogTab("system", getApplication<Application>().getString(com.hereliesaz.logkitty.R.string.tab_all), TabType.SYSTEM)
-    private val errorsTab = LogTab("errors", getApplication<Application>().getString(com.hereliesaz.logkitty.R.string.tab_errors), TabType.ERRORS)
+    private val systemTab = LogTab("system", application.getString(com.hereliesaz.logkitty.R.string.tab_all), TabType.SYSTEM)
+    private val errorsTab = LogTab("errors", application.getString(com.hereliesaz.logkitty.R.string.tab_errors), TabType.ERRORS)
 
     private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab))
     val tabs: StateFlow<List<LogTab>> = _tabs

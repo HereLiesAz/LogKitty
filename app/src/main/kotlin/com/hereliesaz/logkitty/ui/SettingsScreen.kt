@@ -274,7 +274,10 @@ private fun SettingsMainScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RectangleShape
                 ) {
-                    Text(stringResource(R.string.settings_font, fontFamilyName))
+                    val currentFont = remember(fontFamilyName) {
+                        try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
+                    }
+                    Text(stringResource(R.string.settings_font, stringResource(currentFont.displayNameRes)))
                 }
                 DropdownMenu(expanded = fontExpanded, onDismissRequest = { fontExpanded = false }) {
                     CodingFont.values().forEach { font ->
