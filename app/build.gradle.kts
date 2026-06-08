@@ -146,33 +146,43 @@ configurations.all {
     exclude(group = "com.intellij", module = "annotations")
     resolutionStrategy {
         eachDependency {
-            if (requested.group == "commons-logging" && requested.name == "commons-logging") {
-                useTarget("org.slf4j:jcl-over-slf4j:1.7.30")
-                because("Avoids duplicate classes with jcl-over-slf4j")
-            }
-            if (requested.group == "com.google.protobuf" && requested.name == "protobuf-kotlin") {
-                useVersion("3.25.5")
-                because("Security fix")
-            }
-            if (requested.group == "org.jdom" && requested.name == "jdom2") {
-                useVersion("2.0.6.1")
-                because("Security fix")
-            }
-            if (requested.group == "io.netty" && requested.name == "netty-codec-http2") {
-                useVersion("4.1.124.Final")
-                because("Security fix")
-            }
-            if (requested.group == "io.netty" && requested.name == "netty-handler") {
-                useVersion("4.1.118.Final")
-                because("Security fix")
-            }
-            if (requested.group == "org.bitbucket.b_c" && requested.name == "jose4j") {
-                useVersion("0.9.6")
-                because("Security fix")
-            }
-            if (requested.group == "io.netty" && requested.name == "netty-codec-http") {
-                useVersion("4.1.129.Final")
-                because("Security fix")
+            val g = requested.group
+            val n = requested.name
+            when {
+                g == "commons-logging" && n == "commons-logging" -> {
+                    useTarget("org.slf4j:jcl-over-slf4j:1.7.30")
+                    because("Avoids duplicate classes with jcl-over-slf4j")
+                }
+                g == "com.google.protobuf" && n == "protobuf-kotlin" -> {
+                    useVersion("3.25.5")
+                    because("Security fix")
+                }
+                // Netty artifacts are versioned together; force the whole family (except the
+                // separately-versioned tcnative natives) to the latest 4.1 security release.
+                g == "io.netty" && !n.startsWith("netty-tcnative") -> {
+                    useVersion("4.1.133.Final")
+                    because("Security fixes: CVE-2025-67735, CVE-2026-42583, CVE-2026-42587, et al.")
+                }
+                g == "org.bouncycastle" && n.endsWith("-jdk18on") -> {
+                    useVersion("1.84")
+                    because("Security fixes: CVE-2026-0636 (LDAP), covert timing channel, broken crypto")
+                }
+                g == "org.apache.commons" && n == "commons-lang3" -> {
+                    useVersion("3.18.0")
+                    because("Security fix: CVE-2025-48924 uncontrolled recursion")
+                }
+                g == "org.apache.httpcomponents" && n == "httpclient" -> {
+                    useVersion("4.5.14")
+                    because("Security fix: cross-site scripting (CVE-2020-13956)")
+                }
+                g == "org.jdom" && n == "jdom2" -> {
+                    useVersion("2.0.6.1")
+                    because("Security fix: XXE injection")
+                }
+                g == "org.bitbucket.b_c" && n == "jose4j" -> {
+                    useVersion("0.9.6")
+                    because("Security fix: DoS via compressed JWE content")
+                }
             }
         }
     }
