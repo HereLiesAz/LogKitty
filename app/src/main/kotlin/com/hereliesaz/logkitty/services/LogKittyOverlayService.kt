@@ -149,6 +149,7 @@ class LogKittyOverlayService : Service() {
                 LogBottomSheet(
                     controller = controller,
                     viewModel = viewModel,
+                    navBarHeightPx = navBarHeightPx,
                     onSaveClick = {
                         val intent = Intent(this@LogKittyOverlayService,
                             com.hereliesaz.logkitty.FileSaverActivity::class.java)
@@ -201,26 +202,25 @@ class LogKittyOverlayService : Service() {
      * control how the HIDDEN/PEEK strips look. The nav-bar height is folded in because the
      * sheet draws behind the system navigation bar (gravity-bottom, no-limits window).
      *
-     * `hiddenStripDp` — a thin one-line strip so the sheet visibly *collapses* (only minimal
-     * vertical padding above the nav bar; the [LogBottomSheet] HIDDEN branch renders one line).
-     * `peekDp` — room for four lines so that at least three are always fully visible above the
-     * nav bar (the PEEK branch renders the last four lines).
+     * `hiddenStripDp` — a thin one-line strip so the sheet visibly *collapses*; the line is pinned
+     * to the bottom (just above the nav bar) by [LogBottomSheet]'s PeekStrip so there's no dead
+     * space beneath it.
+     * `peekDp` — room for three lines, likewise bottom-pinned above the nav bar.
      */
     private fun sheetConfig(viewModel: MainViewModel, navBarHeightPx: Int): AzSheetConfig {
         val density = resources.displayMetrics.density
         val fontSize = viewModel.fontSize.value
-        // Matches the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35). PEEK is
-        // sized for four lines and top-aligns its content, so at least three stay visible above the
-        // nav bar without needing extra per-line headroom here.
+        // Matches the Text lineHeight used in LogBottomSheet's PeekStrip (fontSize * 1.35). The
+        // strip content is bottom-aligned above the nav bar, so each strip is sized to exactly
+        // its text lines plus the nav-bar band the sheet draws behind — no extra padding.
         val lineHeightPx = fontSize.toFloat() * density * 1.35f
 
-        // HIDDEN: a single line sitting right under the sheet's top edge, plus the nav bar the
-        // sheet draws behind. Keep the non-line margin tiny so the strip hugs one line.
-        val hiddenPx = (lineHeightPx * 1) + (1f * density) + navBarHeightPx
+        // HIDDEN: exactly one line sitting right above the nav bar.
+        val hiddenPx = (lineHeightPx * 1) + navBarHeightPx
         val hiddenDp = (hiddenPx / density).dp
 
-        // PEEK: size for four lines so three are reliably visible once the nav bar is subtracted.
-        val peekPx = (lineHeightPx * 4) + (16f * density) + navBarHeightPx
+        // PEEK: exactly three lines above the nav bar.
+        val peekPx = (lineHeightPx * 3) + navBarHeightPx
         val peekDp = (peekPx / density).dp
         return AzSheetConfig(
             backgroundColor = Color(viewModel.backgroundColor.value),
