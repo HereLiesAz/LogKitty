@@ -98,7 +98,6 @@ fun AzSheetController.hide() { snapTo(AzSheetDetent.HIDDEN) }
 fun LogBottomSheet(
     controller: AzSheetController,
     viewModel: MainViewModel,
-    navBarHeightPx: Int,
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
@@ -134,7 +133,6 @@ fun LogBottomSheet(
         AzSheetDetent.HIDDEN -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
             lines = listOf(indexedLog.lastOrNull()?.text ?: "LogKitty Ready"),
-            navBarHeightPx = navBarHeightPx,
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -146,7 +144,6 @@ fun LogBottomSheet(
             modifier = Modifier.fillMaxSize(),
             lines = if (indexedLog.isEmpty()) listOf("LogKitty Ready")
                     else indexedLog.takeLast(3).map { it.text },
-            navBarHeightPx = navBarHeightPx,
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -236,7 +233,6 @@ fun LogBottomSheet(
 private fun PeekStrip(
     modifier: Modifier,
     lines: List<String>,
-    navBarHeightPx: Int,
     showTimestamp: Boolean,
     fontFamily: androidx.compose.ui.text.font.FontFamily?,
     fontSize: Int,
@@ -246,9 +242,6 @@ private fun PeekStrip(
 ) {
     val timestampRegex = remember { Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+") }
     val density = LocalDensity.current
-    // Convert with the real device density (before the fontScale override below) so the padding
-    // equals the measured nav-bar inset exactly.
-    val navBarDp = with(density) { navBarHeightPx.toDp() }
 
     Box(
         modifier = modifier
@@ -266,13 +259,10 @@ private fun PeekStrip(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight()
-                    .padding(horizontal = 12.dp)
-                    // Lift the text above the system nav bar by the measured nav-bar height. The
-                    // overlay's Compose view doesn't reliably receive window insets, so use the
-                    // explicit value rather than navigationBarsPadding().
-                    .padding(bottom = navBarDp),
-                // Bottom-align so the line(s) hug the nav bar with no dead space beneath them; any
-                // slack (a short log) shows above the text instead.
+                    .padding(horizontal = 12.dp),
+                // Bottom-align so the line(s) sit at the very bottom edge of the strip — right above
+                // the system nav bar, which the library's decor window tints separately. Any slack
+                // (a short log) shows above the text instead.
                 verticalArrangement = Arrangement.Bottom
             ) {
                 lines.forEach { line ->
