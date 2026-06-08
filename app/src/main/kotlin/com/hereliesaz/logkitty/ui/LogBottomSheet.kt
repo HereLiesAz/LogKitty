@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -98,7 +99,6 @@ fun AzSheetController.hide() { snapTo(AzSheetDetent.HIDDEN) }
 fun LogBottomSheet(
     controller: AzSheetController,
     viewModel: MainViewModel,
-    navBarHeightPx: Int,
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
@@ -134,7 +134,6 @@ fun LogBottomSheet(
         AzSheetDetent.HIDDEN -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
             lines = listOf(indexedLog.lastOrNull()?.text ?: "LogKitty Ready"),
-            navBarHeightPx = navBarHeightPx,
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -146,7 +145,6 @@ fun LogBottomSheet(
             modifier = Modifier.fillMaxSize(),
             lines = if (indexedLog.isEmpty()) listOf("LogKitty Ready")
                     else indexedLog.takeLast(3).map { it.text },
-            navBarHeightPx = navBarHeightPx,
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -236,7 +234,6 @@ fun LogBottomSheet(
 private fun PeekStrip(
     modifier: Modifier,
     lines: List<String>,
-    navBarHeightPx: Int,
     showTimestamp: Boolean,
     fontFamily: androidx.compose.ui.text.font.FontFamily?,
     fontSize: Int,
@@ -246,7 +243,6 @@ private fun PeekStrip(
 ) {
     val timestampRegex = remember { Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+") }
     val density = LocalDensity.current
-    val navBarDp = with(density) { navBarHeightPx.toDp() }
 
     Box(
         modifier = modifier
@@ -265,9 +261,9 @@ private fun PeekStrip(
                     .fillMaxWidth()
                     .fillMaxHeight()
                     .padding(horizontal = 12.dp)
-                    // Reserve the nav-bar band at the bottom so the text sits *above* the system
-                    // nav bar instead of behind it.
-                    .padding(bottom = navBarDp),
+                    // Pad by the *actual* navigation-bar inset so the text sits right above the
+                    // system nav bar with no dead space — whatever the real bar height is.
+                    .navigationBarsPadding(),
                 // Bottom-align so the line(s) hug the nav bar with no dead space beneath them; any
                 // slack (a short log) shows above the text instead.
                 verticalArrangement = Arrangement.Bottom
