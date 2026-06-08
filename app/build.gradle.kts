@@ -207,6 +207,9 @@ dependencies {
     implementation(libs.dokar3.sheets.m3)
     implementation(libs.aznavrail)
 
+    // Google Mobile Ads (AdMob) — banner at the bottom of Settings (test IDs for now).
+    implementation(libs.play.services.ads)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)

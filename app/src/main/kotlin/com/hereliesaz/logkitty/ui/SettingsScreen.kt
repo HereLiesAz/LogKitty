@@ -485,6 +485,9 @@ private fun SettingsMainScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             SettingsFooter(context)
 
+            Spacer(modifier = Modifier.height(16.dp))
+            SettingsAdBanner()
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -547,6 +550,28 @@ private fun SettingsFooter(context: android.content.Context) {
         )
     }
 }
+
+/**
+ * AdMob banner shown at the bottom of Settings. Uses Google's official TEST ad unit for now.
+ * TODO: replace [TEST_BANNER_AD_UNIT] with the real ad-unit ID and add a UMP consent flow
+ * (the app ID lives in AndroidManifest; SDK init is in MainApplication).
+ */
+@Composable
+private fun SettingsAdBanner() {
+    androidx.compose.ui.viewinterop.AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { ctx ->
+            com.google.android.gms.ads.AdView(ctx).apply {
+                setAdSize(com.google.android.gms.ads.AdSize.BANNER)
+                adUnitId = TEST_BANNER_AD_UNIT
+                loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
+            }
+        },
+        onRelease = { it.destroy() }
+    )
+}
+
+private const val TEST_BANNER_AD_UNIT = "ca-app-pub-3940256099942544/6300978111"
 
 @Composable
 fun SettingsSectionHeader(text: String) {
