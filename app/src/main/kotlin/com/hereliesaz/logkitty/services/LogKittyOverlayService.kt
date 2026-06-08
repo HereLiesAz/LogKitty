@@ -125,11 +125,11 @@ class LogKittyOverlayService : Service() {
     private fun setupOverlay() {
         val app = applicationContext as MainApplication
         val viewModel = app.mainViewModel
-        // Use the *actual* navigation-bar inset so the overlay window is exactly content + nav bar
-        // (matching the content's navigationBarsPadding). The resource value is a fixed ~48dp even
-        // on gesture nav, which would otherwise make the window taller than the bar and leave a
-        // touch dead zone over the app below. `getInsetsIgnoringVisibility` reports the bar height
-        // even while it's temporarily hidden.
+        // Use the *actual* navigation-bar inset so the overlay window is exactly content + nav bar,
+        // and the PeekStrip lifts its text by this same measured value. The resource value is a
+        // fixed ~48dp even on gesture nav, which would otherwise make the window taller than the bar
+        // and leave a touch dead zone over the app below. `getInsetsIgnoringVisibility` reports the
+        // bar height even while it's temporarily hidden.
         val navBarHeightPx = run {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val wm = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
@@ -161,6 +161,7 @@ class LogKittyOverlayService : Service() {
                 LogBottomSheet(
                     controller = controller,
                     viewModel = viewModel,
+                    navBarHeightPx = navBarHeightPx,
                     onSaveClick = {
                         val intent = Intent(this@LogKittyOverlayService,
                             com.hereliesaz.logkitty.FileSaverActivity::class.java)
