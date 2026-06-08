@@ -98,6 +98,7 @@ fun AzSheetController.hide() { snapTo(AzSheetDetent.HIDDEN) }
 fun LogBottomSheet(
     controller: AzSheetController,
     viewModel: MainViewModel,
+    navBarHeightPx: Int,
     onSaveClick: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
@@ -133,6 +134,7 @@ fun LogBottomSheet(
         AzSheetDetent.HIDDEN -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
             lines = listOf(indexedLog.lastOrNull()?.text ?: "LogKitty Ready"),
+            navBarHeightPx = navBarHeightPx,
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -143,7 +145,8 @@ fun LogBottomSheet(
         AzSheetDetent.PEEK -> PeekStrip(
             modifier = Modifier.fillMaxSize(),
             lines = if (indexedLog.isEmpty()) listOf("LogKitty Ready")
-                    else indexedLog.takeLast(4).map { it.text },
+                    else indexedLog.takeLast(3).map { it.text },
+            navBarHeightPx = navBarHeightPx,
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
@@ -233,6 +236,7 @@ fun LogBottomSheet(
 private fun PeekStrip(
     modifier: Modifier,
     lines: List<String>,
+    navBarHeightPx: Int,
     showTimestamp: Boolean,
     fontFamily: androidx.compose.ui.text.font.FontFamily?,
     fontSize: Int,
@@ -242,6 +246,7 @@ private fun PeekStrip(
 ) {
     val timestampRegex = remember { Regex("^\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\s+") }
     val density = LocalDensity.current
+    val navBarDp = with(density) { navBarHeightPx.toDp() }
 
     Box(
         modifier = modifier
@@ -259,10 +264,13 @@ private fun PeekStrip(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight()
-                    .padding(horizontal = 12.dp),
-                // Top-align so the lines pack from the top and stay clear of the system nav bar
-                // that overlays the bottom of the strip.
-                verticalArrangement = Arrangement.Top
+                    .padding(horizontal = 12.dp)
+                    // Reserve the nav-bar band at the bottom so the text sits *above* the system
+                    // nav bar instead of behind it.
+                    .padding(bottom = navBarDp),
+                // Bottom-align so the line(s) hug the nav bar with no dead space beneath them; any
+                // slack (a short log) shows above the text instead.
+                verticalArrangement = Arrangement.Bottom
             ) {
                 lines.forEach { line ->
                     val displayText = if (showTimestamp) line else line.replace(timestampRegex, "")
@@ -271,12 +279,12 @@ private fun PeekStrip(
                         fontFamily = fontFamily,
                         fontSize = fontSize.sp,
                         lineHeight = (fontSize * 1.35f).sp,
-                        // Trim the first line's top leading so the text hugs the top edge of the
-                        // sheet instead of floating below it.
+                        // Trim the leading above the first line and below the last so the text
+                        // block hugs the bottom edge tightly.
                         style = MaterialTheme.typography.bodySmall.copy(
                             lineHeightStyle = LineHeightStyle(
-                                alignment = LineHeightStyle.Alignment.Top,
-                                trim = LineHeightStyle.Trim.FirstLineTop
+                                alignment = LineHeightStyle.Alignment.Bottom,
+                                trim = LineHeightStyle.Trim.Both
                             )
                         ),
                         maxLines = 1,
