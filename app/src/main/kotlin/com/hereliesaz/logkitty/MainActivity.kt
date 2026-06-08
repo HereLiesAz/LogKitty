@@ -197,14 +197,18 @@ class MainActivity : ComponentActivity() {
     /** Starts the overlay foreground service and closes the dashboard so the overlay is visible. */
     private fun startOverlayService() {
         val intent = Intent(this, LogKittyOverlayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try { startForegroundService(intent) } catch (e: Exception) { android.util.Log.e("MainActivity", "Failed to start foreground service", e) }
-        } else {
-            startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            // Only mark running and close the dashboard once the start actually succeeded.
+            isServiceRunning = true
+            finish()
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Failed to start foreground service", e)
         }
-        isServiceRunning = true
-        // Close the activity so the user sees the overlay immediately.
-        finish()
     }
 
     /**
