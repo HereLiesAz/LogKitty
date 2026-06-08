@@ -183,6 +183,13 @@ configurations.all {
                     useVersion("0.9.6")
                     because("Security fix: DoS via compressed JWE content")
                 }
+                // play-services-basement (via play-services-ads) drags in an old Fragment (1.x),
+                // which makes the InvalidFragmentVersionForActivityResult lint fatal for our
+                // registerForActivityResult calls. Force a version >= 1.3.0.
+                g == "androidx.fragment" && n == "fragment" -> {
+                    useVersion("1.6.2")
+                    because("registerForActivityResult lint requires androidx.fragment >= 1.3.0")
+                }
             }
         }
     }
