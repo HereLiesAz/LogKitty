@@ -73,7 +73,9 @@ fun rememberFeatureInstall(moduleName: String): FeatureInstallHandle {
 
     return remember(moduleName, status) {
         FeatureInstallHandle(status) {
-            if (status is FeatureInstallStatus.Installed) return@FeatureInstallHandle
+            if (status is FeatureInstallStatus.Installed || status is FeatureInstallStatus.Installing) {
+                return@FeatureInstallHandle
+            }
             status = FeatureInstallStatus.Installing(-1f)
             val request = SplitInstallRequest.newBuilder().addModule(moduleName).build()
             manager.startInstall(request)

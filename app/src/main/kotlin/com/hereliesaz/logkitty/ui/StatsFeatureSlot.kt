@@ -13,10 +13,14 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,12 +57,18 @@ fun StatsFeatureSlot(
     val handle = rememberFeatureInstall(FeatureModules.STATS)
     when (val status = handle.status) {
         is FeatureInstallStatus.Installed -> {
-            val feature = remember(packageName) { FeatureLoader.load<StatsFeature>(FeatureModules.STATS_IMPL) }
+            val context = LocalContext.current
+            // The entry-point class name is constant, so load it once (not per package/tab). A retry
+            // trigger lets the user force a reload in the rare case the split's classes aren't on the
+            // path the instant Play reports INSTALLED.
+            var retryTrigger by remember { mutableStateOf(0) }
+            val feature = remember(retryTrigger) {
+                FeatureLoader.load<StatsFeature>(FeatureModules.STATS_IMPL, context)
+            }
             if (feature != null) {
                 feature.StatsContent(packageName, label, useRoot, fontFamily, fontSize, modifier)
             } else {
-                // Installed per Play but the class isn't on the path yet (rare timing case) — prompt a retry.
-                InstallPrompt(modifier, fontSize, message = "Finishing install — tap to load.", onInstall = handle.install)
+                InstallPrompt(modifier, fontSize, message = "Finishing install — tap to load.", onInstall = { retryTrigger++ })
             }
         }
         is FeatureInstallStatus.NotInstalled ->

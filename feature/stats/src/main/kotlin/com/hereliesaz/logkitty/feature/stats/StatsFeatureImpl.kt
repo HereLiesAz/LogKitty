@@ -7,7 +7,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.hereliesaz.logkitty.core.feature.StatsFeature
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * Entry point the base app loads reflectively (see `FeatureModules.STATS_IMPL`) once this module is
@@ -31,19 +33,23 @@ class StatsFeatureImpl : StatsFeature {
         // often. produceState ties the loop to composition: it restarts when the target/root flag
         // changes and is cancelled when the Stats view leaves the screen.
         val stats by produceState<AppStats?>(initialValue = null, packageName, useRoot, label) {
-            val collector = AppStatsCollector(appContext)
-            var cachedPower = collector.collectPower(packageName, useRoot)
-            var iteration = 0
-            // produceState cancels this coroutine when the keys change or it leaves composition;
-            // delay() is the cancellation point that breaks the loop.
-            while (true) {
-                val snapshot = collector.collect(packageName, label, useRoot)
-                if (iteration % POWER_REFRESH_EVERY == 0 && iteration != 0) {
-                    cachedPower = collector.collectPower(packageName, useRoot)
+            // produceState runs on the composition's (main) dispatcher; the collector does blocking
+            // binder calls (NetworkStatsManager) and root shell I/O, so run the loop off the main
+            // thread. produceState cancels this coroutine when the keys change or it leaves
+            // composition; delay() is the cancellation point that breaks the loop.
+            withContext(Dispatchers.IO) {
+                val collector = AppStatsCollector(appContext)
+                var cachedPower = collector.collectPower(packageName, useRoot)
+                var iteration = 0
+                while (true) {
+                    val snapshot = collector.collect(packageName, label, useRoot)
+                    if (iteration % POWER_REFRESH_EVERY == 0 && iteration != 0) {
+                        cachedPower = collector.collectPower(packageName, useRoot)
+                    }
+                    value = snapshot.copy(power = cachedPower)
+                    iteration++
+                    delay(FAST_INTERVAL_MS)
                 }
-                value = snapshot.copy(power = cachedPower)
-                iteration++
-                delay(FAST_INTERVAL_MS)
             }
         }
 
