@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.utils
+package com.hereliesaz.logkitty.feature.stats
 
 import android.app.usage.NetworkStatsManager
 import android.content.Context
@@ -6,14 +6,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.os.BatteryManager
-import com.hereliesaz.logkitty.model.AppStats
-import com.hereliesaz.logkitty.model.CpuStats
-import com.hereliesaz.logkitty.model.GpuStats
-import com.hereliesaz.logkitty.model.HealthStats
-import com.hereliesaz.logkitty.model.MemoryStats
-import com.hereliesaz.logkitty.model.NetworkStats
-import com.hereliesaz.logkitty.model.PowerStats
-import com.hereliesaz.logkitty.model.ThreadCpu
 
 /**
  * Gathers a full [AppStats] snapshot for one targeted package.

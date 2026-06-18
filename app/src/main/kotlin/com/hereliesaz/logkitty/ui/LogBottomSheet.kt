@@ -45,7 +45,6 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,7 +119,7 @@ fun LogBottomSheet(
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
-    val appStats by viewModel.appStats.collectAsState()
+    val isRootEnabled by viewModel.isRootEnabled.collectAsState()
 
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
@@ -138,17 +137,9 @@ fun LogBottomSheet(
     // so each monitored app remembers its own Logs/Stats choice while the sheet is open.
     var statsModeTabs by remember { mutableStateOf<Set<String>>(emptySet()) }
     val statsActive = selectedTab.type == TabType.APP && selectedTab.id in statsModeTabs
-
-    // Drive the stats poller from the active selection: only collect while an app tab is showing its
-    // Stats view *and* the sheet is expanded, so it costs nothing when collapsed or showing logs.
-    val expanded = controller.detent == AzSheetDetent.HALF || controller.detent == AzSheetDetent.FULL
-    val collectStats = statsActive && expanded
-    // DisposableEffect (not LaunchedEffect) so onDispose always stops the poller — its job lives in
-    // viewModelScope, which outlives this composition, so a plain cancellation wouldn't halt it.
-    DisposableEffect(collectStats, selectedTab.id, selectedTab.filterValue) {
-        if (collectStats) viewModel.setStatsTarget(selectedTab.filterValue, selectedTab.title)
-        onDispose { viewModel.setStatsTarget(null) }
-    }
+    // The Stats view's content (and its polling) lives entirely in the on-demand :feature:stats
+    // module via StatsFeatureSlot, which only collects while it's on screen — so there's nothing to
+    // start/stop from here.
 
     when (controller.detent) {
         AzSheetDetent.HIDDEN -> PeekStrip(
@@ -188,7 +179,7 @@ fun LogBottomSheet(
             isPaused = isPaused,
             showStatsToggle = selectedTab.type == TabType.APP,
             statsActive = statsActive,
-            appStats = appStats,
+            useRoot = isRootEnabled,
             onToggleStats = {
                 statsModeTabs = if (selectedTab.id in statsModeTabs) statsModeTabs - selectedTab.id
                                 else statsModeTabs + selectedTab.id
@@ -328,7 +319,7 @@ private fun ExpandedView(
     isPaused: Boolean,
     showStatsToggle: Boolean,
     statsActive: Boolean,
-    appStats: com.hereliesaz.logkitty.model.AppStats?,
+    useRoot: Boolean,
     onToggleStats: () -> Unit,
     selectedLineIds: Set<Long>,
     selectedLines: List<IndexedLogLine>,
@@ -472,8 +463,10 @@ private fun ExpandedView(
                 .pointerInputHorizontalDrag(threshold = 64f, onLeft = onSwipeLeft, onRight = onSwipeRight)
         ) {
             if (statsActive) {
-                StatsView(
-                    stats = appStats,
+                StatsFeatureSlot(
+                    packageName = selectedTab.filterValue,
+                    label = selectedTab.title,
+                    useRoot = useRoot,
                     fontFamily = fontFamily,
                     fontSize = fontSize,
                     modifier = Modifier.fillMaxSize(),

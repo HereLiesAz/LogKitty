@@ -12,7 +12,6 @@ import androidx.lifecycle.viewModelScope
 import com.hereliesaz.logkitty.services.LogKittyAccessibilityService
 import com.hereliesaz.logkitty.ui.delegates.IndexedLogLine
 import com.hereliesaz.logkitty.ui.delegates.StateDelegate
-import com.hereliesaz.logkitty.ui.delegates.StatsDelegate
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogcatReader
 import com.hereliesaz.logkitty.utils.LogSourceClassifier
@@ -111,25 +110,8 @@ class MainViewModel(
     // Delegate to handle the heavy lifting of log buffering.
     val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize)
 
-    // Delegate that polls per-app developer stats (CPU, memory, GPU/frames, network, power) for the
-    // app currently shown in the Stats view. Idle until a target is set.
-    val statsDelegate = StatsDelegate(viewModelScope, application)
-    val appStats: StateFlow<com.hereliesaz.logkitty.model.AppStats?> = statsDelegate.stats
-
-    // The package currently displayed in the Stats view, so the poll can be re-targeted when the
-    // root toggle changes underneath it.
-    private var statsTargetPkg: String? = null
-    private var statsTargetLabel: String = ""
-
-    /**
-     * Points the developer-stats poller at [pkg] (or stops it when `null`). Safe to call repeatedly;
-     * the delegate ignores no-op re-targets.
-     */
-    fun setStatsTarget(pkg: String?, label: String = pkg ?: "") {
-        statsTargetPkg = pkg
-        statsTargetLabel = label
-        statsDelegate.setTarget(pkg, label, isRootEnabled.value)
-    }
+    // Developer-stats collection now lives in the on-demand `:feature:stats` module; the base only
+    // exposes the root flag the feature needs (via isRootEnabled below) and hosts its UI slot.
 
     // --- State Flows ---
 
@@ -290,14 +272,6 @@ class MainViewModel(
             userPreferences.activeSourceFilters.collect { syncSourceTabs(it) }
         }
 
-        // If the user flips Root Access while the Stats view is open, re-target the poller so it
-        // switches between full and best-effort collection without the user reopening the view.
-        viewModelScope.launch {
-            isRootEnabled.collect { useRoot ->
-                statsTargetPkg?.let { statsDelegate.setTarget(it, statsTargetLabel, useRoot) }
-            }
-        }
-
         // Register the Accessibility Receiver
         val filter = IntentFilter(LogKittyAccessibilityService.ACTION_FOREGROUND_APP_CHANGED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -410,7 +384,6 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        statsDelegate.stop()
         try {
             getApplication<Application>().unregisterReceiver(receiver)
         } catch (e: Exception) {

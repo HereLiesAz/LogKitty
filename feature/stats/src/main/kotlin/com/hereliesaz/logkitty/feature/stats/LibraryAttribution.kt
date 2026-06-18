@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.utils
+package com.hereliesaz.logkitty.feature.stats
 
 /**
  * Maps a Linux thread name (`comm`, max 15 chars) to the library or subsystem it most likely

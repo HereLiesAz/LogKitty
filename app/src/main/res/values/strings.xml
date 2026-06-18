@@ -122,6 +122,9 @@
     <string name="stats_toggle_logs">Logs</string>
     <string name="stats_toggle_stats">Stats</string>
 
+    <!-- Dynamic feature module titles (shown by Play during on-demand install) -->
+    <string name="feature_stats_title">Developer Stats</string>
+
     <!-- Tabs -->
     <string name="tab_all">All</string>
     <string name="tab_errors">Errors</string>

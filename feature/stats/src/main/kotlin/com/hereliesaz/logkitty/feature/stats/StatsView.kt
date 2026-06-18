@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.ui
+package com.hereliesaz.logkitty.feature.stats
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,13 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hereliesaz.logkitty.model.AppStats
-import com.hereliesaz.logkitty.model.CpuStats
-import com.hereliesaz.logkitty.model.GpuStats
-import com.hereliesaz.logkitty.model.HealthStats
-import com.hereliesaz.logkitty.model.MemoryStats
-import com.hereliesaz.logkitty.model.NetworkStats
-import com.hereliesaz.logkitty.model.PowerStats
 
 /**
  * The developer-stats body shown when an app tab is toggled from Logs to Stats. Renders the live

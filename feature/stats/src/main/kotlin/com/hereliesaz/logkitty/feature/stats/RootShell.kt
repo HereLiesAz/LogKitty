@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.utils
+package com.hereliesaz.logkitty.feature.stats
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
