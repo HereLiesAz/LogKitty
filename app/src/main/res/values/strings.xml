@@ -119,6 +119,8 @@
     <string name="cd_search_google">Search Google</string>
     <string name="cd_prohibit_tag">Prohibit this tag</string>
     <string name="cd_deselect">Deselect</string>
+    <string name="stats_toggle_logs">Logs</string>
+    <string name="stats_toggle_stats">Stats</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>

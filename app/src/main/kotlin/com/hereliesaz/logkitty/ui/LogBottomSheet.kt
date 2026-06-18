@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
@@ -43,6 +45,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -117,6 +120,7 @@ fun LogBottomSheet(
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
+    val appStats by viewModel.appStats.collectAsState()
 
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
@@ -128,6 +132,22 @@ fun LogBottomSheet(
     val selectedLines = remember(selectedLineIds, indexedLog) {
         if (selectedLineIds.isEmpty()) emptyList()
         else indexedLog.filter { it.id in selectedLineIds }.sortedBy { it.id }
+    }
+
+    // Which app tabs are currently flipped from Logs to the developer-stats view. Tracked per tab id
+    // so each monitored app remembers its own Logs/Stats choice while the sheet is open.
+    var statsModeTabs by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val statsActive = selectedTab.type == TabType.APP && selectedTab.id in statsModeTabs
+
+    // Drive the stats poller from the active selection: only collect while an app tab is showing its
+    // Stats view *and* the sheet is expanded, so it costs nothing when collapsed or showing logs.
+    val expanded = controller.detent == AzSheetDetent.HALF || controller.detent == AzSheetDetent.FULL
+    val collectStats = statsActive && expanded
+    // DisposableEffect (not LaunchedEffect) so onDispose always stops the poller — its job lives in
+    // viewModelScope, which outlives this composition, so a plain cancellation wouldn't halt it.
+    DisposableEffect(collectStats, selectedTab.id, selectedTab.filterValue) {
+        if (collectStats) viewModel.setStatsTarget(selectedTab.filterValue, selectedTab.title)
+        onDispose { viewModel.setStatsTarget(null) }
     }
 
     when (controller.detent) {
@@ -166,6 +186,13 @@ fun LogBottomSheet(
             showTimestamp = showTimestamp,
             isLogReversed = isLogReversed,
             isPaused = isPaused,
+            showStatsToggle = selectedTab.type == TabType.APP,
+            statsActive = statsActive,
+            appStats = appStats,
+            onToggleStats = {
+                statsModeTabs = if (selectedTab.id in statsModeTabs) statsModeTabs - selectedTab.id
+                                else statsModeTabs + selectedTab.id
+            },
             selectedLineIds = selectedLineIds,
             selectedLines = selectedLines,
             onTapLine = { id ->
@@ -299,6 +326,10 @@ private fun ExpandedView(
     showTimestamp: Boolean,
     isLogReversed: Boolean,
     isPaused: Boolean,
+    showStatsToggle: Boolean,
+    statsActive: Boolean,
+    appStats: com.hereliesaz.logkitty.model.AppStats?,
+    onToggleStats: () -> Unit,
     selectedLineIds: Set<Long>,
     selectedLines: List<IndexedLogLine>,
     onTapLine: (Long) -> Unit,
@@ -369,6 +400,9 @@ private fun ExpandedView(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (showStatsToggle) {
+                        LogsStatsToggle(statsActive = statsActive, onToggle = onToggleStats)
+                    }
                     IconButton(onClick = onSaveClick, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.Save, stringResource(R.string.cd_save), tint = MaterialTheme.colorScheme.onSurface)
                     }
@@ -394,8 +428,8 @@ private fun ExpandedView(
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
         }
 
-        // --- Selection action bar (Copy / Search / Prohibit) ---
-        AnimatedVisibility(visible = selectedLineIds.isNotEmpty(), enter = fadeIn(), exit = fadeOut()) {
+        // --- Selection action bar (Copy / Search / Prohibit) — logs only ---
+        AnimatedVisibility(visible = !statsActive && selectedLineIds.isNotEmpty(), enter = fadeIn(), exit = fadeOut()) {
             val count = selectedLines.size
             Row(
                 modifier = Modifier
@@ -437,7 +471,14 @@ private fun ExpandedView(
                 .fillMaxWidth()
                 .pointerInputHorizontalDrag(threshold = 64f, onLeft = onSwipeLeft, onRight = onSwipeRight)
         ) {
-            if (indexedLog.isEmpty()) {
+            if (statsActive) {
+                StatsView(
+                    stats = appStats,
+                    fontFamily = fontFamily,
+                    fontSize = fontSize,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else if (indexedLog.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.sheet_no_logs), color = Color.Gray)
                 }
@@ -528,6 +569,47 @@ private fun LogRow(
                 overflow = TextOverflow.Visible,
             )
         }
+    }
+}
+
+/**
+ * Compact two-segment pill that flips an app tab between its Logs and developer-Stats views.
+ * Shown only when an app-specific tab is selected.
+ */
+@Composable
+private fun LogsStatsToggle(statsActive: Boolean, onToggle: () -> Unit) {
+    val activeBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+    Row(
+        modifier = Modifier
+            .padding(end = 4.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = 0.08f))
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) { onToggle() }
+            .padding(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Segment(stringResource(R.string.stats_toggle_logs), active = !statsActive, activeBg = activeBg)
+        Segment(stringResource(R.string.stats_toggle_stats), active = statsActive, activeBg = activeBg)
+    }
+}
+
+@Composable
+private fun Segment(label: String, active: Boolean, activeBg: Color) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (active) activeBg else Color.Transparent)
+            .padding(horizontal = 10.dp, vertical = 3.dp)
+    ) {
+        Text(
+            label,
+            fontSize = 11.sp,
+            color = if (active) Color.White else Color.White.copy(alpha = 0.6f),
+            maxLines = 1,
+        )
     }
 }
 
