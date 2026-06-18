@@ -1,6 +1,8 @@
 package com.hereliesaz.logkitty.utils
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -25,11 +27,17 @@ object RootShell {
             val cmd = if (useRoot) listOf("su", "-c", script) else listOf("sh", "-c", script)
             var process: Process? = null
             try {
-                process = ProcessBuilder(cmd).redirectErrorStream(true).start()
-                // Drain stdout continuously so a large dumpsys can't deadlock on a full pipe buffer.
-                val output = BufferedReader(InputStreamReader(process.inputStream)).use { it.readText() }
-                val finished = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-                if (!finished) process.destroyForcibly()
+                val started = ProcessBuilder(cmd).redirectErrorStream(true).start()
+                process = started
+                // readText() blocks until the stream hits EOF, which only happens when the process
+                // exits. If `su` hangs (e.g. waiting on a root-permission prompt) that would block
+                // forever, so a watchdog force-kills the process after the timeout to unblock the read.
+                val watchdog = launch {
+                    delay(timeoutMs)
+                    started.destroyForcibly()
+                }
+                val output = BufferedReader(InputStreamReader(started.inputStream)).use { it.readText() }
+                watchdog.cancel()
                 output.ifBlank { null }
             } catch (e: Exception) {
                 null

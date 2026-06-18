@@ -420,16 +420,17 @@ class AppStatsCollector(private val context: Context) {
     ): Pair<Long, Long>? {
         return try {
             @Suppress("DEPRECATION")
-            val stats = nsm.queryDetailsForUid(networkType, null, start, end, uid)
+            val stats = nsm.queryDetailsForUid(networkType, null, start, end, uid) ?: return null
             var rx = 0L
             var tx = 0L
             val bucket = android.app.usage.NetworkStats.Bucket()
-            while (stats.hasNextBucket()) {
-                stats.getNextBucket(bucket)
-                rx += bucket.rxBytes
-                tx += bucket.txBytes
+            stats.use { s ->
+                while (s.hasNextBucket()) {
+                    s.getNextBucket(bucket)
+                    rx += bucket.rxBytes
+                    tx += bucket.txBytes
+                }
             }
-            stats.close()
             rx to tx
         } catch (e: Exception) {
             null
@@ -469,7 +470,7 @@ class AppStatsCollector(private val context: Context) {
         // batterystats prints partial wake locks as e.g. "Wake lock NAME: 1m 23s 456ms partial".
         var total = 0L
         var matched = false
-        for (m in Regex("""(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?\s*(?:(\d+)ms)?\s+partial""").findAll(bs)) {
+        for (m in Regex("""Wake lock\s+[^:]+:\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?\s*(?:(\d+)ms)?\s+partial""").findAll(bs)) {
             val h = m.groupValues[1].toLongOrNull() ?: 0
             val min = m.groupValues[2].toLongOrNull() ?: 0
             val s = m.groupValues[3].toLongOrNull() ?: 0

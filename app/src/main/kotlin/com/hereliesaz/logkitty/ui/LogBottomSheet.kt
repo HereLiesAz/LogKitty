@@ -45,7 +45,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -143,9 +143,11 @@ fun LogBottomSheet(
     // Stats view *and* the sheet is expanded, so it costs nothing when collapsed or showing logs.
     val expanded = controller.detent == AzSheetDetent.HALF || controller.detent == AzSheetDetent.FULL
     val collectStats = statsActive && expanded
-    LaunchedEffect(collectStats, selectedTab.id, selectedTab.filterValue) {
+    // DisposableEffect (not LaunchedEffect) so onDispose always stops the poller — its job lives in
+    // viewModelScope, which outlives this composition, so a plain cancellation wouldn't halt it.
+    DisposableEffect(collectStats, selectedTab.id, selectedTab.filterValue) {
         if (collectStats) viewModel.setStatsTarget(selectedTab.filterValue, selectedTab.title)
-        else viewModel.setStatsTarget(null)
+        onDispose { viewModel.setStatsTarget(null) }
     }
 
     when (controller.detent) {
