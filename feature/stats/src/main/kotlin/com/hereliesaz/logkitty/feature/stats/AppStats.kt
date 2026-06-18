@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.model
+package com.hereliesaz.logkitty.feature.stats
 
 /**
  * A single immutable snapshot of everything LogKitty could measure about one targeted app at one

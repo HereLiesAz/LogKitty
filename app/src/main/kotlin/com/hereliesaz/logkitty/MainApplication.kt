@@ -1,7 +1,9 @@
 package com.hereliesaz.logkitty
 
 import android.app.Application
+import android.content.Context
 import com.google.android.gms.ads.MobileAds
+import com.google.android.play.core.splitcompat.SplitCompat
 import com.hereliesaz.logkitty.ui.MainViewModel
 import com.hereliesaz.logkitty.utils.CrashReporter
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +25,14 @@ class MainApplication : Application() {
     // Kept here to survive Activity recreation and provide access to the Service.
     lateinit var mainViewModel: MainViewModel
         private set
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        // Make code/resources from on-demand feature splits available to this process immediately
+        // after install, without requiring an app restart, so reflectively-loaded feature classes
+        // (FeatureLoader) resolve right away.
+        SplitCompat.install(this)
+    }
 
     override fun onCreate() {
         super.onCreate()

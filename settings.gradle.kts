@@ -25,3 +25,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "LogKitty"
 include(":app")
+include(":core")
+include(":feature:stats")

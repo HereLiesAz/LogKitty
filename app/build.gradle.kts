@@ -50,6 +50,10 @@ android {
     namespace = "com.hereliesaz.logkitty"
     compileSdk = 37
 
+    // On-demand feature modules. Delivered individually on Google Play; fused into the universal /
+    // standalone APK (see each module's <dist:fusing>) for the sideloaded GitHub build.
+    dynamicFeatures += setOf(":feature:stats")
+
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"
         minSdk = 30
@@ -217,6 +221,14 @@ configurations.all {
 }
 
 dependencies {
+    // Shared interfaces/constants for dynamic feature modules. `api` so feature modules, which
+    // depend on :app, can compile against :core types (provided by the base at runtime).
+    api(project(":core"))
+
+    // Play Feature Delivery: install/observe on-demand modules at runtime via SplitInstallManager.
+    implementation(libs.play.feature.delivery)
+    implementation(libs.play.feature.delivery.ktx)
+
     // Keep libraries needed for UI and logging
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

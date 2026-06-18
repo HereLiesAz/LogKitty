@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:dist="http://schemas.android.com/apk/distribution"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <dist:module
+        dist:instant="false"
+        dist:title="@string/feature_stats_title">
+        <dist:delivery>
+            <dist:on-demand />
+        </dist:delivery>
+        <!-- Fuse into the standalone/universal APK so the sideloaded GitHub build is a full monolith;
+             on Google Play the module is delivered on-demand instead. -->
+        <dist:fusing dist:include="true" />
+    </dist:module>
+
+    <!-- Deferred until the user actually opens the Stats view and installs this module. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+</manifest>
