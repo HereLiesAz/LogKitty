@@ -32,5 +32,7 @@ dependencies {
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
+    // fillMaxWidth/height live in compose-foundation (not pulled by compose-ui alone).
+    implementation("androidx.compose.foundation:foundation")
     implementation(libs.androidx.lifecycle.runtime.ktx)
 }
