@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.ui
+package com.hereliesaz.logkitty.feature.appmonitor
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -38,7 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.drawable.toBitmap
-import com.hereliesaz.logkitty.R
+import com.hereliesaz.logkitty.feature.appmonitor.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

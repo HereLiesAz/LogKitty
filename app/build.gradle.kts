@@ -52,7 +52,7 @@ android {
 
     // On-demand feature modules. Delivered individually on Google Play; fused into the universal /
     // standalone APK (see each module's <dist:fusing>) for the sideloaded GitHub build.
-    dynamicFeatures += setOf(":feature:stats", ":feature:ads")
+    dynamicFeatures += setOf(":feature:stats", ":feature:ads", ":feature:appmonitor")
 
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"
@@ -246,7 +246,11 @@ dependencies {
     implementation(libs.dokar3.sheets.m3)
     implementation(libs.aznavrail)
 
-    // Google Mobile Ads now lives in the on-demand :feature:ads module, not the base.
+    // Google Mobile Ads now lives in the on-demand :feature:ads module, not the base. The ad SDK
+    // pulls in WorkManager, whose manifest entries merge into the *base* manifest while its
+    // resources would otherwise only ship in the feature split — so the base needs WorkManager's
+    // resources on its own resource path to link. (AGP de-dupes it out of the feature split.)
+    implementation("androidx.work:work-runtime:2.9.1")
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)

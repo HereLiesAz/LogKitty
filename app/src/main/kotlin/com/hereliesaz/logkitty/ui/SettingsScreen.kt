@@ -134,6 +134,11 @@ private fun SettingsMainScreen(
     var showAppPicker by remember { mutableStateOf(false) }
     var showAccessibilityDisclosure by remember { mutableStateOf(false) }
 
+    // Drives on-demand install of :feature:appmonitor (Context Mode's accessibility service).
+    val appMonitorInstall = com.hereliesaz.logkitty.feature.rememberFeatureInstall(
+        com.hereliesaz.logkitty.core.feature.FeatureModules.APPMONITOR
+    )
+
     // Track whether the accessibility service is actually enabled, refreshed on resume so the
     // Context Mode warning and toggle behavior stay accurate after the user returns from settings.
     var isAccessibilityEnabled by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
@@ -154,6 +159,9 @@ private fun SettingsMainScreen(
             onAgree = {
                 showAccessibilityDisclosure = false
                 viewModel.toggleContextMode() // enable
+                // Context Mode's accessibility service ships in :feature:appmonitor — make sure it's
+                // installed so it appears in the accessibility settings the user is about to open.
+                appMonitorInstall.install()
                 runCatching {
                     context.startActivity(
                         android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -177,7 +185,7 @@ private fun SettingsMainScreen(
     }
 
     if (showAppPicker) {
-        AppPickerDialog(
+        AppPickerSlot(
             onDismiss = { showAppPicker = false },
             onAppSelected = {
                 viewModel.addMonitoredApp(it)
@@ -655,7 +663,7 @@ private fun SettingsAdBanner() {
             )
         }
         if (ads != null) {
-            remember(ads) { ads.initialize(context.applicationContext) }
+            androidx.compose.runtime.LaunchedEffect(ads) { ads.initialize(context.applicationContext) }
             ads.BannerAd(BuildConfig.ADMOB_BANNER_UNIT_ID, Modifier)
         }
     }
@@ -883,7 +891,7 @@ private fun isAccessibilityServiceEnabled(context: android.content.Context): Boo
         android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
     ).any {
         it.resolveInfo.serviceInfo.packageName == context.packageName &&
-            it.resolveInfo.serviceInfo.name == com.hereliesaz.logkitty.services.LogKittyAccessibilityService::class.java.name
+            it.resolveInfo.serviceInfo.name == com.hereliesaz.logkitty.core.AccessibilityActions.SERVICE_CLASS_NAME
     }
 }.getOrDefault(false)
 

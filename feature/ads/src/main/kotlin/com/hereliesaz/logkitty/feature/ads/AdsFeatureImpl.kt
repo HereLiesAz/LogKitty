@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,7 +35,7 @@ class AdsFeatureImpl : AdsFeature {
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
 
-        val adView = remember {
+        val adView = remember(context, adUnitId, lifecycleOwner) {
             AdView(context).apply {
                 setAdSize(AdSize.BANNER)
                 this.adUnitId = adUnitId
@@ -42,8 +43,9 @@ class AdsFeatureImpl : AdsFeature {
             }
         }
 
-        // Pause/resume/destroy with the host lifecycle (AdMob policy + battery/memory).
-        DisposableEffect(lifecycleOwner) {
+        // Pause/resume/destroy with the host lifecycle (AdMob policy + battery/memory). Keyed on the
+        // adView too so a recreated view's predecessor is destroyed via onDispose.
+        DisposableEffect(adView, lifecycleOwner) {
             val observer = LifecycleEventObserver { _, event ->
                 when (event) {
                     Lifecycle.Event.ON_RESUME -> adView.resume()
@@ -60,9 +62,13 @@ class AdsFeatureImpl : AdsFeature {
         }
 
         // Fixed banner height avoids a layout shift (and accidental taps) when the ad loads.
-        AndroidView(
-            modifier = modifier.fillMaxWidth().height(50.dp),
-            factory = { adView },
-        )
+        // key(adView) recreates the AndroidView when the remembered adView instance changes
+        // (AndroidView's factory only runs once otherwise, keeping a destroyed view).
+        key(adView) {
+            AndroidView(
+                modifier = modifier.fillMaxWidth().height(50.dp),
+                factory = { adView },
+            )
+        }
     }
 }

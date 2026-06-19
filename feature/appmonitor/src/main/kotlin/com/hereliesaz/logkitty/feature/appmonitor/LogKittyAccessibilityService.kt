@@ -1,15 +1,20 @@
-package com.hereliesaz.logkitty.services
+package com.hereliesaz.logkitty.feature.appmonitor
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import com.hereliesaz.logkitty.core.AccessibilityActions
 
 /**
  * [LogKittyAccessibilityService] supplies *Context Awareness* (foreground-app detection) and
  * also signals when the user reaches the launcher or the recents screen so the overlay can
  * collapse out of the way.
+ *
+ * It ships in the on-demand `:feature:appmonitor` module, and communicates with the base app purely
+ * through the broadcast actions/constants defined in [AccessibilityActions] (in `:core`) — the base
+ * never references this class directly, since the module may not be installed.
  *
  * **Privacy Note:**
  * This service does NOT inspect UI content, read text, or track user inputs.
@@ -19,32 +24,10 @@ class LogKittyAccessibilityService : AccessibilityService() {
 
     private val TAG = "LogKittyAccess"
 
-    companion object {
-        const val ACTION_FOREGROUND_APP_CHANGED = "com.hereliesaz.logkitty.FOREGROUND_APP_CHANGED"
-        const val ACTION_COLLAPSE_OVERLAY = "com.hereliesaz.logkitty.COLLAPSE_OVERLAY"
-
-        const val EXTRA_REASON = "reason"
-        const val REASON_HOME = "home"
-        const val REASON_RECENTS = "recents"
-
-        @Volatile
-        private var resolvedLauncherPackage: String? = null
-
-        fun isLauncherPackage(pkg: String?): Boolean {
-            if (pkg.isNullOrBlank()) return false
-            resolvedLauncherPackage?.let { return pkg == it }
-            return pkg == "com.google.android.apps.nexuslauncher" ||
-                pkg == "com.sec.android.app.launcher" ||
-                pkg == "com.android.launcher" ||
-                pkg == "com.android.launcher3" ||
-                pkg.contains("launcher", ignoreCase = true)
-        }
-    }
-
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(TAG, "Accessibility Service Connected")
-        resolvedLauncherPackage = try {
+        AccessibilityActions.resolvedLauncherPackage = try {
             val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
             @Suppress("DEPRECATION")
             packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
@@ -59,32 +42,32 @@ class LogKittyAccessibilityService : AccessibilityService() {
         val packageName = event.packageName?.toString() ?: return
         if (packageName.isBlank()) return
 
-        val foregroundIntent = Intent(ACTION_FOREGROUND_APP_CHANGED).apply {
-            putExtra("PACKAGE_NAME", packageName)
+        val foregroundIntent = Intent(AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED).apply {
+            putExtra(AccessibilityActions.EXTRA_PACKAGE_NAME, packageName)
             setPackage(this@LogKittyAccessibilityService.packageName)
         }
         sendBroadcast(foregroundIntent)
 
         val reason = systemTransitionReason(packageName, event.className?.toString())
         if (reason != null) {
-            val collapseIntent = Intent(ACTION_COLLAPSE_OVERLAY).apply {
+            val collapseIntent = Intent(AccessibilityActions.ACTION_COLLAPSE_OVERLAY).apply {
                 setPackage(this@LogKittyAccessibilityService.packageName)
-                putExtra(EXTRA_REASON, reason)
+                putExtra(AccessibilityActions.EXTRA_REASON, reason)
             }
             sendBroadcast(collapseIntent)
         }
     }
 
-    /** Returns [REASON_HOME], [REASON_RECENTS], or null when the event is irrelevant. */
+    /** Returns [AccessibilityActions.REASON_HOME], [AccessibilityActions.REASON_RECENTS], or null. */
     private fun systemTransitionReason(pkg: String, cls: String?): String? {
         val lowerCls = cls?.lowercase().orEmpty()
         val isRecents = lowerCls.contains("recents") ||
             lowerCls.contains("taskswitcher") ||
             lowerCls.contains("overview")
         return when {
-            isRecents -> REASON_RECENTS
-            isLauncherPackage(pkg) -> REASON_HOME
-            pkg == "com.android.systemui" -> REASON_RECENTS
+            isRecents -> AccessibilityActions.REASON_RECENTS
+            AccessibilityActions.isLauncherPackage(pkg) -> AccessibilityActions.REASON_HOME
+            pkg == "com.android.systemui" -> AccessibilityActions.REASON_RECENTS
             else -> null
         }
     }

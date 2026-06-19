@@ -26,6 +26,7 @@ import com.hereliesaz.logkitty.R
 import com.hereliesaz.logkitty.ui.LogBottomSheet
 import com.hereliesaz.logkitty.ui.MainViewModel
 import com.hereliesaz.logkitty.ui.hide
+import com.hereliesaz.logkitty.core.AccessibilityActions
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 import com.hereliesaz.logkitty.utils.ComposeLifecycleHelper
 import kotlinx.coroutines.CoroutineScope
@@ -61,7 +62,7 @@ class LogKittyOverlayService : Service() {
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY) {
+            if (intent?.action == AccessibilityActions.ACTION_COLLAPSE_OVERLAY) {
                 controller.hide()
             }
         }
@@ -117,7 +118,7 @@ class LogKittyOverlayService : Service() {
             viewModel.isPaused.collect { updateNotification() }
         }
 
-        val filter = IntentFilter(LogKittyAccessibilityService.ACTION_COLLAPSE_OVERLAY)
+        val filter = IntentFilter(AccessibilityActions.ACTION_COLLAPSE_OVERLAY)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
         } else {
@@ -217,7 +218,7 @@ class LogKittyOverlayService : Service() {
         // gesture is untouched. Re-enable when any other foreground app comes up.
         serviceScope.launch {
             viewModel.currentForegroundApp.collect { pkg ->
-                controller.isEnabled = !LogKittyAccessibilityService.isLauncherPackage(pkg)
+                controller.isEnabled = !AccessibilityActions.isLauncherPackage(pkg)
             }
         }
     }

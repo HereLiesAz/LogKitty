@@ -125,6 +125,10 @@
     <!-- Dynamic feature module titles (shown by Play during on-demand install) -->
     <string name="feature_stats_title">Developer Stats</string>
     <string name="feature_ads_title">Ads</string>
+    <string name="feature_appmonitor_title">App Monitoring</string>
+    <string name="app_picker_preparing">Preparing app list…</string>
+    <string name="app_picker_finishing">Finishing install…</string>
+    <string name="app_picker_retry">Retry</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>
