@@ -641,38 +641,24 @@ private fun SettingsFooter(context: android.content.Context) {
 @Composable
 private fun SettingsAdBanner() {
     val context = LocalContext.current
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-
-    val adView = remember {
-        com.google.android.gms.ads.AdView(context).apply {
-            setAdSize(com.google.android.gms.ads.AdSize.BANNER)
-            adUnitId = BuildConfig.ADMOB_BANNER_UNIT_ID
-            loadAd(com.google.android.gms.ads.AdRequest.Builder().build())
-        }
-    }
-
-    // Pause/resume/destroy with the host lifecycle (AdMob policy + battery/memory).
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> adView.resume()
-                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> adView.pause()
-                androidx.lifecycle.Lifecycle.Event.ON_DESTROY -> adView.destroy()
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            adView.destroy()
-        }
-    }
-
-    // Fixed banner height avoids a layout shift (and accidental taps) when the ad loads.
-    androidx.compose.ui.viewinterop.AndroidView(
-        modifier = Modifier.fillMaxWidth().height(50.dp),
-        factory = { adView }
+    // The AdMob SDK + AdView live in the on-demand :feature:ads module (so play-services-ads and
+    // the AD_ID permission ship only with it). Fetch it silently in the background on first Settings
+    // view, then load the entry point reflectively and render the banner once present.
+    val handle = com.hereliesaz.logkitty.feature.rememberFeatureInstall(
+        com.hereliesaz.logkitty.core.feature.FeatureModules.ADS
     )
+    androidx.compose.runtime.LaunchedEffect(Unit) { handle.install() }
+    if (handle.status is com.hereliesaz.logkitty.feature.FeatureInstallStatus.Installed) {
+        val ads = remember {
+            com.hereliesaz.logkitty.core.feature.FeatureLoader.load<com.hereliesaz.logkitty.core.feature.AdsFeature>(
+                com.hereliesaz.logkitty.core.feature.FeatureModules.ADS_IMPL, context
+            )
+        }
+        if (ads != null) {
+            remember(ads) { ads.initialize(context.applicationContext) }
+            ads.BannerAd(BuildConfig.ADMOB_BANNER_UNIT_ID, Modifier)
+        }
+    }
 }
 
 /** A single requested permission and whether it is currently granted. */

@@ -124,6 +124,7 @@
 
     <!-- Dynamic feature module titles (shown by Play during on-demand install) -->
     <string name="feature_stats_title">Developer Stats</string>
+    <string name="feature_ads_title">Ads</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>

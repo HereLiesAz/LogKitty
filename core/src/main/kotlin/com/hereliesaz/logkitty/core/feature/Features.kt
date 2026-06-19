@@ -41,5 +41,5 @@ interface AdsFeature {
     fun initialize(appContext: android.content.Context)
 
     @Composable
-    fun BannerAd(modifier: Modifier)
+    fun BannerAd(adUnitId: String, modifier: Modifier)
 }
