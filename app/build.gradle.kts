@@ -52,7 +52,7 @@ android {
 
     // On-demand feature modules. Delivered individually on Google Play; fused into the universal /
     // standalone APK (see each module's <dist:fusing>) for the sideloaded GitHub build.
-    dynamicFeatures += setOf(":feature:stats")
+    dynamicFeatures += setOf(":feature:stats", ":feature:ads", ":feature:appmonitor")
 
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"
@@ -68,11 +68,10 @@ android {
         buildConfigField("String", "FONTS_API_KEY", "\"$apiKey\"")
         manifestPlaceholders["FONTS_API_KEY"] = apiKey // THIS WAS THE MISSING LINE
 
-        // AdMob IDs. The real app ID is used everywhere (Google's recommended setup), while the
-        // banner ad-unit stays on Google's official TEST unit in debug so our own development
-        // clicks don't generate invalid traffic on the live unit. The release build type below
-        // swaps in the real banner unit. (App/unit IDs are public — they ship in the APK.)
-        manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-7304740804770627~9613583987"
+        // AdMob banner unit id. Debug uses Google's official TEST unit so development clicks don't
+        // generate invalid traffic on the live unit; release swaps in the real unit (below). The
+        // app ID and AD_ID permission now live in the :feature:ads module. The base only passes this
+        // unit id to that module's banner. (Unit IDs are public — they ship in the APK.)
         buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
 
         // Build Tools Config
@@ -247,8 +246,11 @@ dependencies {
     implementation(libs.dokar3.sheets.m3)
     implementation(libs.aznavrail)
 
-    // Google Mobile Ads (AdMob) — banner at the bottom of Settings (test IDs for now).
-    implementation(libs.play.services.ads)
+    // Google Mobile Ads now lives in the on-demand :feature:ads module, not the base. The ad SDK
+    // pulls in WorkManager, whose manifest entries merge into the *base* manifest while its
+    // resources would otherwise only ship in the feature split — so the base needs WorkManager's
+    // resources on its own resource path to link. (AGP de-dupes it out of the feature split.)
+    implementation("androidx.work:work-runtime:2.9.1")
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)

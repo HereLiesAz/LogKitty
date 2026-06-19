@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:dist="http://schemas.android.com/apk/distribution">
+
+    <dist:module
+        dist:instant="false"
+        dist:title="@string/feature_ads_title">
+        <dist:delivery>
+            <dist:on-demand />
+        </dist:delivery>
+        <dist:fusing dist:include="true" />
+    </dist:module>
+
+    <!-- Advertising ID, deferred until the ads module is pulled in. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+
+    <application>
+        <!-- AdMob application ID (public). Lives here so it ships with the ads module only. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-7304740804770627~9613583987" />
+    </application>
+</manifest>

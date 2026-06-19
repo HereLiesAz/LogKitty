@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+    <!-- AD_ID moved to the on-demand :feature:ads module. -->
 
     <queries>
         <intent>
@@ -37,11 +37,7 @@
             android:name="com.google.android.gms.fonts.API_KEY"
             android:value="${FONTS_API_KEY}" />
 
-        <!-- AdMob application ID, injected from build config (ADMOB_APP_ID) — see
-             app/build.gradle.kts. -->
-        <meta-data
-            android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="${ADMOB_APP_ID}" />
+        <!-- AdMob APPLICATION_ID meta-data now lives in the :feature:ads module manifest. -->
 
         <activity
             android:name=".MainActivity"
@@ -60,18 +56,7 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:exported="false" />
 
-        <service
-            android:name=".services.LogKittyAccessibilityService"
-            android:exported="true"
-            android:label="@string/accessibility_service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
+        <!-- LogKittyAccessibilityService (Context Mode) now ships in the :feature:appmonitor module. -->
 
         <service
             android:name=".services.LogKittyOverlayService"

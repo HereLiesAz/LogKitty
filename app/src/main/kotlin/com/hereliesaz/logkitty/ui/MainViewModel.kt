@@ -9,7 +9,7 @@ import android.os.Build
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.hereliesaz.logkitty.services.LogKittyAccessibilityService
+import com.hereliesaz.logkitty.core.AccessibilityActions
 import com.hereliesaz.logkitty.ui.delegates.IndexedLogLine
 import com.hereliesaz.logkitty.ui.delegates.StateDelegate
 import com.hereliesaz.logkitty.ui.theme.CodingFont
@@ -232,8 +232,8 @@ class MainViewModel(
     // Listens for broadcasts from LogKittyAccessibilityService.
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == LogKittyAccessibilityService.ACTION_FOREGROUND_APP_CHANGED) {
-                val pkg = intent.getStringExtra("PACKAGE_NAME")
+            if (intent?.action == AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED) {
+                val pkg = intent.getStringExtra(AccessibilityActions.EXTRA_PACKAGE_NAME)
                 _currentForegroundApp.value = pkg
 
                 // Automatically add a tab for the current app if desired.
@@ -273,7 +273,7 @@ class MainViewModel(
         }
 
         // Register the Accessibility Receiver
-        val filter = IntentFilter(LogKittyAccessibilityService.ACTION_FOREGROUND_APP_CHANGED)
+        val filter = IntentFilter(AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             application.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {

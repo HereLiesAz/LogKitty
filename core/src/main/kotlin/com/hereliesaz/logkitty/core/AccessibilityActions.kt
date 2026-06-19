@@ -17,6 +17,13 @@ object AccessibilityActions {
     const val REASON_HOME = "home"
     const val REASON_RECENTS = "recents"
 
+    /**
+     * Fully-qualified name of the accessibility service, which ships in the optional
+     * `:feature:appmonitor` module. The base can't reference the class directly (it may not be
+     * installed), so it compares against this string when checking whether the service is enabled.
+     */
+    const val SERVICE_CLASS_NAME = "com.hereliesaz.logkitty.feature.appmonitor.LogKittyAccessibilityService"
+
     /** Set by the accessibility service (when installed) to the device's resolved launcher package. */
     @Volatile
     var resolvedLauncherPackage: String? = null
