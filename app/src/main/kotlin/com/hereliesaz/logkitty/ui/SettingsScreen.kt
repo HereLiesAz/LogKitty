@@ -178,7 +178,7 @@ private fun SettingsMainScreen(
     }
 
     if (showAppPicker) {
-        AppPickerSlot(
+        AppPickerDialog(
             onDismiss = { showAppPicker = false },
             onAppSelected = {
                 viewModel.addMonitoredApp(it)

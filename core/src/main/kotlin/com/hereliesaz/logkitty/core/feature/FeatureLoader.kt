@@ -7,11 +7,9 @@ package com.hereliesaz.logkitty.core.feature
  */
 object FeatureModules {
     const val STATS = "stats"
-    const val APPMONITOR = "appmonitor"
     const val ADS = "ads"
 
     const val STATS_IMPL = "com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl"
-    const val APP_PICKER_IMPL = "com.hereliesaz.logkitty.feature.appmonitor.AppPickerFeatureImpl"
     const val ADS_IMPL = "com.hereliesaz.logkitty.feature.ads.AdsFeatureImpl"
 }
 

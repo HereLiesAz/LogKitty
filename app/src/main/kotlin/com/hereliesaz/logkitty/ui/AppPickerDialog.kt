@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.feature.appmonitor
+package com.hereliesaz.logkitty.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
