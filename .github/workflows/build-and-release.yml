@@ -114,19 +114,57 @@ jobs:
           set +e
           export BUILD_NUMBER=$(git rev-list --count HEAD)
 
-          # Build the APK (Release)
+          # Build an Android App Bundle (.aab). With dynamic feature modules, the per-feature splits
+          # are produced from the bundle; a plain assembleRelease would yield a base-only APK missing
+          # the features. The universal APK for the GitHub release is extracted from this bundle below.
           if [ -n "$KEYSTORE_FILE" ]; then
-              echo "Building Release APK with Signing..."
-              ./gradlew assembleRelease -PversionBuild=$BUILD_NUMBER --build-cache > build.log 2>&1
+              echo "Building Release App Bundle with Signing..."
+              ./gradlew bundleRelease -PversionBuild=$BUILD_NUMBER --build-cache > build.log 2>&1
           else
-              echo "Building Debug APK (Fallback)..."
-              ./gradlew assembleDebug -PversionBuild=$BUILD_NUMBER --build-cache > build.log 2>&1
+              echo "Building Debug App Bundle (Fallback)..."
+              ./gradlew bundleDebug -PversionBuild=$BUILD_NUMBER --build-cache > build.log 2>&1
           fi
 
           EXIT_CODE=$?
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
           cat build.log
           exit $EXIT_CODE
+
+      # Extract a single universal APK from the bundle for the sideloaded GitHub release. Each
+      # dynamic feature declares <dist:fusing include="true">, so --mode=universal fuses them all
+      # into this one APK (on Google Play the modules are still delivered on-demand instead).
+      # Runs before "Destroy Keystore" so the same signing key is available.
+      - name: Build universal APK from bundle
+        if: success() && steps.gradle-build.outcome == 'success'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          BT_VERSION=1.17.2
+          curl -fsSL -o bundletool.jar \
+            "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+
+          AAB=$(find app/build/outputs/bundle -name "*.aab" | head -n 1)
+          if [ -z "$AAB" ]; then echo "Error: no .aab produced!"; exit 1; fi
+          echo "Bundle: $AAB"
+
+          if [ -n "$KEYSTORE_FILE" ]; then
+            java -jar bundletool.jar build-apks --bundle="$AAB" --output=universal.apks \
+              --mode=universal --overwrite \
+              --ks="$KEYSTORE_FILE" --ks-pass=pass:"$KEYSTORE_PASSWORD" \
+              --ks-key-alias="$KEY_ALIAS" --key-pass=pass:"$KEY_PASSWORD"
+          else
+            # No release keystore: bundletool signs the universal APK with a debug key.
+            java -jar bundletool.jar build-apks --bundle="$AAB" --output=universal.apks \
+              --mode=universal --overwrite
+          fi
+
+          unzip -o -p universal.apks universal.apk > app-universal.apk
+          ls -la app-universal.apk
+          echo "AAB_FILE=$(pwd)/$AAB" >> $GITHUB_ENV
+          echo "UNIVERSAL_APK=$(pwd)/app-universal.apk" >> $GITHUB_ENV
 
       - name: Destroy Keystore
         if: always()
@@ -202,24 +240,21 @@ jobs:
              APP_NAME="App"
           fi
 
-          # Locate built APK (Prefer Release, fallback to Debug)
-          APK_ORIGINAL=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          if [ -z "$APK_ORIGINAL" ]; then
-             APK_ORIGINAL=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
-             SUFFIX="-debug"
-          else
-             SUFFIX="-release"
-          fi
-
-          if [ -z "$APK_ORIGINAL" ]; then
-             echo "Error: No APK found to release!"
+          # Use the fused universal APK extracted from the bundle (contains all dynamic features).
+          if [ -z "$UNIVERSAL_APK" ] || [ ! -f "$UNIVERSAL_APK" ]; then
+             echo "Error: universal APK not found!"
              exit 1
           fi
 
-          TARGET_NAME="${APP_NAME}-${VERSION_NAME}${SUFFIX}.apk"
+          TARGET_NAME="${APP_NAME}-${VERSION_NAME}.apk"
+          cp "$UNIVERSAL_APK" "$TARGET_NAME"
 
-          # Rename for release
-          mv "$APK_ORIGINAL" "$TARGET_NAME"
+          # Also stage the .aab (the artifact to upload to Google Play).
+          if [ -n "$AAB_FILE" ] && [ -f "$AAB_FILE" ]; then
+             AAB_TARGET="${APP_NAME}-${VERSION_NAME}.aab"
+             cp "$AAB_FILE" "$AAB_TARGET"
+             echo "AAB_RELEASE=$AAB_TARGET" >> $GITHUB_ENV
+          fi
 
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
           echo "APK_FILE=$TARGET_NAME" >> $GITHUB_ENV
@@ -243,10 +278,10 @@ jobs:
                --title "Latest Release ($TAG_NAME)" \
                --notes "Auto-build from commit $GITHUB_SHA" \
                --target $GITHUB_SHA
-             gh release upload $TAG_NAME "$APK_FILE" --clobber
+             gh release upload $TAG_NAME "$APK_FILE" ${AAB_RELEASE:+"$AAB_RELEASE"} --clobber
           else
              echo "Creating new release..."
-             gh release create $TAG_NAME "$APK_FILE" --prerelease \
+             gh release create $TAG_NAME "$APK_FILE" ${AAB_RELEASE:+"$AAB_RELEASE"} --prerelease \
                --title "Latest Release ($TAG_NAME)" \
                --notes "Auto-build from commit $GITHUB_SHA" \
                --target $GITHUB_SHA
