@@ -28,7 +28,13 @@ if (versionPropsFile.exists()) {
 val major = versionProps.getProperty("major")?.toIntOrNull() ?: 1
 val minor = versionProps.getProperty("minor")?.toIntOrNull() ?: 0
 val patch = versionProps.getProperty("patch")?.toIntOrNull() ?: 0
-var buildNumber = versionProps.getProperty("build")?.toIntOrNull() ?: 0
+
+// versionCode source. CI passes `-PversionBuild=$(git rev-list --count HEAD)` so every Play upload
+// gets a strictly-increasing code (commit count only ever grows). When the override is absent (local
+// builds, Android Studio) we keep the previous behavior: auto-increment a counter in
+// version.properties on each build task.
+val versionBuildOverride = (project.findProperty("versionBuild") as? String)?.toIntOrNull()
+var buildNumber = versionBuildOverride ?: (versionProps.getProperty("build")?.toIntOrNull() ?: 0)
 
 // Automatic build-number increment: bump on every build that produces an artifact, regardless of
 // environment (CLI, Android Studio, CI) or which build task is invoked. This runs at configuration
@@ -40,7 +46,9 @@ val isBuildTask = gradle.startParameter.taskNames.any { taskName ->
         name.startsWith("install") || name.startsWith("package") || name == "build"
 }
 
-if (isBuildTask) {
+// Only auto-increment/persist locally; when an explicit -PversionBuild override is supplied (CI),
+// use it verbatim and leave version.properties untouched.
+if (versionBuildOverride == null && isBuildTask) {
     buildNumber++
     versionProps.setProperty("build", buildNumber.toString())
     versionPropsFile.writer().use { versionProps.store(it, null) }
