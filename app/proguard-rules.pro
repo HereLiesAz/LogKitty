@@ -24,5 +24,4 @@
 # in core's FeatureModules, so R8 can't see them as used. Keep the classes and their no-arg
 # constructors (the implemented interfaces are kept by core's consumer rules).
 -keep class com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl { <init>(); }
--keep class com.hereliesaz.logkitty.feature.appmonitor.AppPickerFeatureImpl { <init>(); }
 -keep class com.hereliesaz.logkitty.feature.ads.AdsFeatureImpl { <init>(); }

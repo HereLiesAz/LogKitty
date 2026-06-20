@@ -27,15 +27,6 @@ interface StatsFeature {
     )
 }
 
-/** App-picker / monitoring feature (`:feature:appmonitor`). Owns QUERY_ALL_PACKAGES + accessibility. */
-interface AppPickerFeature {
-    @Composable
-    fun AppPicker(
-        onAppSelected: (String) -> Unit,
-        onDismiss: () -> Unit,
-    )
-}
-
 /** Ads feature (`:feature:ads`). Renders the AdMob banner; owns play-services-ads + AD_ID. */
 interface AdsFeature {
     fun initialize(appContext: android.content.Context)
