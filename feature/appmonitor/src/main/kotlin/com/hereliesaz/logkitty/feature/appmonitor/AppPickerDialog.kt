@@ -87,18 +87,18 @@ fun AppPickerDialog(
     val apps by produceState<List<InstalledApp>?>(initialValue = null) {
         value = withContext(Dispatchers.IO) {
             val pm = context.packageManager
-            fun labelFor(pkg: String): String =
-                runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+            // Resolve labels for visible apps in one pass; root-listed packages that aren't visible
+            // fall back to the package name with no extra binder calls or NameNotFound exceptions.
+            val visibleApps = runCatching {
+                pm.getInstalledApplications(0)
+                    .associate { it.packageName to pm.getApplicationLabel(it).toString() }
+            }.getOrDefault(emptyMap())
 
             val rootPkgs = rootListPackages()
             if (rootPkgs != null) {
-                rootPkgs.map { InstalledApp(it, labelFor(it)) }.sortedBy { it.label.lowercase() }
+                rootPkgs.map { InstalledApp(it, visibleApps[it] ?: it) }.sortedBy { it.label.lowercase() }
             } else {
-                runCatching {
-                    pm.getInstalledApplications(0)
-                        .map { InstalledApp(it.packageName, pm.getApplicationLabel(it).toString()) }
-                        .sortedBy { it.label.lowercase() }
-                }.getOrDefault(emptyList())
+                visibleApps.map { (pkg, label) -> InstalledApp(pkg, label) }.sortedBy { it.label.lowercase() }
             }
         }
     }

@@ -6,9 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import com.hereliesaz.logkitty.core.AccessibilityActions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -27,19 +29,13 @@ class ForegroundAppMonitor(context: Context) {
 
     private val appContext = context.applicationContext
 
-    init {
-        // Resolve the launcher once so home is detected reliably (HOME resolveActivity needs no
-        // package-visibility permission).
-        AccessibilityActions.resolvedLauncherPackage = runCatching {
-            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-            @Suppress("DEPRECATION")
-            appContext.packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
-                ?.activityInfo?.packageName
-        }.getOrNull() ?: AccessibilityActions.resolvedLauncherPackage
-    }
-
-    /** Polls until the coroutine is cancelled, broadcasting each foreground-app change. */
-    suspend fun observe(useRoot: Boolean) {
+    /**
+     * Polls until the coroutine is cancelled, broadcasting each foreground-app change. Runs entirely
+     * on [Dispatchers.IO]: every step here is blocking (UsageStatsManager IPC, `su` process exec,
+     * PackageManager IPC), so it must stay off the main thread to avoid ANRs.
+     */
+    suspend fun observe(useRoot: Boolean) = withContext(Dispatchers.IO) {
+        resolveLauncherOnce()
         var last: String? = null
         while (currentCoroutineContext().isActive) {
             val pkg = if (useRoot) rootForeground() else usageForeground()
@@ -54,6 +50,17 @@ class ForegroundAppMonitor(context: Context) {
             }
             delay(POLL_INTERVAL_MS)
         }
+    }
+
+    /** Resolve the launcher once (HOME resolveActivity needs no package-visibility permission). */
+    private fun resolveLauncherOnce() {
+        if (AccessibilityActions.resolvedLauncherPackage != null) return
+        AccessibilityActions.resolvedLauncherPackage = runCatching {
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            @Suppress("DEPRECATION")
+            appContext.packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
+                ?.activityInfo?.packageName
+        }.getOrNull()
     }
 
     private fun usageForeground(): String? {
