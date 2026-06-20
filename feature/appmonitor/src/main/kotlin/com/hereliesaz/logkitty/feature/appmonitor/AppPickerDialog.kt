@@ -46,6 +46,28 @@ import kotlinx.coroutines.withContext
 data class InstalledApp(val packageName: String, val label: String)
 
 /**
+ * Lists every installed package via `su -c pm list packages`, or `null` when root isn't available
+ * (so the caller falls back to the launcher-visible PackageManager list). Lets rooted users keep the
+ * full app list after QUERY_ALL_PACKAGES was dropped.
+ */
+private fun rootListPackages(): List<String>? = try {
+    val process = ProcessBuilder("su", "-c", "pm list packages").redirectErrorStream(true).start()
+    val output = process.inputStream.bufferedReader().use { it.readText() }
+    val finished = process.waitFor(4, java.util.concurrent.TimeUnit.SECONDS)
+    if (!finished) process.destroyForcibly()
+    val pkgs = output.lineSequence()
+        .map { it.trim() }
+        .filter { it.startsWith("package:") }
+        .map { it.removePrefix("package:").trim() }
+        .filter { it.isNotEmpty() }
+        .distinct()
+        .toList()
+    pkgs.ifEmpty { null }
+} catch (e: Exception) {
+    null
+}
+
+/**
  * A dialog that lists installed applications (label + icon, searchable) and returns the package
  * name of the one the user taps. Used by [SettingsScreen] to pin an app for a dedicated,
  * UID-filtered log tab. Requires `QUERY_ALL_PACKAGES` (declared in the manifest).
@@ -58,15 +80,26 @@ fun AppPickerDialog(
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
 
-    // Load (and label-resolve) the installed apps off the main thread.
+    // Load (and label-resolve) the installed apps off the main thread. Without QUERY_ALL_PACKAGES,
+    // PackageManager only sees apps matching the manifest <queries> (launchable apps) — enough for
+    // the picker. On a rooted device we list every package via `pm list packages` so root users keep
+    // the full list; labels are resolved where visible, otherwise the package name is shown.
     val apps by produceState<List<InstalledApp>?>(initialValue = null) {
         value = withContext(Dispatchers.IO) {
             val pm = context.packageManager
-            runCatching {
+            // Resolve labels for visible apps in one pass; root-listed packages that aren't visible
+            // fall back to the package name with no extra binder calls or NameNotFound exceptions.
+            val visibleApps = runCatching {
                 pm.getInstalledApplications(0)
-                    .map { InstalledApp(it.packageName, pm.getApplicationLabel(it).toString()) }
-                    .sortedBy { it.label.lowercase() }
-            }.getOrDefault(emptyList())
+                    .associate { it.packageName to pm.getApplicationLabel(it).toString() }
+            }.getOrDefault(emptyMap())
+
+            val rootPkgs = rootListPackages()
+            if (rootPkgs != null) {
+                rootPkgs.map { InstalledApp(it, visibleApps[it] ?: it) }.sortedBy { it.label.lowercase() }
+            } else {
+                visibleApps.map { (pkg, label) -> InstalledApp(pkg, label) }.sortedBy { it.label.lowercase() }
+            }
         }
     }
 

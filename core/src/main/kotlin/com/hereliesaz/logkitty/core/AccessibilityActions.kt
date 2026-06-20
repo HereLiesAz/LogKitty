@@ -1,12 +1,12 @@
 package com.hereliesaz.logkitty.core
 
 /**
- * Broadcast actions and launcher detection shared between the base app and the (optional) app-monitor
- * feature module that hosts the accessibility service.
+ * Broadcast actions and launcher detection for Context Mode (foreground-app awareness).
  *
- * These live in `:core` so the base can keep registering/handling the broadcasts and collapsing the
- * overlay even when the accessibility service class itself ships in a dynamic module that may not be
- * installed.
+ * The foreground app is detected by [com.hereliesaz.logkitty.services] (UsageStatsManager on
+ * non-root devices, `dumpsys` on rooted ones — no accessibility service required) and announced via
+ * [ACTION_FOREGROUND_APP_CHANGED]; the ViewModel and overlay react to it. The constants live in
+ * `:core` so producers and consumers across modules agree on them.
  */
 object AccessibilityActions {
     const val ACTION_FOREGROUND_APP_CHANGED = "com.hereliesaz.logkitty.FOREGROUND_APP_CHANGED"
@@ -17,14 +17,7 @@ object AccessibilityActions {
     const val REASON_HOME = "home"
     const val REASON_RECENTS = "recents"
 
-    /**
-     * Fully-qualified name of the accessibility service, which ships in the optional
-     * `:feature:appmonitor` module. The base can't reference the class directly (it may not be
-     * installed), so it compares against this string when checking whether the service is enabled.
-     */
-    const val SERVICE_CLASS_NAME = "com.hereliesaz.logkitty.feature.appmonitor.LogKittyAccessibilityService"
-
-    /** Set by the accessibility service (when installed) to the device's resolved launcher package. */
+    /** Resolved launcher package, cached by the foreground monitor so home is detected reliably. */
     @Volatile
     var resolvedLauncherPackage: String? = null
 
