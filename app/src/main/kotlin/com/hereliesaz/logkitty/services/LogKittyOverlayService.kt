@@ -33,6 +33,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -51,7 +52,7 @@ import kotlinx.coroutines.launch
  *     so the window shrinks to a HIDDEN strip and the swipe-up-for-app-drawer gesture is untouched.
  *   - Reactive [AzSheetConfig] updates so the PEEK height and sheet color track the user's
  *     settings (font size, overlay opacity, background color).
- *   - The collapse-overlay broadcast from [LogKittyAccessibilityService] (home/recents handling).
+ *   - Running the Context Mode foreground monitor and reacting to the launcher (overlay passthrough).
  */
 class LogKittyOverlayService : Service() {
 
@@ -220,6 +221,15 @@ class LogKittyOverlayService : Service() {
             viewModel.currentForegroundApp.collect { pkg ->
                 controller.isEnabled = !AccessibilityActions.isLauncherPackage(pkg)
             }
+        }
+
+        // Context Mode: run the foreground-app monitor while it's enabled. collectLatest cancels the
+        // previous run when Context Mode or the root flag changes (and stops it when disabled).
+        serviceScope.launch {
+            combine(viewModel.isContextModeEnabled, viewModel.isRootEnabled) { ctx, root -> ctx to root }
+                .collectLatest { (contextMode, useRoot) ->
+                    if (contextMode) ForegroundAppMonitor(this@LogKittyOverlayService).observe(useRoot)
+                }
         }
     }
 

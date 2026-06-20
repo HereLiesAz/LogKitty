@@ -229,7 +229,7 @@ class MainViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // --- Accessibility Receiver ---
-    // Listens for broadcasts from LogKittyAccessibilityService.
+    // Listens for foreground-app broadcasts from ForegroundAppMonitor (Context Mode).
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED) {

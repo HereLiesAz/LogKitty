@@ -4,8 +4,9 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- PACKAGE_USAGE_STATS moved to the on-demand :feature:stats module so it isn't requested
-         until the user installs the Developer Stats add-on. -->
+    <!-- Usage access (app-op, granted via Settings): foreground-app detection for Context Mode on
+         non-root devices, and per-app network stats in the Developer Stats module. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -58,7 +59,8 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:exported="false" />
 
-        <!-- LogKittyAccessibilityService (Context Mode) now ships in the :feature:appmonitor module. -->
+        <!-- Context Mode no longer uses an accessibility service: the foreground app is detected in
+             ForegroundAppMonitor via UsageStatsManager (non-root) or dumpsys (root). -->
 
         <service
             android:name=".services.LogKittyOverlayService"

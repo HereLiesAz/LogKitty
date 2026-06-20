@@ -14,7 +14,5 @@
         <dist:fusing dist:include="true" />
     </dist:module>
 
-    <!-- Deferred until the user actually opens the Stats view and installs this module. -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
+    <!-- PACKAGE_USAGE_STATS is declared in the base module (used by Context Mode too). -->
 </manifest>

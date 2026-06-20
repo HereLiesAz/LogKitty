@@ -132,39 +132,32 @@ private fun SettingsMainScreen(
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
     var showAppPicker by remember { mutableStateOf(false) }
-    var showAccessibilityDisclosure by remember { mutableStateOf(false) }
+    var showContextDisclosure by remember { mutableStateOf(false) }
 
-    // Drives on-demand install of :feature:appmonitor (Context Mode's accessibility service).
-    val appMonitorInstall = com.hereliesaz.logkitty.feature.rememberFeatureInstall(
-        com.hereliesaz.logkitty.core.feature.FeatureModules.APPMONITOR
-    )
-
-    // Track whether the accessibility service is actually enabled, refreshed on resume so the
-    // Context Mode warning and toggle behavior stay accurate after the user returns from settings.
-    var isAccessibilityEnabled by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
-    val accessibilityLifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(accessibilityLifecycleOwner) {
+    // Track whether Usage Access is granted (Context Mode's foreground detection needs it on
+    // non-root devices), refreshed on resume so the warning/toggle stay accurate.
+    var isUsageGranted by remember { mutableStateOf(hasUsageStatsAccess(context)) }
+    val contextLifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(contextLifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                isAccessibilityEnabled = isAccessibilityServiceEnabled(context)
+                isUsageGranted = hasUsageStatsAccess(context)
             }
         }
-        accessibilityLifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { accessibilityLifecycleOwner.lifecycle.removeObserver(observer) }
+        contextLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { contextLifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    if (showAccessibilityDisclosure) {
-        AccessibilityDisclosureDialog(
-            onDismiss = { showAccessibilityDisclosure = false },
+    if (showContextDisclosure) {
+        ContextModeDisclosureDialog(
+            onDismiss = { showContextDisclosure = false },
             onAgree = {
-                showAccessibilityDisclosure = false
+                showContextDisclosure = false
                 viewModel.toggleContextMode() // enable
-                // Context Mode's accessibility service ships in :feature:appmonitor — make sure it's
-                // installed so it appears in the accessibility settings the user is about to open.
-                appMonitorInstall.install()
+                // Non-root foreground detection uses Usage Access — send the user to grant it.
                 runCatching {
                     context.startActivity(
-                        android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
                     )
                 }.onFailure {
                     Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
@@ -402,11 +395,10 @@ private fun SettingsMainScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
-                    // Warn if Context Mode is on but the accessibility service isn't actually enabled,
-                    // so the user knows the feature won't work until they turn it on in settings.
-                    if (isContextMode && !isAccessibilityEnabled) {
+                    // Non-root foreground detection needs Usage Access; warn if it's on but not granted.
+                    if (isContextMode && !isRootEnabled && !isUsageGranted) {
                         Text(
-                            stringResource(R.string.accessibility_service_disabled_warning),
+                            stringResource(R.string.context_mode_usage_disabled_warning),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -415,12 +407,12 @@ private fun SettingsMainScreen(
                 Switch(
                     checked = isContextMode,
                     onCheckedChange = { enable ->
-                        // Enabling relies on the accessibility service: if it's already enabled just
-                        // toggle; otherwise show the prominent disclosure + consent first. Disabling
-                        // needs no gate.
+                        // Root detects the foreground app via dumpsys (no grant). Non-root needs Usage
+                        // Access: toggle directly if already granted, otherwise show the disclosure
+                        // + consent first. Disabling needs no gate.
                         if (enable) {
-                            if (isAccessibilityEnabled) viewModel.toggleContextMode()
-                            else showAccessibilityDisclosure = true
+                            if (isRootEnabled || isUsageGranted) viewModel.toggleContextMode()
+                            else showContextDisclosure = true
                         } else viewModel.toggleContextMode()
                     }
                 )
@@ -879,24 +871,13 @@ private fun PermissionsSection(context: android.content.Context) {
 }
 
 /**
- * Prominent disclosure shown before Context Mode is enabled, since that feature relies on the
- * accessibility service. Explains what is accessed (foreground app, home/recents transitions), why,
- * and that no screen content / personal data is read — required by Google Play's User Data policy.
+ * Prominent disclosure shown before Context Mode is enabled on a non-root device, since that feature
+ * uses Usage Access to detect the foreground app. Explains what is accessed (which app is in the
+ * foreground), why, and that no screen content / personal data is read — required by Google Play's
+ * User Data policy.
  */
-/** True if LogKitty's accessibility service is currently enabled in system settings. */
-private fun isAccessibilityServiceEnabled(context: android.content.Context): Boolean = runCatching {
-    val am = context.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE)
-        as android.view.accessibility.AccessibilityManager
-    am.getEnabledAccessibilityServiceList(
-        android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-    ).any {
-        it.resolveInfo.serviceInfo.packageName == context.packageName &&
-            it.resolveInfo.serviceInfo.name == com.hereliesaz.logkitty.core.AccessibilityActions.SERVICE_CLASS_NAME
-    }
-}.getOrDefault(false)
-
 @Composable
-private fun AccessibilityDisclosureDialog(onDismiss: () -> Unit, onAgree: () -> Unit) {
+private fun ContextModeDisclosureDialog(onDismiss: () -> Unit, onAgree: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.accessibility_disclosure_title)) },
