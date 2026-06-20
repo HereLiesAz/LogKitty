@@ -22,6 +22,7 @@ LogKitty is a developer tool that puts your system logs right where you need the
 Comprehensive documentation is available in the `docs/` directory:
 
 *   **[Setup Guide](docs/SETUP.md):** Build instructions, prerequisites, and installation.
+*   **[Releasing](docs/RELEASING.md):** Signed App Bundle, versionCode, dynamic feature modules, and Play Console publishing.
 *   **[Architecture](docs/architecture.md):** High-level overview of the system design (MVVM, Services).
 *   **[API Reference](docs/API.md):** Detailed description of key classes and components.
 *   **[File Descriptions](docs/file_descriptions.md):** A map of the project structure.
@@ -58,4 +59,7 @@ LogKitty is built with Kotlin and Jetpack Compose.
 ```
 
 ### Versioning
-See `version.properties` for the current version state.
+See `version.properties` for the current version state. Local builds auto-increment the build
+number; CI passes `-PversionBuild=$(git rev-list --count HEAD)` for a strictly-increasing
+`versionCode`. See **[docs/RELEASING.md](docs/RELEASING.md)** for signed App Bundle builds and Play
+publishing.
