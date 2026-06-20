@@ -33,7 +33,7 @@ val patch = versionProps.getProperty("patch")?.toIntOrNull() ?: 0
 // gets a strictly-increasing code (commit count only ever grows). When the override is absent (local
 // builds, Android Studio) we keep the previous behavior: auto-increment a counter in
 // version.properties on each build task.
-val versionBuildOverride = (project.findProperty("versionBuild") as? String)?.toIntOrNull()
+val versionBuildOverride = project.findProperty("versionBuild")?.toString()?.toIntOrNull()
 var buildNumber = versionBuildOverride ?: (versionProps.getProperty("build")?.toIntOrNull() ?: 0)
 
 // Automatic build-number increment: bump on every build that produces an artifact, regardless of
@@ -66,7 +66,10 @@ android {
         applicationId = "com.hereliesaz.logkitty"
         minSdk = 30
         targetSdk = 37
-        versionCode = major * 1000000 + minor * 10000 + patch * 100 + buildNumber
+        // Give buildNumber its own 5-digit slot so a commit-count buildNumber (up to 99_999) can't
+        // overflow into the patch/minor/major digits and collide. Stays well under Android's
+        // 2_100_000_000 versionCode cap (envelope: major <= 2, minor/patch <= 99, build <= 99_999).
+        versionCode = (major * 10000 + minor * 100 + patch) * 100000 + buildNumber
         versionName = "$major.$minor.$patch.$buildNumber"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -27,7 +27,9 @@ no separate artifacts to build. You upload one `.aab`; Play generates the optimi
 ## Versioning
 
 - `versionName` = `major.minor.patch.build` (from `version.properties`).
-- `versionCode` = `major*1_000_000 + minor*10_000 + patch*100 + buildNumber`.
+- `versionCode` = `(major*10_000 + minor*100 + patch)*100_000 + buildNumber` — `buildNumber` gets
+  its own 5-digit slot so a commit-count value (up to 99,999) never overflows into the semver digits
+  (envelope: `major` ≤ 2, `minor`/`patch` ≤ 99; stays under Android's 2,100,000,000 cap).
 - **`buildNumber` source:**
   - **CI / Play**: pass `-PversionBuild=<n>`; we use `git rev-list --count HEAD`. The commit count
     only ever grows, so every upload gets a strictly-increasing `versionCode` (Play rejects
