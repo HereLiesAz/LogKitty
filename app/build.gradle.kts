@@ -119,6 +119,10 @@ android {
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
+            // Strip unused resources alongside R8 code shrinking. Resources referenced only across
+            // module boundaries (the dynamic-feature dist:title strings) are protected by
+            // res/raw/keep.xml. Verify on a release build that nothing needed was removed.
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -238,6 +242,9 @@ dependencies {
     // Play Feature Delivery: install/observe on-demand modules at runtime via SplitInstallManager.
     implementation(libs.play.feature.delivery)
     implementation(libs.play.feature.delivery.ktx)
+
+    // Play in-app updates (flexible) — prompts Play users to update without leaving the app.
+    implementation(libs.play.app.update)
 
     // Keep libraries needed for UI and logging
     implementation(libs.androidx.core.ktx)

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Resource-shrinker keep list. These strings are referenced from dynamic feature module manifests
+  (<dist:module dist:title="@string/...">) but defined in the base module, so the shrinker may not
+  see the cross-module reference. Keep them explicitly.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/feature_stats_title,@string/feature_ads_title" />
