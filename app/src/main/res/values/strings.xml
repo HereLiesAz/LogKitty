@@ -138,6 +138,20 @@
     <string name="github_installing">Installing GitHub Actions…</string>
     <string name="github_finishing_install">Finishing install — tap to load.</string>
     <string name="github_coming_soon">GitHub Actions coming soon…</string>
+    <!-- GitHub settings -->
+    <string name="settings_section_github">GitHub Actions</string>
+    <string name="settings_github_desc">Browse a repo\'s workflow runs, jobs and logs from the GitHub tab. Use a fine-grained token with Actions: Read access (plus repository access for private repos). The token is encrypted on this device and never backed up.</string>
+    <string name="github_owner_label">Owner (user or org)</string>
+    <string name="github_repo_label">Repository</string>
+    <string name="github_token_label">Personal access token</string>
+    <string name="github_token_saved">A token is saved on this device.</string>
+    <string name="github_token_none">No token saved.</string>
+    <string name="github_show">Show</string>
+    <string name="github_hide">Hide</string>
+    <string name="github_save">Save</string>
+    <string name="github_clear_token">Clear token</string>
+    <string name="toast_github_saved">GitHub settings saved</string>
+    <string name="toast_github_token_cleared">GitHub token cleared</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>

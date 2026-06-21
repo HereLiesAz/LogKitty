@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -61,7 +62,11 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -128,6 +133,9 @@ private fun SettingsMainScreen(
     val prohibitedCount by viewModel.prohibitedTags.collectAsState()
     val monitoredApps by viewModel.monitoredApps.collectAsState()
     val activeSourceFilters by viewModel.activeSourceFilters.collectAsState()
+    val githubOwner by viewModel.githubOwner.collectAsState()
+    val githubRepo by viewModel.githubRepo.collectAsState()
+    val githubToken by viewModel.githubToken.collectAsState()
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
@@ -502,6 +510,80 @@ private fun SettingsMainScreen(
                 keys = LogSources.CATEGORY_BUCKETS,
                 enabled = activeSourceFilters,
                 onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            SettingsSectionHeader(stringResource(R.string.settings_section_github))
+            Text(
+                stringResource(R.string.settings_github_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            // Local edit state, seeded from the persisted values; the PAT field is never seeded with
+            // the secret — saving writes it to the secure store and the field is cleared.
+            var ownerField by remember(githubOwner) { mutableStateOf(githubOwner) }
+            var repoField by remember(githubRepo) { mutableStateOf(githubRepo) }
+            var tokenField by remember { mutableStateOf("") }
+            var showToken by remember { mutableStateOf(false) }
+            OutlinedTextField(
+                value = ownerField,
+                onValueChange = { ownerField = it },
+                label = { Text(stringResource(R.string.github_owner_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
+            OutlinedTextField(
+                value = repoField,
+                onValueChange = { repoField = it },
+                label = { Text(stringResource(R.string.github_repo_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
+            OutlinedTextField(
+                value = tokenField,
+                onValueChange = { tokenField = it },
+                label = { Text(stringResource(R.string.github_token_label)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    TextButton(onClick = { showToken = !showToken }) {
+                        Text(stringResource(if (showToken) R.string.github_hide else R.string.github_show))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
+            Text(
+                stringResource(if (githubToken != null) R.string.github_token_saved else R.string.github_token_none),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            AzButton(
+                onClick = {
+                    viewModel.setGithubOwner(ownerField.trim())
+                    viewModel.setGithubRepo(repoField.trim())
+                    if (tokenField.isNotBlank()) {
+                        viewModel.setGithubToken(tokenField)
+                        tokenField = ""
+                        showToken = false
+                    }
+                    Toast.makeText(context, context.getString(R.string.toast_github_saved), Toast.LENGTH_SHORT).show()
+                },
+                text = stringResource(R.string.github_save),
+                shape = AzButtonShape.RECTANGLE,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
+            AzButton(
+                onClick = {
+                    viewModel.setGithubToken(null)
+                    tokenField = ""
+                    Toast.makeText(context, context.getString(R.string.toast_github_token_cleared), Toast.LENGTH_SHORT).show()
+                },
+                text = stringResource(R.string.github_clear_token),
+                shape = AzButtonShape.RECTANGLE,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
