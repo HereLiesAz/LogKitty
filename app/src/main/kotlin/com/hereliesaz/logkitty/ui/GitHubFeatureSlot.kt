@@ -47,6 +47,11 @@ import com.hereliesaz.logkitty.feature.rememberFeatureInstall
  */
 @Composable
 fun GitHubFeatureSlot(
+    owner: String,
+    repo: String,
+    tokenProvider: () -> String?,
+    onConfigure: () -> Unit,
+    onWatchRun: (owner: String, repo: String, runId: Long, runName: String) -> Unit,
     fontFamily: FontFamily?,
     fontSize: Int,
     modifier: Modifier = Modifier,
@@ -61,13 +66,13 @@ fun GitHubFeatureSlot(
             }
             if (feature != null) {
                 feature.GitHubPanel(
-                    owner = "",
-                    repo = "",
-                    tokenProvider = { null },
+                    owner = owner,
+                    repo = repo,
+                    tokenProvider = tokenProvider,
                     fontFamily = fontFamily,
                     fontSize = fontSize,
-                    onWatchRun = { _, _, _, _ -> },
-                    onConfigure = {},
+                    onWatchRun = onWatchRun,
+                    onConfigure = onConfigure,
                     modifier = modifier,
                 )
             } else {
