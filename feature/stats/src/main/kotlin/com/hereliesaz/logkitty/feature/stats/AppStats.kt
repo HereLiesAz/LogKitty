@@ -26,6 +26,9 @@ data class AppStats(
     val power: PowerStats? = null,
     val health: HealthStats? = null,
     val components: ComponentStats? = null,
+    val sensors: SensorStats? = null,
+    val crashes: CrashStats? = null,
+    val binder: BinderStats? = null,
     /** Human-readable caveats, e.g. "Root required for CPU, memory, GPU and I/O stats". */
     val notes: List<String> = emptyList(),
 )
@@ -114,4 +117,45 @@ data class ComponentStats(
     val runningServiceCount: Int?,
     /** Short service class names currently running (deduped, capped). */
     val runningServices: List<String>,
+)
+
+/**
+ * Sensor and location usage for the app, parsed from `dumpsys sensorservice` / `dumpsys location`
+ * (root, best-effort). Tells you whether the app is quietly holding a sensor or GPS request — a
+ * common, hard-to-spot battery drain.
+ */
+data class SensorStats(
+    /** Number of active sensor connections the app currently holds. */
+    val activeSensorConnections: Int?,
+    /** Distinct sensor types the app is subscribed to (keyword-matched from the dump). */
+    val activeSensors: List<String>,
+    /** True if the app currently holds a location request; null when it can't be determined. */
+    val locationActive: Boolean?,
+    /** Location providers the app is requesting (e.g. "gps", "fused", "network"). */
+    val locationProviders: List<String>,
+)
+
+/**
+ * Recent crash / ANR history for the app, read from the logcat **crash** buffer and the system log.
+ * Unlike most sections this works **without root** — it only needs the `READ_LOGS` grant the app
+ * already relies on. Timestamps are the raw logcat "MM-DD HH:MM:SS" string (no year/zone guessing).
+ */
+data class CrashStats(
+    val crashCount: Int,
+    val anrCount: Int,
+    val lastCrashWhen: String?,
+    val lastCrashSummary: String?,
+    val lastAnrWhen: String?,
+    val lastAnrSummary: String?,
+)
+
+/**
+ * Binder / IPC footprint, parsed from `/sys/kernel/debug/binder/proc/<pid>` (root + debugfs,
+ * best-effort). High node/ref counts or pending transactions hint at chatty or leaking IPC.
+ */
+data class BinderStats(
+    val threads: Int?,
+    val nodes: Int?,
+    val refs: Int?,
+    val pendingTransactions: Int?,
 )

@@ -96,7 +96,10 @@ fun StatsView(
         stats.network?.let { NetworkSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.power?.let { PowerSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.health?.let { HealthSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.sensors?.let { SensorSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.binder?.let { BinderSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.components?.let { ComponentsSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.crashes?.let { CrashSection(it, fontFamily, fontSize, labelColor, valueColor) }
 
         Spacer(Modifier.height(16.dp))
     }
@@ -177,6 +180,59 @@ private fun ComponentsSection(c: ComponentStats, ff: FontFamily?, fs: Int, lc: C
             Text(
                 svc, color = vc, fontSize = (fs - 1).sp, fontFamily = ff,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SensorSection(s: SensorStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+    StatCard("Sensors & Location", ff, fs) {
+        StatRow("Active sensor connections", s.activeSensorConnections?.toString() ?: "—", ff, fs, lc, vc, emphasize = true)
+        if (s.activeSensors.isNotEmpty()) {
+            StatRow("Sensors", s.activeSensors.joinToString(", "), ff, fs, lc, vc)
+        }
+        val loc = when (s.locationActive) {
+            true -> "Yes"
+            false -> "No"
+            null -> "—"
+        }
+        StatRow("Location request", loc, ff, fs, lc, vc)
+        if (s.locationProviders.isNotEmpty()) {
+            StatRow("Providers", s.locationProviders.joinToString(", "), ff, fs, lc, vc)
+        }
+    }
+}
+
+@Composable
+private fun BinderSection(b: BinderStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+    StatCard("Binder / IPC", ff, fs) {
+        StatRow("Binder threads", b.threads?.toString() ?: "—", ff, fs, lc, vc, emphasize = true)
+        StatRow("Nodes", b.nodes?.toString() ?: "—", ff, fs, lc, vc)
+        StatRow("Refs", b.refs?.toString() ?: "—", ff, fs, lc, vc)
+        StatRow("Pending transactions", b.pendingTransactions?.toString() ?: "—", ff, fs, lc, vc)
+    }
+}
+
+@Composable
+private fun CrashSection(c: CrashStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+    StatCard("Crashes & ANRs", ff, fs) {
+        StatRow("Recent crashes", c.crashCount.toString(), ff, fs, lc, vc, emphasize = true)
+        c.lastCrashWhen?.let { StatRow("Last crash", it, ff, fs, lc, vc) }
+        c.lastCrashSummary?.let {
+            Text(
+                it, color = vc, fontSize = (fs - 1).sp, fontFamily = ff,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(top = 1.dp, bottom = 2.dp),
+            )
+        }
+        StatRow("Recent ANRs", c.anrCount.toString(), ff, fs, lc, vc, emphasize = true)
+        c.lastAnrWhen?.let { StatRow("Last ANR", it, ff, fs, lc, vc) }
+        c.lastAnrSummary?.let {
+            Text(
+                it, color = vc, fontSize = (fs - 1).sp, fontFamily = ff,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
             )
         }

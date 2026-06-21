@@ -39,15 +39,21 @@ class StatsFeatureImpl : StatsFeature {
             // thread. delay() is the cancellation point that breaks the loop.
             withContext(Dispatchers.IO) {
                 val collector = AppStatsCollector(appContext)
-                var cachedPower = collector.collectPower(packageName, useRoot)
+                var cachedSlow = collector.collectSlow(packageName, useRoot)
                 val buffer = ArrayDeque<AppStats>()
                 var iteration = 0
                 while (true) {
                     val snapshot = collector.collect(packageName, label, useRoot)
-                    if (iteration % POWER_REFRESH_EVERY == 0 && iteration != 0) {
-                        cachedPower = collector.collectPower(packageName, useRoot)
+                    if (iteration % SLOW_REFRESH_EVERY == 0 && iteration != 0) {
+                        cachedSlow = collector.collectSlow(packageName, useRoot)
                     }
-                    buffer.addLast(snapshot.copy(power = cachedPower))
+                    buffer.addLast(
+                        snapshot.copy(
+                            power = cachedSlow.power,
+                            sensors = cachedSlow.sensors,
+                            crashes = cachedSlow.crashes,
+                        ),
+                    )
                     while (buffer.size > HISTORY_MAX) buffer.removeFirst()
                     value = buffer.toList()
                     iteration++
@@ -61,7 +67,7 @@ class StatsFeatureImpl : StatsFeature {
 
     private companion object {
         const val FAST_INTERVAL_MS = 2000L
-        const val POWER_REFRESH_EVERY = 5
+        const val SLOW_REFRESH_EVERY = 5
         const val HISTORY_MAX = 45 // ~90s of trend at the 2s cadence
     }
 }
