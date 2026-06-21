@@ -1,5 +1,6 @@
 package com.hereliesaz.logkitty.feature.stats
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -34,11 +36,12 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun StatsView(
-    stats: AppStats?,
+    history: List<AppStats>,
     fontFamily: FontFamily?,
     fontSize: Int,
     modifier: Modifier = Modifier,
 ) {
+    val stats = history.lastOrNull()
     if (stats == null) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Collecting stats…", color = Color.Gray, fontSize = fontSize.sp, fontFamily = fontFamily)
@@ -85,12 +88,15 @@ fun StatsView(
 
         stats.notes.forEach { note -> NoteBanner(note, fontFamily, fontSize) }
 
+        if (history.size >= 2) TrendsSection(history, fontFamily, fontSize, labelColor, valueColor)
+
         stats.cpu?.let { CpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.memory?.let { MemorySection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.gpu?.let { GpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.network?.let { NetworkSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.power?.let { PowerSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.health?.let { HealthSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.components?.let { ComponentsSection(it, fontFamily, fontSize, labelColor, valueColor) }
 
         Spacer(Modifier.height(16.dp))
     }
@@ -99,6 +105,83 @@ fun StatsView(
 // ----------------------------------------------------------------------------------------------
 // Sections
 // ----------------------------------------------------------------------------------------------
+
+@Composable
+private fun TrendsSection(history: List<AppStats>, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+    val cpu = history.mapNotNull { it.cpu?.appPercent }
+    val rx = history.mapNotNull { it.network?.rxBytesPerSec?.toFloat() }
+    val tx = history.mapNotNull { it.network?.txBytesPerSec?.toFloat() }
+    val pss = history.mapNotNull { it.memory?.totalPssKb?.toFloat() }
+    val io = history.mapNotNull { it.health?.ioWriteBytesPerSec?.toFloat() }
+    val jank = history.mapNotNull { it.gpu?.jankPercent }
+    if (listOf(cpu, rx, tx, pss, io, jank).none { it.size >= 2 }) return
+
+    StatCard("Trends · last ~${history.size * 2}s", ff, fs) {
+        if (cpu.size >= 2) SparkRow("CPU", cpu, pct(cpu.last()), Color(0xFF4FC3F7), ff, fs, lc, vc)
+        if (rx.size >= 2) SparkRow("Net ↓", rx, rate(rx.last().toLong()), Color(0xFF81C784), ff, fs, lc, vc)
+        if (tx.size >= 2) SparkRow("Net ↑", tx, rate(tx.last().toLong()), Color(0xFFFFB74D), ff, fs, lc, vc)
+        if (pss.size >= 2) SparkRow("PSS", pss, kb(pss.last().toLong()), Color(0xFFBA68C8), ff, fs, lc, vc)
+        if (io.size >= 2) SparkRow("Disk ✎", io, rate(io.last().toLong()), Color(0xFFE57373), ff, fs, lc, vc)
+        if (jank.size >= 2) SparkRow("Jank", jank, pct(jank.last()), Color(0xFF4DD0E1), ff, fs, lc, vc)
+    }
+}
+
+@Composable
+private fun SparkRow(
+    label: String, values: List<Float>, current: String, color: Color,
+    ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = lc, fontSize = (fs - 1).sp, fontFamily = ff, modifier = Modifier.width(52.dp), maxLines = 1)
+        Sparkline(values, color, Modifier.weight(1f).height(22.dp).padding(horizontal = 8.dp))
+        Text(current, color = vc, fontSize = (fs - 1).sp, fontFamily = ff, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun Sparkline(values: List<Float>, color: Color, modifier: Modifier) {
+    Canvas(modifier = modifier) {
+        if (values.size < 2) return@Canvas
+        // Single pass for min/max — avoids deprecated min()/max() and a second iteration.
+        var min = values[0]
+        var max = values[0]
+        for (v in values) {
+            if (v < min) min = v
+            if (v > max) max = v
+        }
+        val range = max - min
+        val stepX = size.width / (values.size - 1)
+        val strokePx = 2.dp.toPx()
+        // Flat series (range == 0) is drawn through the vertical center, not pinned to the bottom.
+        fun yOf(v: Float): Float =
+            if (range > 0f) size.height - ((v - min) / range) * size.height else size.height / 2f
+        // drawLine per segment — Offset is a value class, so the draw phase allocates nothing
+        // (no Path/Stroke objects created on each frame while the parent column scrolls).
+        var prevX = 0f
+        var prevY = yOf(values[0])
+        for (i in 1 until values.size) {
+            val x = i * stepX
+            val y = yOf(values[i])
+            drawLine(color, Offset(prevX, prevY), Offset(x, y), strokeWidth = strokePx)
+            prevX = x
+            prevY = y
+        }
+    }
+}
+
+@Composable
+private fun ComponentsSection(c: ComponentStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+    StatCard("Components", ff, fs) {
+        StatRow("Running services", c.runningServiceCount?.toString() ?: "—", ff, fs, lc, vc, emphasize = true)
+        c.runningServices.forEach { svc ->
+            Text(
+                svc, color = vc, fontSize = (fs - 1).sp, fontFamily = ff,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
+            )
+        }
+    }
+}
 
 @Composable
 private fun CpuSection(cpu: CpuStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {

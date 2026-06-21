@@ -107,12 +107,13 @@ class AppStatsCollector(private val context: Context) {
         val memory = parseMemory(sections["MEMINFO"])
         val gpu = parseGpu(sections)
         val health = parseHealth(sections, pids, dtSec)
+        val components = parseComponents(sections["SERVICES"])
 
         prevSampleNanos = nowNanos
         return AppStats(
             packageName = pkg, label = label, rootUsed = true, processFound = true,
             pids = pids, collectedAtMs = now, cpu = cpu, memory = memory, gpu = gpu,
-            network = network, health = health, notes = notes,
+            network = network, health = health, components = components, notes = notes,
         )
     }
 
@@ -154,6 +155,7 @@ class AppStatsCollector(private val context: Context) {
             done
             echo "@@MEMINFO@@"; dumpsys meminfo $p 2>/dev/null
             echo "@@GFXINFO@@"; dumpsys gfxinfo $p 2>/dev/null
+            echo "@@SERVICES@@"; dumpsys activity services $p 2>/dev/null
             echo "@@END@@"
         """.trimIndent()
     }
@@ -196,6 +198,22 @@ class AppStatsCollector(private val context: Context) {
 
     private fun parsePids(s: String?): List<Int> =
         s?.trim()?.split(Regex("\\s+"))?.mapNotNull { it.toIntOrNull() }?.distinct() ?: emptyList()
+
+    /**
+     * Parses running services from `dumpsys activity services <pkg>`. Each running service appears as
+     * `ServiceRecord{hash u0 <pkg>/<ServiceName> ...}`; we capture the short class name. Best-effort:
+     * returns `null` if the format isn't recognized (the UI then shows nothing for this section).
+     */
+    private fun parseComponents(services: String?): ComponentStats? {
+        if (services.isNullOrBlank()) return null
+        val names = SERVICE_RECORD.findAll(services)
+            .map { it.groupValues[1].substringAfterLast('.') }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
+        if (names.isEmpty()) return null
+        return ComponentStats(runningServiceCount = names.size, runningServices = names.take(12))
+    }
 
     private fun parseCpu(sections: Map<String, String>, pids: List<Int>): CpuStats? {
         val cpuLine = sections["CPU"]?.trim() ?: return null
@@ -475,5 +493,7 @@ class AppStatsCollector(private val context: Context) {
 
     companion object {
         private val MARKER = Regex("""@@([A-Z]+(?: \d+)?)@@""")
+        // Captures the class name from `ServiceRecord{hash u0 pkg/<Name> ...}` (running service).
+        private val SERVICE_RECORD = Regex("""ServiceRecord\{[^}]*/([^\s}]+)""")
     }
 }

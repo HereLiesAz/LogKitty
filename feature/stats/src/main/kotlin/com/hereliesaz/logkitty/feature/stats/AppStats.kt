@@ -25,6 +25,7 @@ data class AppStats(
     val network: NetworkStats? = null,
     val power: PowerStats? = null,
     val health: HealthStats? = null,
+    val components: ComponentStats? = null,
     /** Human-readable caveats, e.g. "Root required for CPU, memory, GPU and I/O stats". */
     val notes: List<String> = emptyList(),
 )
@@ -106,4 +107,11 @@ data class HealthStats(
     val ioWriteBytesPerSec: Long?,
     val totalIoReadBytes: Long?,
     val totalIoWriteBytes: Long?,
+)
+
+/** Running components for the app, parsed from `dumpsys activity services` (root, best-effort). */
+data class ComponentStats(
+    val runningServiceCount: Int?,
+    /** Short service class names currently running (deduped, capped). */
+    val runningServices: List<String>,
 )
