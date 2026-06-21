@@ -130,7 +130,7 @@ class AppStatsCollector(private val context: Context) {
      */
     suspend fun collectSlow(pkg: String, useRoot: Boolean): SlowStats {
         val (level, temp, charging) = readBattery()
-        val raw = RootShell.run(buildSlowScript(pkg), useRoot = useRoot, timeoutMs = 8000)
+        val raw = RootShell.run(buildSlowScript(pkg, useRoot), useRoot = useRoot, timeoutMs = 8000)
         val sections = if (raw != null) splitSections(raw) else emptyMap()
 
         val power = if (useRoot) {
@@ -168,7 +168,7 @@ class AppStatsCollector(private val context: Context) {
               echo "@@PIO ${'$'}pp@@"; cat /proc/${'$'}pp/io 2>/dev/null
               echo "@@PFD ${'$'}pp@@"; ls /proc/${'$'}pp/fd 2>/dev/null | wc -l
               echo "@@PTASKS ${'$'}pp@@"; cat /proc/${'$'}pp/task/*/stat 2>/dev/null
-              echo "@@BINDER ${'$'}pp@@"; cat /sys/kernel/debug/binder/proc/${'$'}pp 2>/dev/null
+              echo "@@BINDER ${'$'}pp@@"; cat /sys/kernel/debug/binder/proc/${'$'}pp 2>/dev/null || cat /dev/binderfs/binder_logs/proc/${'$'}pp 2>/dev/null
             done
             echo "@@MEMINFO@@"; dumpsys meminfo $p 2>/dev/null
             echo "@@GFXINFO@@"; dumpsys gfxinfo $p 2>/dev/null
@@ -177,18 +177,26 @@ class AppStatsCollector(private val context: Context) {
         """.trimIndent()
     }
 
-    private fun buildSlowScript(pkg: String): String {
+    /**
+     * The slow batch. The `dumpsys`-based sections are root-only, so on a non-rooted device we omit
+     * them entirely rather than spawn processes that will just be denied — the crash/ANR logcat
+     * dumps work either way (they only need `READ_LOGS`).
+     */
+    private fun buildSlowScript(pkg: String, useRoot: Boolean): String {
         val p = shellEscape(pkg)
+        val crashLogs = """
+            echo "@@CRASHLOG@@"; logcat -b crash -d -v threadtime -t 400 2>/dev/null
+            echo "@@ANRLOG@@"; logcat -b system -d -v threadtime 2>/dev/null | grep "ANR in" | grep -F $p | tail -n 40
+            echo "@@END@@"
+        """.trimIndent()
+        if (!useRoot) return crashLogs
         return """
             echo "@@BATTERYSTATS@@"; dumpsys batterystats $p 2>/dev/null
             echo "@@JOBS@@"; dumpsys jobscheduler 2>/dev/null | grep -c $p
             echo "@@ALARMS@@"; dumpsys alarm 2>/dev/null | grep -c $p
             echo "@@SENSORS@@"; dumpsys sensorservice 2>/dev/null
             echo "@@LOCATION@@"; dumpsys location 2>/dev/null
-            echo "@@CRASHLOG@@"; logcat -b crash -d -v threadtime -t 400 2>/dev/null
-            echo "@@ANRLOG@@"; logcat -b system -d -v threadtime 2>/dev/null | grep "ANR in" | grep -F $p | tail -n 40
-            echo "@@END@@"
-        """.trimIndent()
+        """.trimIndent() + "\n" + crashLogs
     }
 
     /** Wraps a package name in single quotes, neutralizing any embedded quote, for safe shell use. */

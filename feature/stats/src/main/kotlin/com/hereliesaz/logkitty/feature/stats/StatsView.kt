@@ -191,7 +191,7 @@ private fun SensorSection(s: SensorStats, ff: FontFamily?, fs: Int, lc: Color, v
     StatCard("Sensors & Location", ff, fs) {
         StatRow("Active sensor connections", s.activeSensorConnections?.toString() ?: "—", ff, fs, lc, vc, emphasize = true)
         if (s.activeSensors.isNotEmpty()) {
-            StatRow("Sensors", s.activeSensors.joinToString(", "), ff, fs, lc, vc)
+            WrapStatRow("Sensors", s.activeSensors.joinToString(", "), ff, fs, lc, vc)
         }
         val loc = when (s.locationActive) {
             true -> "Yes"
@@ -200,7 +200,7 @@ private fun SensorSection(s: SensorStats, ff: FontFamily?, fs: Int, lc: Color, v
         }
         StatRow("Location request", loc, ff, fs, lc, vc)
         if (s.locationProviders.isNotEmpty()) {
-            StatRow("Providers", s.locationProviders.joinToString(", "), ff, fs, lc, vc)
+            WrapStatRow("Providers", s.locationProviders.joinToString(", "), ff, fs, lc, vc)
         }
     }
 }
@@ -368,6 +368,21 @@ private fun StatRow(
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(value, color = vc, fontSize = (if (emphasize) fs + 1 else fs - 1).sp, fontFamily = ff,
             fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Normal)
+    }
+}
+
+/**
+ * Like [StatRow] but for a potentially long value (e.g. a comma-joined list). Both texts share the
+ * width via weights, so a long value ellipsizes instead of squeezing the label to zero width.
+ */
+@Composable
+private fun WrapStatRow(label: String, value: String, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = lc, fontSize = (fs - 1).sp, fontFamily = ff, modifier = Modifier.weight(1f),
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.width(8.dp))
+        Text(value, color = vc, fontSize = (fs - 1).sp, fontFamily = ff, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
     }
 }
 
