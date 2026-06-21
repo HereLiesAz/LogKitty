@@ -291,6 +291,9 @@ class LogKittyOverlayService : Service() {
     private fun createNotification(): Notification {
         val isPaused = (applicationContext as MainApplication).mainViewModel.isPaused.value
 
+        // Tapping the body opens LogKitty; capture/teardown are driven by the explicit actions below.
+        val openIntent = Intent(this, MainActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        val openPending = PendingIntent.getActivity(this, 3, openIntent, PendingIntent.FLAG_IMMUTABLE)
         val stopIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_STOP_SERVICE }
         val stopPending = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
         val settingsIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_OPEN_SETTINGS }
@@ -304,15 +307,15 @@ class LogKittyOverlayService : Service() {
                 if (isPaused) getString(R.string.notif_text_paused) else getString(R.string.notif_text_running)
             )
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            // Body tap and the "Turn Off" action both stop the service (tears down the overlay).
-            .setContentIntent(stopPending)
-            // Start/Stop toggles log capture (mirrors the sheet's play/pause).
+            .setContentIntent(openPending)
+            // Pause/Resume toggles log capture (mirrors the sheet's play/pause control).
             .addAction(
                 if (isPaused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause,
-                if (isPaused) getString(R.string.notif_action_start) else getString(R.string.notif_action_stop),
+                if (isPaused) getString(R.string.notif_action_resume) else getString(R.string.notif_action_pause),
                 pausePending
             )
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.notif_action_turn_off), stopPending)
+            // Stop tears down the overlay and the foreground service entirely.
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.notif_action_stop), stopPending)
             .addAction(android.R.drawable.ic_menu_preferences, getString(R.string.notif_action_app_settings), settingsPending)
             .setOngoing(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
