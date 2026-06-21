@@ -155,11 +155,11 @@
     <!-- Notifications (overlay service) -->
     <string name="notif_channel_name">Overlay Service</string>
     <string name="notif_title">LogKitty is running</string>
-    <string name="notif_text_paused">Logging paused. Tap to turn off.</string>
-    <string name="notif_text_running">Logging. Tap to turn off.</string>
-    <string name="notif_action_start">Start</string>
+    <string name="notif_text_paused">Logging paused.</string>
+    <string name="notif_text_running">Logging.</string>
+    <string name="notif_action_pause">Pause</string>
+    <string name="notif_action_resume">Resume</string>
     <string name="notif_action_stop">Stop</string>
-    <string name="notif_action_turn_off">Turn Off LogKitty</string>
     <string name="notif_action_app_settings">App Settings</string>
 
     <!-- Permissions section -->
