@@ -55,9 +55,9 @@ class AppStatsCollector(private val context: Context) {
     }
 
     /**
-     * Collects the fast-changing sections (CPU, memory, GPU/frames, I/O, network). Power stats are
-     * gathered separately via [collectPower] on a slower cadence because `dumpsys batterystats` is
-     * heavy.
+     * Collects the fast-changing sections (CPU, memory, GPU/frames, I/O, network, binder). The
+     * heavier, slower-changing sections (power, sensors, crash history) are gathered separately via
+     * [collectSlow] on a slower cadence because `dumpsys batterystats` and friends are expensive.
      */
     suspend fun collect(pkg: String, label: String, useRoot: Boolean): AppStats {
         if (pkg != lastPackage) {
@@ -108,29 +108,45 @@ class AppStatsCollector(private val context: Context) {
         val gpu = parseGpu(sections)
         val health = parseHealth(sections, pids, dtSec)
         val components = parseComponents(sections["SERVICES"])
+        val binder = parseBinder(sections, pids)
 
         prevSampleNanos = nowNanos
         return AppStats(
             packageName = pkg, label = label, rootUsed = true, processFound = true,
             pids = pids, collectedAtMs = now, cpu = cpu, memory = memory, gpu = gpu,
-            network = network, health = health, components = components, notes = notes,
+            network = network, health = health, components = components, binder = binder,
+            notes = notes,
         )
     }
 
-    /** Heavier, slower-changing power/scheduling stats. Safe to call less frequently. */
-    suspend fun collectPower(pkg: String, useRoot: Boolean): PowerStats {
+    /**
+     * Heavier, slower-changing sections, gathered together in one shell invocation to amortize the
+     * cost: power/scheduling, sensor + location usage, and crash/ANR history. Safe to call on a
+     * slower cadence than [collect].
+     *
+     * Crash history rides the same call but is special: it comes from the logcat **crash** buffer,
+     * so it works even without root (the app already holds `READ_LOGS`). The `dumpsys`-based power
+     * and sensor sections degrade to `null` on a non-rooted device.
+     */
+    suspend fun collectSlow(pkg: String, useRoot: Boolean): SlowStats {
         val (level, temp, charging) = readBattery()
-        if (!useRoot) {
-            return PowerStats(null, null, null, null, level, temp, charging)
-        }
-        val raw = RootShell.run(buildPowerScript(pkg), useRoot = true, timeoutMs = 6000)
+        val raw = RootShell.run(buildSlowScript(pkg, useRoot), useRoot = useRoot, timeoutMs = 8000)
         val sections = if (raw != null) splitSections(raw) else emptyMap()
-        val bs = sections["BATTERYSTATS"].orEmpty()
-        val wakelockCount = Regex("Wake lock", RegexOption.IGNORE_CASE).findAll(bs).count().takeIf { it > 0 }
-        val partialMs = parsePartialWakelockMs(bs)
-        val jobs = sections["JOBS"]?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
-        val alarms = sections["ALARMS"]?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
-        return PowerStats(wakelockCount, partialMs, jobs, alarms, level, temp, charging)
+
+        val power = if (useRoot) {
+            val bs = sections["BATTERYSTATS"].orEmpty()
+            val wakelockCount = Regex("Wake lock", RegexOption.IGNORE_CASE).findAll(bs).count().takeIf { it > 0 }
+            val partialMs = parsePartialWakelockMs(bs)
+            val jobs = sections["JOBS"]?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
+            val alarms = sections["ALARMS"]?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
+            PowerStats(wakelockCount, partialMs, jobs, alarms, level, temp, charging)
+        } else {
+            PowerStats(null, null, null, null, level, temp, charging)
+        }
+
+        val sensors = parseSensors(sections["SENSORS"], sections["LOCATION"], pkg)
+        val crashes = parseCrashes(sections["CRASHLOG"], sections["ANRLOG"], pkg)
+        return SlowStats(power = power, sensors = sensors, crashes = crashes)
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -152,6 +168,7 @@ class AppStatsCollector(private val context: Context) {
               echo "@@PIO ${'$'}pp@@"; cat /proc/${'$'}pp/io 2>/dev/null
               echo "@@PFD ${'$'}pp@@"; ls /proc/${'$'}pp/fd 2>/dev/null | wc -l
               echo "@@PTASKS ${'$'}pp@@"; cat /proc/${'$'}pp/task/*/stat 2>/dev/null
+              echo "@@BINDER ${'$'}pp@@"; cat /sys/kernel/debug/binder/proc/${'$'}pp 2>/dev/null || cat /dev/binderfs/binder_logs/proc/${'$'}pp 2>/dev/null
             done
             echo "@@MEMINFO@@"; dumpsys meminfo $p 2>/dev/null
             echo "@@GFXINFO@@"; dumpsys gfxinfo $p 2>/dev/null
@@ -160,14 +177,26 @@ class AppStatsCollector(private val context: Context) {
         """.trimIndent()
     }
 
-    private fun buildPowerScript(pkg: String): String {
+    /**
+     * The slow batch. The `dumpsys`-based sections are root-only, so on a non-rooted device we omit
+     * them entirely rather than spawn processes that will just be denied — the crash/ANR logcat
+     * dumps work either way (they only need `READ_LOGS`).
+     */
+    private fun buildSlowScript(pkg: String, useRoot: Boolean): String {
         val p = shellEscape(pkg)
+        val crashLogs = """
+            echo "@@CRASHLOG@@"; logcat -b crash -d -v threadtime -t 400 2>/dev/null
+            echo "@@ANRLOG@@"; logcat -b system -d -v threadtime -t 2000 2>/dev/null | grep "ANR in" | grep -F $p | tail -n 40
+            echo "@@END@@"
+        """.trimIndent()
+        if (!useRoot) return crashLogs
         return """
             echo "@@BATTERYSTATS@@"; dumpsys batterystats $p 2>/dev/null
             echo "@@JOBS@@"; dumpsys jobscheduler 2>/dev/null | grep -c $p
             echo "@@ALARMS@@"; dumpsys alarm 2>/dev/null | grep -c $p
-            echo "@@END@@"
-        """.trimIndent()
+            echo "@@SENSORS@@"; dumpsys sensorservice 2>/dev/null
+            echo "@@LOCATION@@"; dumpsys location 2>/dev/null
+        """.trimIndent() + "\n" + crashLogs
     }
 
     /** Wraps a package name in single quotes, neutralizing any embedded quote, for safe shell use. */
@@ -214,6 +243,145 @@ class AppStatsCollector(private val context: Context) {
         if (names.isEmpty()) return null
         return ComponentStats(runningServiceCount = names.size, runningServices = names.take(12))
     }
+
+    /**
+     * Sums the binder footprint across the app's pids from `/sys/kernel/debug/binder/proc/<pid>`.
+     * Each pid's dump lists one indented line per `thread`, `node`, `ref`, and `pending transaction`;
+     * we just count them. Returns `null` when no pid's file was readable (non-root or debugfs off).
+     */
+    private fun parseBinder(sections: Map<String, String>, pids: List<Int>): BinderStats? {
+        var threads = 0
+        var nodes = 0
+        var refs = 0
+        var pending = 0
+        var any = false
+        for (pid in pids) {
+            val dump = sections["BINDER $pid"]
+            if (dump.isNullOrBlank()) continue
+            any = true
+            for (raw in dump.lineSequence()) {
+                val line = raw.trim()
+                when {
+                    line.startsWith("thread ") -> threads++
+                    line.startsWith("node ") -> nodes++
+                    line.startsWith("ref ") -> refs++
+                    line.startsWith("pending transaction") -> pending++
+                }
+            }
+        }
+        if (!any) return null
+        return BinderStats(
+            threads = threads.takeIf { it > 0 },
+            nodes = nodes.takeIf { it > 0 },
+            refs = refs.takeIf { it > 0 },
+            pendingTransactions = pending,
+        )
+    }
+
+    /**
+     * Best-effort sensor + location usage. `dumpsys sensorservice` lists one block per
+     * "Connection Number:"; we keep the blocks naming our package and keyword-match the sensor types
+     * inside them. `dumpsys location` is split into `<provider> provider:` blocks; a provider counts
+     * as in-use if our package appears in its block. Returns `null` when nothing is attributable.
+     */
+    private fun parseSensors(sensorDump: String?, locationDump: String?, pkg: String): SensorStats? {
+        var connCount: Int? = null
+        val sensors = LinkedHashSet<String>()
+        if (!sensorDump.isNullOrBlank()) {
+            var matched = 0
+            for (block in sensorDump.split(Regex("(?=Connection Number:)"))) {
+                if (!block.contains(pkg)) continue
+                matched++
+                for (kw in SENSOR_KEYWORDS) {
+                    if (block.contains(kw, ignoreCase = true)) sensors.add(kw)
+                }
+            }
+            if (matched > 0) connCount = matched
+        }
+
+        var locationActive: Boolean? = null
+        val providers = LinkedHashSet<String>()
+        if (!locationDump.isNullOrBlank()) {
+            for (block in locationDump.split(Regex("(?m)(?=^\\s*\\w+ provider:)"))) {
+                val header = PROVIDER_HEADER.find(block)?.groupValues?.get(1) ?: continue
+                if (block.contains(pkg)) providers.add(header)
+            }
+            locationActive = providers.isNotEmpty() || locationDump.contains(pkg)
+        }
+
+        if (connCount == null && sensors.isEmpty() && locationActive == null && providers.isEmpty()) {
+            return null
+        }
+        return SensorStats(connCount, sensors.toList(), locationActive, providers.toList())
+    }
+
+    /**
+     * Parses recent crashes from the logcat `crash` buffer and ANRs from the grepped system log.
+     * Crashes are attributed by the `Process: <pkg>` line (Java) or the `>>> <pkg> <<<` marker
+     * (native tombstone). Returns `null` when there's no readable data or nothing for this package.
+     */
+    private fun parseCrashes(crashLog: String?, anrLog: String?, pkg: String): CrashStats? {
+        if (crashLog.isNullOrBlank() && anrLog.isNullOrBlank()) return null
+
+        var crashCount = 0
+        var lastCrashWhen: String? = null
+        var lastCrashSummary: String? = null
+        if (!crashLog.isNullOrBlank()) {
+            val lines = crashLog.lines()
+            var i = 0
+            while (i < lines.size) {
+                val line = lines[i]
+                if (line.contains("FATAL EXCEPTION")) {
+                    var matched = false
+                    var summary: String? = null
+                    val limit = minOf(i + 6, lines.size)
+                    var j = i + 1
+                    while (j < limit) {
+                        val l = lines[j]
+                        if (l.contains("Process: $pkg,") || l.contains("Process: $pkg ")) matched = true
+                        if (summary == null && matched && l.contains("AndroidRuntime") &&
+                            !l.contains("FATAL EXCEPTION") && !l.contains("Process:")
+                        ) {
+                            summary = l.substringAfter("AndroidRuntime:").trim().take(160)
+                        }
+                        j++
+                    }
+                    if (matched) {
+                        crashCount++
+                        lastCrashWhen = parseLogTime(line)
+                        if (summary != null) lastCrashSummary = summary
+                    }
+                } else if (line.contains(">>> $pkg <<<")) {
+                    crashCount++
+                    lastCrashWhen = parseLogTime(line)
+                    lastCrashSummary = (i + 1 until minOf(i + 4, lines.size))
+                        .map { lines[it] }.firstOrNull { it.contains("signal ") }
+                        ?.substringAfter("DEBUG")?.trimStart(':', ' ', '\t')?.take(160)
+                        ?: "native crash"
+                }
+                i++
+            }
+        }
+
+        var anrCount = 0
+        var lastAnrWhen: String? = null
+        var lastAnrSummary: String? = null
+        if (!anrLog.isNullOrBlank()) {
+            for (line in anrLog.lineSequence()) {
+                if (!line.contains("ANR in")) continue
+                anrCount++
+                lastAnrWhen = parseLogTime(line)
+                lastAnrSummary = line.substringAfter("ANR in").trim().take(160)
+            }
+        }
+
+        if (crashCount == 0 && anrCount == 0) return null
+        return CrashStats(crashCount, anrCount, lastCrashWhen, lastCrashSummary, lastAnrWhen, lastAnrSummary)
+    }
+
+    /** Extracts the leading `MM-DD HH:MM:SS` from a `-v threadtime` logcat line, or null. */
+    private fun parseLogTime(line: String): String? =
+        LOG_TIME.find(line.trimStart())?.groupValues?.get(1)
 
     private fun parseCpu(sections: Map<String, String>, pids: List<Int>): CpuStats? {
         val cpuLine = sections["CPU"]?.trim() ?: return null
@@ -495,5 +663,23 @@ class AppStatsCollector(private val context: Context) {
         private val MARKER = Regex("""@@([A-Z]+(?: \d+)?)@@""")
         // Captures the class name from `ServiceRecord{hash u0 pkg/<Name> ...}` (running service).
         private val SERVICE_RECORD = Regex("""ServiceRecord\{[^}]*/([^\s}]+)""")
+        // `<provider> provider:` section header in `dumpsys location`.
+        private val PROVIDER_HEADER = Regex("""(?m)^\s*(\w+) provider:""")
+        // Leading timestamp of a `-v threadtime` logcat line: "MM-DD HH:MM:SS".
+        private val LOG_TIME = Regex("""^(\d{2}-\d{2} \d{2}:\d{2}:\d{2})""")
+        // Common sensor type names to look for inside a connection block (format-tolerant).
+        private val SENSOR_KEYWORDS = listOf(
+            "Accelerometer", "Gyroscope", "Magnetometer", "Magnetic", "Orientation", "Light",
+            "Proximity", "Pressure", "Gravity", "Linear Acceleration", "Rotation Vector",
+            "Game Rotation", "Significant Motion", "Step Counter", "Step Detector", "Heart Rate",
+            "Temperature", "Humidity",
+        )
     }
 }
+
+/** The slower-cadence sections gathered together by [AppStatsCollector.collectSlow]. */
+data class SlowStats(
+    val power: PowerStats,
+    val sensors: SensorStats?,
+    val crashes: CrashStats?,
+)

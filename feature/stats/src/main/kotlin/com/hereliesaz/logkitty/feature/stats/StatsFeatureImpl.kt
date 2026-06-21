@@ -7,8 +7,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.hereliesaz.logkitty.core.feature.StatsFeature
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -39,19 +41,35 @@ class StatsFeatureImpl : StatsFeature {
             // thread. delay() is the cancellation point that breaks the loop.
             withContext(Dispatchers.IO) {
                 val collector = AppStatsCollector(appContext)
-                var cachedPower = collector.collectPower(packageName, useRoot)
                 val buffer = ArrayDeque<AppStats>()
-                var iteration = 0
-                while (true) {
-                    val snapshot = collector.collect(packageName, label, useRoot)
-                    if (iteration % POWER_REFRESH_EVERY == 0 && iteration != 0) {
-                        cachedPower = collector.collectPower(packageName, useRoot)
+                // collectSlow fires several heavy dumpsys/logcat shells under an 8s timeout. Running
+                // it inline would stall the 2s fast loop (live CPU/mem/GPU) and block the first frame
+                // until it finished, so run it in its own coroutine and just read the latest result.
+                // AtomicReference gives a clean happens-before across the two IO-pool threads.
+                val cachedSlow = AtomicReference<SlowStats?>(null)
+                val slowJob = launch {
+                    while (true) {
+                        cachedSlow.set(collector.collectSlow(packageName, useRoot))
+                        delay(FAST_INTERVAL_MS * SLOW_REFRESH_EVERY)
                     }
-                    buffer.addLast(snapshot.copy(power = cachedPower))
-                    while (buffer.size > HISTORY_MAX) buffer.removeFirst()
-                    value = buffer.toList()
-                    iteration++
-                    delay(FAST_INTERVAL_MS)
+                }
+                try {
+                    while (true) {
+                        val snapshot = collector.collect(packageName, label, useRoot)
+                        val slow = cachedSlow.get()
+                        buffer.addLast(
+                            snapshot.copy(
+                                power = slow?.power,
+                                sensors = slow?.sensors,
+                                crashes = slow?.crashes,
+                            ),
+                        )
+                        while (buffer.size > HISTORY_MAX) buffer.removeFirst()
+                        value = buffer.toList()
+                        delay(FAST_INTERVAL_MS)
+                    }
+                } finally {
+                    slowJob.cancel()
                 }
             }
         }
@@ -61,7 +79,7 @@ class StatsFeatureImpl : StatsFeature {
 
     private companion object {
         const val FAST_INTERVAL_MS = 2000L
-        const val POWER_REFRESH_EVERY = 5
+        const val SLOW_REFRESH_EVERY = 5
         const val HISTORY_MAX = 45 // ~90s of trend at the 2s cadence
     }
 }
