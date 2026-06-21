@@ -186,7 +186,7 @@ class AppStatsCollector(private val context: Context) {
         val p = shellEscape(pkg)
         val crashLogs = """
             echo "@@CRASHLOG@@"; logcat -b crash -d -v threadtime -t 400 2>/dev/null
-            echo "@@ANRLOG@@"; logcat -b system -d -v threadtime 2>/dev/null | grep "ANR in" | grep -F $p | tail -n 40
+            echo "@@ANRLOG@@"; logcat -b system -d -v threadtime -t 2000 2>/dev/null | grep "ANR in" | grep -F $p | tail -n 40
             echo "@@END@@"
         """.trimIndent()
         if (!useRoot) return crashLogs
