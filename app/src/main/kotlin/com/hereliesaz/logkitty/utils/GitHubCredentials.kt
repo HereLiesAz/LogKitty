@@ -29,11 +29,30 @@ class GitHubCredentials(context: Context) {
 
     private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    private val _token = MutableStateFlow(load())
-    /** The decrypted PAT, or null when none is set / it couldn't be decrypted. */
-    val token: StateFlow<String?> = _token.asStateFlow()
+    private val _hasToken = MutableStateFlow(prefs.contains(KEY_TOKEN))
+    /**
+     * Whether a PAT is stored. Reactive and cheap — a `prefs.contains` check that never decrypts, so
+     * the plaintext secret is not held in memory and init does no Keystore work.
+     */
+    val hasToken: StateFlow<Boolean> = _hasToken.asStateFlow()
 
-    /** Stores (encrypted) or, for a null/blank value, clears the PAT. */
+    /**
+     * Decrypts and returns the stored PAT on demand, or null when none is set / it couldn't be
+     * decrypted. Touches the Keystore, so call it **off the main thread** (e.g. inside the feature's
+     * IO poll loop). On a decryption failure the corrupt entry is dropped so the user can re-enter.
+     */
+    fun readToken(): String? {
+        val stored = prefs.getString(KEY_TOKEN, null) ?: return null
+        return runCatching { decrypt(stored) }.getOrElse {
+            clear()
+            null
+        }
+    }
+
+    /**
+     * Stores (encrypted) or, for a null/blank value, clears the PAT. Performs AES/GCM + Keystore
+     * work (the first call may generate the key), so call it **off the main thread**.
+     */
     fun setToken(raw: String?) {
         val value = raw?.trim().orEmpty()
         if (value.isEmpty()) {
@@ -46,21 +65,12 @@ class GitHubCredentials(context: Context) {
             return
         }
         prefs.edit().putString(KEY_TOKEN, encrypted).apply()
-        _token.value = value
+        _hasToken.value = true
     }
 
     fun clear() {
         prefs.edit().remove(KEY_TOKEN).apply()
-        _token.value = null
-    }
-
-    private fun load(): String? {
-        val stored = prefs.getString(KEY_TOKEN, null) ?: return null
-        return runCatching { decrypt(stored) }.getOrElse {
-            // Key rotated/invalidated or corrupt blob — drop it so the user can re-enter cleanly.
-            prefs.edit().remove(KEY_TOKEN).apply()
-            null
-        }
+        _hasToken.value = false
     }
 
     // --- AES/GCM via the Android Keystore. Stored form: base64(iv):base64(ciphertext). ---

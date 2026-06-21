@@ -135,7 +135,7 @@ private fun SettingsMainScreen(
     val activeSourceFilters by viewModel.activeSourceFilters.collectAsState()
     val githubOwner by viewModel.githubOwner.collectAsState()
     val githubRepo by viewModel.githubRepo.collectAsState()
-    val githubToken by viewModel.githubToken.collectAsState()
+    val hasGithubToken by viewModel.hasGithubToken.collectAsState()
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showSchemeMenu by remember { mutableStateOf(false) }
@@ -555,7 +555,7 @@ private fun SettingsMainScreen(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             )
             Text(
-                stringResource(if (githubToken != null) R.string.github_token_saved else R.string.github_token_none),
+                stringResource(if (hasGithubToken) R.string.github_token_saved else R.string.github_token_none),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 4.dp)
