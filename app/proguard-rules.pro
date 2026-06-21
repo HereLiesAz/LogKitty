@@ -25,3 +25,4 @@
 # constructors (the implemented interfaces are kept by core's consumer rules).
 -keep class com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl { <init>(); }
 -keep class com.hereliesaz.logkitty.feature.ads.AdsFeatureImpl { <init>(); }
+-keep class com.hereliesaz.logkitty.feature.github.GitHubFeatureImpl { <init>(); }
