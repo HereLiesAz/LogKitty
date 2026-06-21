@@ -500,6 +500,11 @@ private fun ExpandedView(
                 }
             }
         }
+
+        // --- Banner ad, pinned to the bottom of the expanded sheet (HALF / FULL only). ---
+        // Takes no space (and shows no divider) until the on-demand :feature:ads module is installed
+        // and the ad loads, so it never leaves an empty gap below the log.
+        AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
     }
 }
 
