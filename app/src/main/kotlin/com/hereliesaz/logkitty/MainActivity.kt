@@ -27,6 +27,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory
+import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.InstallStateUpdatedListener
+import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallStatus
+import com.google.android.play.core.install.model.UpdateAvailability
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
@@ -69,6 +75,19 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { startOverlayService() }
 
+    // --- Play in-app updates (flexible) ---
+    // Only does anything for Play-installed builds; on sideloaded/GitHub builds no update is found.
+    private val appUpdateManager by lazy { AppUpdateManagerFactory.create(this) }
+    private var updateReadyToInstall by mutableStateOf(false)
+    private val installStateListener = InstallStateUpdatedListener { state ->
+        if (state.installStatus() == InstallStatus.DOWNLOADED) updateReadyToInstall = true
+    }
+    // Flexible-update download runs in the background; progress is tracked via installStateListener,
+    // so the result itself isn't needed here.
+    private val appUpdateLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -78,6 +97,9 @@ class MainActivity : ComponentActivity() {
 
         // Attempt to gain root access silently if available (for "Root Mode").
         requestRootAccess()
+
+        // Offer a flexible in-app update if Play has a newer build.
+        checkForAppUpdate()
 
         // Handle intent arguments (e.g., opening directly to Settings from the Notification).
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -117,6 +139,8 @@ class MainActivity : ComponentActivity() {
                             isReadLogsGranted = isReadLogsGranted,
                             isRootEnabled = isRootEnabled,
                             isServiceRunning = isServiceRunning,
+                            updateReadyToInstall = updateReadyToInstall,
+                            onCompleteUpdate = { appUpdateManager.completeUpdate() },
                             onGrantOverlay = { requestOverlayPermission() },
                             onToggleService = { toggleOverlayService() },
                             onOpenSettings = { showSettings = true }
@@ -226,6 +250,35 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) { e.printStackTrace() }
         }.start()
     }
+
+    /** Starts a flexible Play update if one is available, or surfaces the restart prompt if already downloaded. */
+    private fun checkForAppUpdate() {
+        appUpdateManager.registerListener(installStateListener)
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+            when {
+                info.installStatus() == InstallStatus.DOWNLOADED -> updateReadyToInstall = true
+                info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
+                    info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE) -> runCatching {
+                        appUpdateManager.startUpdateFlowForResult(
+                            info, appUpdateLauncher, AppUpdateOptions.defaultOptions(AppUpdateType.FLEXIBLE),
+                        )
+                    }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // If a flexible update finished downloading while the user was away, show the restart prompt.
+        appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
+            if (info.installStatus() == InstallStatus.DOWNLOADED) updateReadyToInstall = true
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        appUpdateManager.unregisterListener(installStateListener)
+    }
 }
 
 /**
@@ -237,6 +290,8 @@ fun MainScreenContent(
     isReadLogsGranted: Boolean,
     isRootEnabled: Boolean,
     isServiceRunning: Boolean,
+    updateReadyToInstall: Boolean,
+    onCompleteUpdate: () -> Unit,
     onGrantOverlay: () -> Unit,
     onToggleService: () -> Unit,
     onOpenSettings: () -> Unit
@@ -262,6 +317,17 @@ fun MainScreenContent(
             )
             Text(text = stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(32.dp))
+
+            // In-app update ready (flexible update finished downloading) → offer restart.
+            if (updateReadyToInstall) {
+                PermissionCard(
+                    title = stringResource(R.string.update_ready_title),
+                    description = stringResource(R.string.update_ready_desc),
+                    buttonText = stringResource(R.string.update_restart),
+                    onClick = onCompleteUpdate
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Step 1: Overlay Permission
             if (!isOverlayGranted) {
