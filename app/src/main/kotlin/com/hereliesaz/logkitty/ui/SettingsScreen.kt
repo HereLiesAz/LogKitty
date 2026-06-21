@@ -555,7 +555,7 @@ private fun SettingsMainScreen(
             SettingsFooter(context)
 
             Spacer(modifier = Modifier.height(16.dp))
-            SettingsAdBanner()
+            AdBannerSlot()
 
             // Large trailing margin so the footer can be scrolled well up the screen.
             Spacer(modifier = Modifier.height(240.dp))
@@ -629,35 +629,6 @@ private fun SettingsFooter(context: android.content.Context) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp)
         )
-    }
-}
-
-/**
- * AdMob banner shown at the bottom of Settings. The unit ID comes from build config
- * (BuildConfig.ADMOB_BANNER_UNIT_ID): Google's test unit for debug, the real unit for release when
- * configured in local.properties/env. The app ID lives in AndroidManifest; SDK init is in
- * MainApplication. TODO: add a UMP consent flow before serving personalized ads.
- */
-@Composable
-private fun SettingsAdBanner() {
-    val context = LocalContext.current
-    // The AdMob SDK + AdView live in the on-demand :feature:ads module (so play-services-ads and
-    // the AD_ID permission ship only with it). Fetch it silently in the background on first Settings
-    // view, then load the entry point reflectively and render the banner once present.
-    val handle = com.hereliesaz.logkitty.feature.rememberFeatureInstall(
-        com.hereliesaz.logkitty.core.feature.FeatureModules.ADS
-    )
-    androidx.compose.runtime.LaunchedEffect(Unit) { handle.install() }
-    if (handle.status is com.hereliesaz.logkitty.feature.FeatureInstallStatus.Installed) {
-        val ads = remember {
-            com.hereliesaz.logkitty.core.feature.FeatureLoader.load<com.hereliesaz.logkitty.core.feature.AdsFeature>(
-                com.hereliesaz.logkitty.core.feature.FeatureModules.ADS_IMPL, context
-            )
-        }
-        if (ads != null) {
-            androidx.compose.runtime.LaunchedEffect(ads) { ads.initialize(context.applicationContext) }
-            ads.BannerAd(BuildConfig.ADMOB_BANNER_UNIT_ID, Modifier)
-        }
     }
 }
 
