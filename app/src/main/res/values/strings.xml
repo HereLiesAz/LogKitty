@@ -137,6 +137,7 @@
     <string name="github_get">Get GitHub Actions</string>
     <string name="github_installing">Installing GitHub Actions…</string>
     <string name="github_finishing_install">Finishing install — tap to load.</string>
+    <string name="github_coming_soon">GitHub Actions coming soon…</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>

@@ -7,8 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
+import com.hereliesaz.logkitty.R
 import com.hereliesaz.logkitty.core.feature.GitHubFeature
 
 /**
@@ -34,7 +36,7 @@ class GitHubFeatureImpl : GitHubFeature {
     ) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                "GitHub Actions coming soon…",
+                stringResource(R.string.github_coming_soon),
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = fontSize.sp,
                 fontFamily = fontFamily,
