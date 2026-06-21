@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:dist="http://schemas.android.com/apk/distribution">
+
+    <dist:module
+        dist:instant="false"
+        dist:title="@string/feature_github_title">
+        <dist:delivery>
+            <dist:on-demand />
+        </dist:delivery>
+        <!-- Fuse into the standalone/universal APK so the sideloaded GitHub build is a full monolith;
+             on Google Play the module is delivered on-demand instead. -->
+        <dist:fusing dist:include="true" />
+    </dist:module>
+
+    <!-- INTERNET is declared in the base module; GitHub REST calls need no extra permission. -->
+</manifest>
