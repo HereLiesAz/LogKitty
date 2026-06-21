@@ -80,7 +80,9 @@ class MainActivity : ComponentActivity() {
     private val appUpdateManager by lazy { AppUpdateManagerFactory.create(this) }
     private var updateReadyToInstall by mutableStateOf(false)
     private val installStateListener = InstallStateUpdatedListener { state ->
-        if (state.installStatus() == InstallStatus.DOWNLOADED) updateReadyToInstall = true
+        // Bind the prompt to the download status so it clears if the update is canceled or fails,
+        // rather than latching on once and showing a stale "Restart" card.
+        updateReadyToInstall = state.installStatus() == InstallStatus.DOWNLOADED
     }
     // Flexible-update download runs in the background; progress is tracked via installStateListener,
     // so the result itself isn't needed here.
@@ -255,23 +257,25 @@ class MainActivity : ComponentActivity() {
     private fun checkForAppUpdate() {
         appUpdateManager.registerListener(installStateListener)
         appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
-            when {
-                info.installStatus() == InstallStatus.DOWNLOADED -> updateReadyToInstall = true
+            updateReadyToInstall = info.installStatus() == InstallStatus.DOWNLOADED
+            if (!updateReadyToInstall &&
                 info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
-                    info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE) -> runCatching {
-                        appUpdateManager.startUpdateFlowForResult(
-                            info, appUpdateLauncher, AppUpdateOptions.defaultOptions(AppUpdateType.FLEXIBLE),
-                        )
-                    }
+                info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
+            ) {
+                runCatching {
+                    appUpdateManager.startUpdateFlowForResult(
+                        info, appUpdateLauncher, AppUpdateOptions.defaultOptions(AppUpdateType.FLEXIBLE),
+                    )
+                }
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // If a flexible update finished downloading while the user was away, show the restart prompt.
+        // Re-sync the restart prompt with the actual download state so a stale prompt isn't shown.
         appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
-            if (info.installStatus() == InstallStatus.DOWNLOADED) updateReadyToInstall = true
+            updateReadyToInstall = info.installStatus() == InstallStatus.DOWNLOADED
         }
     }
 
