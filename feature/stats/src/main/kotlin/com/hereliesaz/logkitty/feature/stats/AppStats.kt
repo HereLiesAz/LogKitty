@@ -101,7 +101,17 @@ data class PowerStats(
     val batteryLevelPercent: Int?,
     val batteryTempC: Float?,
     val charging: Boolean?,
+    // --- Battery drill-down detail ("what's draining battery"), best-effort, root only ---
+    /** Top partial wakelocks by held time. */
+    val topWakelocks: List<NamedDuration> = emptyList(),
+    /** Scheduled-job components attributed to the app. */
+    val jobComponents: List<String> = emptyList(),
+    /** Alarm receivers/actions attributed to the app. */
+    val alarmComponents: List<String> = emptyList(),
 )
+
+/** A named thing with an optional held/elapsed duration in milliseconds (e.g. a wakelock). */
+data class NamedDuration(val name: String, val ms: Long?)
 
 data class HealthStats(
     val threadCount: Int?,
