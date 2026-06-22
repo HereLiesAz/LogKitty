@@ -156,11 +156,8 @@ private fun JobLogScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         Header("${statusGlyph(job.status, job.conclusion)} ${job.name}", ff, fs, onBack = onBack, onRefresh = { refresh++ })
         ResultBody(state, ff, fs, empty = "No log output.") { lines ->
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-                items(lines.size) { i ->
-                    Text(lines[i], color = Color.White.copy(alpha = 0.92f), fontSize = (fs - 1).sp, fontFamily = ff)
-                }
-            }
+            // Colored, collapsible, selectable rendering (ANSI + ##[group]/##[error]/…).
+            GitHubLogView(logLines = lines, fontFamily = ff, fontSize = fs, modifier = Modifier.fillMaxSize())
         }
     }
 }
