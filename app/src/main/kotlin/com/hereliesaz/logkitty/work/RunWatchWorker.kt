@@ -42,8 +42,12 @@ class RunWatchWorker(context: Context, params: WorkerParameters) : Worker(contex
         val runName = inputData.getString(KEY_RUN_NAME) ?: "Workflow run"
 
         val token = GitHubCredentials(applicationContext).readToken()
-        val status = fetchRunStatus(owner, repo, runId, token)
-            ?: return if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
+        val status = when (val r = fetchRunStatus(owner, repo, runId, token)) {
+            is FetchResult.Success -> r.status
+            // Auth/not-found/bad-request won't fix themselves — fail instead of retrying 80×.
+            FetchResult.Permanent -> return Result.failure()
+            FetchResult.Transient -> return if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else Result.success()
+        }
 
         if (status.terminal) {
             postCompletion(owner, repo, runId, runName, status.conclusion)
@@ -55,7 +59,15 @@ class RunWatchWorker(context: Context, params: WorkerParameters) : Worker(contex
 
     private data class RunStatus(val terminal: Boolean, val conclusion: String?)
 
-    private fun fetchRunStatus(owner: String, repo: String, runId: Long, token: String?): RunStatus? {
+    private sealed interface FetchResult {
+        data class Success(val status: RunStatus) : FetchResult
+        /** Retryable (network blip, 5xx, rate-limit). */
+        data object Transient : FetchResult
+        /** Won't change on retry (401/403/404/400) — stop. */
+        data object Permanent : FetchResult
+    }
+
+    private fun fetchRunStatus(owner: String, repo: String, runId: Long, token: String?): FetchResult {
         val builder = Request.Builder()
             .url("https://api.github.com/repos/$owner/$repo/actions/runs/$runId")
             .header("Accept", "application/vnd.github+json")
@@ -63,14 +75,19 @@ class RunWatchWorker(context: Context, params: WorkerParameters) : Worker(contex
         token?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
         return try {
             client.newCall(builder.build()).execute().use { resp ->
-                if (!resp.isSuccessful) return null
-                val o = JSONObject(resp.body?.string().orEmpty())
-                val statusStr = o.optString("status")
-                val conclusion = o.opt("conclusion")?.takeIf { it != JSONObject.NULL }?.toString()
-                RunStatus(terminal = statusStr == "completed", conclusion = conclusion)
+                when {
+                    resp.isSuccessful -> {
+                        val o = JSONObject(resp.body?.string().orEmpty())
+                        val statusStr = o.optString("status")
+                        val conclusion = o.opt("conclusion")?.takeIf { it != JSONObject.NULL }?.toString()
+                        FetchResult.Success(RunStatus(terminal = statusStr == "completed", conclusion = conclusion))
+                    }
+                    resp.code == 400 || resp.code == 401 || resp.code == 403 || resp.code == 404 -> FetchResult.Permanent
+                    else -> FetchResult.Transient
+                }
             }
         } catch (e: Exception) {
-            null
+            FetchResult.Transient
         }
     }
 
@@ -90,8 +107,10 @@ class RunWatchWorker(context: Context, params: WorkerParameters) : Worker(contex
         ensureChannel()
         val tapIntent = Intent(applicationContext, MainActivity::class.java)
             .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP) }
+        // Run IDs are Long and overflow Int, so don't truncate: hash for the request code, and tag the
+        // notification by run id (with a fixed numeric id) so distinct runs don't collide/overwrite.
         val pending = PendingIntent.getActivity(
-            applicationContext, runId.toInt(), tapIntent,
+            applicationContext, runId.hashCode(), tapIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
@@ -104,7 +123,7 @@ class RunWatchWorker(context: Context, params: WorkerParameters) : Worker(contex
             .build()
         // notify() throws nothing if POST_NOTIFICATIONS is missing; it's a silent no-op on 33+.
         try {
-            NotificationManagerCompat.from(applicationContext).notify(runId.toInt(), notification)
+            NotificationManagerCompat.from(applicationContext).notify("watch_run_$runId", 0, notification)
         } catch (e: SecurityException) {
             // Notifications not permitted — nothing more to do.
         }
