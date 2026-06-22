@@ -164,11 +164,15 @@ private fun JobLogScreen(
     var refresh by remember { mutableStateOf(0) }
     val state by produceState<GitHubResult<List<String>>?>(null, job.id, refresh) {
         value = null
-        // A running job's log grows, so re-fetch on a cadence until the job is terminal.
+        // A running job's log grows, so re-fetch on a cadence until the job is terminal. The passed-in
+        // `job` is a snapshot, so re-check the live status each round rather than trusting it — else a
+        // job opened while running would poll forever.
+        var terminal = job.isTerminal
         while (true) {
             value = api.fetchJobLog(owner, repo, job.id)
-            if (job.isTerminal) break
+            if (terminal) break
             delay(ACTIVE_POLL_MS)
+            terminal = (api.getJob(owner, repo, job.id) as? GitHubResult.Ok)?.value?.isTerminal ?: false
         }
     }
     Column(modifier = Modifier.fillMaxSize()) {
