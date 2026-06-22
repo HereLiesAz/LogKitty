@@ -36,6 +36,7 @@ import com.google.android.play.core.install.model.UpdateAvailability
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
+import com.hereliesaz.logkitty.ui.GitHubScreen
 import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
 
     // UI State for Navigation
     private var showSettings by mutableStateOf(false)
+    private var showGitHub by mutableStateOf(false)
 
     // Activity Result Launcher for the "Display Over Other Apps" system settings screen.
     private val overlayPermissionLauncher = registerForActivityResult(
@@ -125,28 +127,38 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    if (showSettings) {
-                        // Show the Settings Screen (Full Page).
-                        SettingsScreen(
-                            onBack = { showSettings = false },
-                            viewModel = (application as MainApplication).mainViewModel
-                        )
-                    } else {
-                        // Show the Main Dashboard / Permission Wizard.
-                        val viewModel = (application as MainApplication).mainViewModel
-                        val isRootEnabled by viewModel.isRootEnabled.collectAsState()
+                    val viewModel = (application as MainApplication).mainViewModel
+                    when {
+                        showSettings ->
+                            // Show the Settings Screen (Full Page).
+                            SettingsScreen(
+                                onBack = { showSettings = false },
+                                viewModel = viewModel
+                            )
+                        showGitHub ->
+                            // Full-screen GitHub Actions (same panel the overlay tab hosts).
+                            GitHubScreen(
+                                viewModel = viewModel,
+                                onBack = { showGitHub = false },
+                                onConfigure = { showGitHub = false; showSettings = true },
+                            )
+                        else -> {
+                            // Show the Main Dashboard / Permission Wizard.
+                            val isRootEnabled by viewModel.isRootEnabled.collectAsState()
 
-                        MainScreenContent(
-                            isOverlayGranted = isOverlayGranted,
-                            isReadLogsGranted = isReadLogsGranted,
-                            isRootEnabled = isRootEnabled,
-                            isServiceRunning = isServiceRunning,
-                            updateReadyToInstall = updateReadyToInstall,
-                            onCompleteUpdate = { appUpdateManager.completeUpdate() },
-                            onGrantOverlay = { requestOverlayPermission() },
-                            onToggleService = { toggleOverlayService() },
-                            onOpenSettings = { showSettings = true }
-                        )
+                            MainScreenContent(
+                                isOverlayGranted = isOverlayGranted,
+                                isReadLogsGranted = isReadLogsGranted,
+                                isRootEnabled = isRootEnabled,
+                                isServiceRunning = isServiceRunning,
+                                updateReadyToInstall = updateReadyToInstall,
+                                onCompleteUpdate = { appUpdateManager.completeUpdate() },
+                                onGrantOverlay = { requestOverlayPermission() },
+                                onToggleService = { toggleOverlayService() },
+                                onOpenSettings = { showSettings = true },
+                                onOpenGitHub = { showGitHub = true }
+                            )
+                        }
                     }
                 }
             }
@@ -298,7 +310,8 @@ fun MainScreenContent(
     onCompleteUpdate: () -> Unit,
     onGrantOverlay: () -> Unit,
     onToggleService: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenGitHub: () -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
@@ -377,6 +390,8 @@ fun MainScreenContent(
             }
             Spacer(modifier = Modifier.height(16.dp))
             AzButton(onClick = onOpenSettings, text = stringResource(R.string.settings), modifier = Modifier.fillMaxWidth().height(56.dp), shape = AzButtonShape.RECTANGLE)
+            Spacer(modifier = Modifier.height(8.dp))
+            AzButton(onClick = onOpenGitHub, text = stringResource(R.string.main_open_github), modifier = Modifier.fillMaxWidth().height(56.dp), shape = AzButtonShape.RECTANGLE)
         }
     }
 }
