@@ -34,6 +34,11 @@
 
     <!-- Settings screen -->
     <string name="settings_title">Settings</string>
+    <!-- Compartmentalized settings section titles -->
+    <string name="settings_section_display">Display &amp; Appearance</string>
+    <string name="settings_section_filtering">Filtering &amp; Log Behavior</string>
+    <string name="settings_section_context">Context &amp; Monitoring</string>
+    <string name="settings_section_data">Data &amp; Backup</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_background_color">Background Color</string>
     <string name="settings_background_opacity">Background Opacity: %1$d%%</string>

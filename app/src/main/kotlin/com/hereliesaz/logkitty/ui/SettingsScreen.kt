@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,11 +25,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -237,285 +239,289 @@ private fun SettingsMainScreen(
                 .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
-            PermissionsSection(context)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            SettingsCard {
+                PermissionsSection(context)
+            }
 
-            SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showColorPicker = true }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(stringResource(R.string.settings_background_color), style = MaterialTheme.typography.bodyLarge)
-                Box(
+            SettingsCard(stringResource(R.string.settings_section_display)) {
+                Row(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(Color(backgroundColorInt))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                )
-            }
-            HorizontalDivider()
-
-            Text(
-                stringResource(R.string.settings_background_opacity, (overlayOpacity * 100).toInt()),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 12.dp)
-            )
-            Slider(
-                value = overlayOpacity,
-                onValueChange = { viewModel.setOverlayOpacity(it) },
-                valueRange = 0.1f..1.0f,
-                steps = 9
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            SettingsSectionHeader(stringResource(R.string.settings_section_log_colors))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(stringResource(R.string.settings_color_scheme), style = MaterialTheme.typography.bodyLarge)
-                Box {
-                    OutlinedButton(onClick = { showSchemeMenu = true }) { Text(stringResource(colorScheme.displayNameRes)) }
-                    DropdownMenu(expanded = showSchemeMenu, onDismissRequest = { showSchemeMenu = false }) {
-                        LogColorScheme.values().forEach { scheme ->
-                            DropdownMenuItem(
-                                text = { Text(stringResource(scheme.displayNameRes)) },
-                                onClick = {
-                                    viewModel.setColorScheme(scheme)
-                                    showSchemeMenu = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(stringResource(R.string.settings_tag_based_coloring), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = tagColoringEnabled, onCheckedChange = { viewModel.setTagColoringEnabled(it) })
-            }
-            AzButton(
-                onClick = onOpenColorEditor,
-                text = stringResource(R.string.settings_customize_per_level_colors),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            SettingsSectionHeader(stringResource(R.string.settings_section_typography))
-            Text(stringResource(R.string.settings_font_size, fontSize), style = MaterialTheme.typography.bodyLarge)
-            Slider(
-                value = fontSize.toFloat(),
-                onValueChange = { viewModel.setFontSize(it.toInt()) },
-                valueRange = 8f..24f,
-                steps = 15
-            )
-
-            var fontExpanded by remember { mutableStateOf(false) }
-            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                OutlinedButton(
-                    onClick = { fontExpanded = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RectangleShape
+                        .fillMaxWidth()
+                        .clickable { showColorPicker = true }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val currentFont = remember(fontFamilyName) {
-                        try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
-                    }
-                    Text(stringResource(R.string.settings_font, stringResource(currentFont.displayNameRes)))
+                    Text(stringResource(R.string.settings_background_color), style = MaterialTheme.typography.bodyLarge)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(backgroundColorInt))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    )
                 }
-                DropdownMenu(expanded = fontExpanded, onDismissRequest = { fontExpanded = false }) {
-                    CodingFont.values().forEach { font ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(font.displayNameRes)) },
-                            onClick = {
-                                viewModel.setFontFamily(font)
-                                fontExpanded = false
-                            }
-                        )
+
+                Text(
+                    stringResource(R.string.settings_background_opacity, (overlayOpacity * 100).toInt()),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+                Slider(
+                    value = overlayOpacity,
+                    onValueChange = { viewModel.setOverlayOpacity(it) },
+                    valueRange = 0.1f..1.0f,
+                    steps = 9
+                )
+
+                Text(
+                    stringResource(R.string.settings_font_size, fontSize),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                Slider(
+                    value = fontSize.toFloat(),
+                    onValueChange = { viewModel.setFontSize(it.toInt()) },
+                    valueRange = 8f..24f,
+                    steps = 15
+                )
+
+                var fontExpanded by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    OutlinedButton(
+                        onClick = { fontExpanded = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape
+                    ) {
+                        val currentFont = remember(fontFamilyName) {
+                            try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
+                        }
+                        Text(stringResource(R.string.settings_font, stringResource(currentFont.displayNameRes)))
                     }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.settings_show_timestamps), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = showTimestamp, onCheckedChange = { viewModel.setShowTimestamp(it) })
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            SettingsSectionHeader(stringResource(R.string.settings_section_behavior))
-
-            Text(stringResource(R.string.settings_active_log_levels), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                LogLevel.values().forEach { level ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Checkbox(
-                            checked = activeLevels.contains(level.name),
-                            onCheckedChange = { viewModel.toggleLogLevel(level, it) }
-                        )
-                        Text(level.name.first().toString(), style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-
-            var bufferExpanded by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.settings_buffer_size), style = MaterialTheme.typography.bodyLarge)
-                Box {
-                    OutlinedButton(onClick = { bufferExpanded = true }) { Text(bufferSize.toString()) }
-                    DropdownMenu(expanded = bufferExpanded, onDismissRequest = { bufferExpanded = false }) {
-                        listOf(1000, 2000, 5000, 10000).forEach { size ->
+                    DropdownMenu(expanded = fontExpanded, onDismissRequest = { fontExpanded = false }) {
+                        CodingFont.values().forEach { font ->
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.settings_buffer_lines, size)) },
+                                text = { Text(stringResource(font.displayNameRes)) },
                                 onClick = {
-                                    viewModel.setBufferSize(size)
-                                    bufferExpanded = false
+                                    viewModel.setFontFamily(font)
+                                    fontExpanded = false
                                 }
                             )
                         }
                     }
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.settings_show_timestamps), style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = showTimestamp, onCheckedChange = { viewModel.setShowTimestamp(it) })
+                }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
-                    // Non-root foreground detection needs Usage Access; warn if it's on but not granted.
-                    if (isContextMode && !isRootEnabled && !isUsageGranted) {
-                        Text(
-                            stringResource(R.string.context_mode_usage_disabled_warning),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
+            SettingsCard(stringResource(R.string.settings_section_log_colors)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(stringResource(R.string.settings_color_scheme), style = MaterialTheme.typography.bodyLarge)
+                    Box {
+                        OutlinedButton(onClick = { showSchemeMenu = true }) { Text(stringResource(colorScheme.displayNameRes)) }
+                        DropdownMenu(expanded = showSchemeMenu, onDismissRequest = { showSchemeMenu = false }) {
+                            LogColorScheme.values().forEach { scheme ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(scheme.displayNameRes)) },
+                                    onClick = {
+                                        viewModel.setColorScheme(scheme)
+                                        showSchemeMenu = false
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
-                Switch(
-                    checked = isContextMode,
-                    onCheckedChange = { enable ->
-                        // Root detects the foreground app via dumpsys (no grant). Non-root needs Usage
-                        // Access: toggle directly if already granted, otherwise show the disclosure
-                        // + consent first. Disabling needs no gate.
-                        if (enable) {
-                            if (isRootEnabled || isUsageGranted) viewModel.toggleContextMode()
-                            else showContextDisclosure = true
-                        } else viewModel.toggleContextMode()
-                    }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(stringResource(R.string.settings_tag_based_coloring), style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = tagColoringEnabled, onCheckedChange = { viewModel.setTagColoringEnabled(it) })
+                }
+                AzButton(
+                    onClick = onOpenColorEditor,
+                    text = stringResource(R.string.settings_customize_per_level_colors),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.settings_root_access), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
-            }
+            SettingsCard(stringResource(R.string.settings_section_filtering)) {
+                Text(stringResource(R.string.settings_active_log_levels), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    LogLevel.values().forEach { level ->
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Checkbox(
+                                checked = activeLevels.contains(level.name),
+                                onCheckedChange = { viewModel.toggleLogLevel(level, it) }
+                            )
+                            Text(level.name.first().toString(), style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.settings_reverse_log_order), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = isLogReversed, onCheckedChange = { viewModel.setLogReversed(it) })
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                var bufferExpanded by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.settings_buffer_size), style = MaterialTheme.typography.bodyLarge)
+                    Box {
+                        OutlinedButton(onClick = { bufferExpanded = true }) { Text(bufferSize.toString()) }
+                        DropdownMenu(expanded = bufferExpanded, onDismissRequest = { bufferExpanded = false }) {
+                            listOf(1000, 2000, 5000, 10000).forEach { size ->
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.settings_buffer_lines, size)) },
+                                    onClick = {
+                                        viewModel.setBufferSize(size)
+                                        bufferExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
 
-            SettingsSectionHeader(stringResource(R.string.settings_section_app_monitoring))
-            Text(
-                stringResource(R.string.settings_app_monitoring_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            if (monitoredApps.isEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.settings_reverse_log_order), style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = isLogReversed, onCheckedChange = { viewModel.setLogReversed(it) })
+                }
+
+                AzButton(
+                    onClick = onOpenProhibited,
+                    text = stringResource(R.string.settings_prohibited_tags, prohibitedCount.size),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+
                 Text(
-                    stringResource(R.string.settings_no_apps_pinned),
-                    style = MaterialTheme.typography.bodyMedium,
+                    stringResource(R.string.settings_log_sources_desc),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
                 )
-            } else {
-                monitoredApps.forEach { pkg ->
-                    // Resolve the app label off the main thread to avoid blocking PackageManager IPC.
-                    val label by produceState(initialValue = pkg, pkg) {
-                        value = withContext(Dispatchers.IO) { appLabel(context, pkg) }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                SourceFilterGroup(
+                    title = stringResource(R.string.settings_sources),
+                    keys = LogSources.SOURCE_BUCKETS,
+                    enabled = activeSourceFilters,
+                    onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
+                )
+                SourceFilterGroup(
+                    title = stringResource(R.string.settings_categories),
+                    keys = LogSources.CATEGORY_BUCKETS,
+                    enabled = activeSourceFilters,
+                    onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
+                )
+            }
+
+            SettingsCard(stringResource(R.string.settings_section_context)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_context_mode), style = MaterialTheme.typography.bodyLarge)
+                        // Non-root foreground detection needs Usage Access; warn if it's on but not granted.
+                        if (isContextMode && !isRootEnabled && !isUsageGranted) {
                             Text(
-                                pkg,
+                                stringResource(R.string.context_mode_usage_disabled_warning),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
-                        IconButton(onClick = { viewModel.removeMonitoredApp(pkg) }) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_stop_monitoring, pkg))
+                    }
+                    Switch(
+                        checked = isContextMode,
+                        onCheckedChange = { enable ->
+                            // Root detects the foreground app via dumpsys (no grant). Non-root needs Usage
+                            // Access: toggle directly if already granted, otherwise show the disclosure
+                            // + consent first. Disabling needs no gate.
+                            if (enable) {
+                                if (isRootEnabled || isUsageGranted) viewModel.toggleContextMode()
+                                else showContextDisclosure = true
+                            } else viewModel.toggleContextMode()
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(stringResource(R.string.settings_root_access), style = MaterialTheme.typography.bodyLarge)
+                    Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
+                }
+
+                Text(
+                    stringResource(R.string.settings_app_monitoring_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                if (monitoredApps.isEmpty()) {
+                    Text(
+                        stringResource(R.string.settings_no_apps_pinned),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                } else {
+                    monitoredApps.forEach { pkg ->
+                        // Resolve the app label off the main thread to avoid blocking PackageManager IPC.
+                        val label by produceState(initialValue = pkg, pkg) {
+                            value = withContext(Dispatchers.IO) { appLabel(context, pkg) }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(label, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    pkg,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = { viewModel.removeMonitoredApp(pkg) }) {
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_stop_monitoring, pkg))
+                            }
                         }
                     }
                 }
+                AzButton(
+                    onClick = { showAppPicker = true },
+                    text = stringResource(R.string.settings_add_app_to_monitor),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
             }
-            AzButton(
-                onClick = { showAppPicker = true },
-                text = stringResource(R.string.settings_add_app_to_monitor),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            SettingsSectionHeader(stringResource(R.string.settings_section_log_sources))
-            Text(
-                stringResource(R.string.settings_log_sources_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            SourceFilterGroup(
-                title = stringResource(R.string.settings_sources),
-                keys = LogSources.SOURCE_BUCKETS,
-                enabled = activeSourceFilters,
-                onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
-            )
-            SourceFilterGroup(
-                title = stringResource(R.string.settings_categories),
-                keys = LogSources.CATEGORY_BUCKETS,
-                enabled = activeSourceFilters,
-                onToggle = { key, on -> viewModel.setSourceFilterEnabled(key, on) }
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            SettingsSectionHeader(stringResource(R.string.settings_section_github))
+            SettingsCard(stringResource(R.string.settings_section_github)) {
             Text(
                 stringResource(R.string.settings_github_desc),
                 style = MaterialTheme.typography.bodySmall,
@@ -655,62 +661,48 @@ private fun SettingsMainScreen(
                     },
                 )
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            }
 
-            SettingsSectionHeader(stringResource(R.string.settings_section_filters))
-            AzButton(
-                onClick = onOpenProhibited,
-                text = stringResource(R.string.settings_prohibited_tags, prohibitedCount.size),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            SettingsCard(stringResource(R.string.settings_section_data)) {
+                AzButton(
+                    onClick = { exportLauncher.launch("logkitty_prefs.json") },
+                    text = stringResource(R.string.settings_export_preferences),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+                AzButton(
+                    onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                    text = stringResource(R.string.settings_import_preferences),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+                AzButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(viewModel.exportPreferences()))
+                        Toast.makeText(context, context.getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                    },
+                    text = stringResource(R.string.settings_copy_preferences_json),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+                AzButton(
+                    onClick = { viewModel.clearLog() },
+                    text = stringResource(R.string.settings_clear_log),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+                AzButton(
+                    onClick = { viewModel.resetLogColors() },
+                    text = stringResource(R.string.settings_reset_colors),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+            }
 
-            SettingsSectionHeader(stringResource(R.string.settings_section_backup))
-            AzButton(
-                onClick = { exportLauncher.launch("logkitty_prefs.json") },
-                text = stringResource(R.string.settings_export_preferences),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            AzButton(
-                onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
-                text = stringResource(R.string.settings_import_preferences),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            AzButton(
-                onClick = {
-                    clipboardManager.setText(AnnotatedString(viewModel.exportPreferences()))
-                    Toast.makeText(context, context.getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()
-                },
-                text = stringResource(R.string.settings_copy_preferences_json),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-            AzButton(
-                onClick = { viewModel.clearLog() },
-                text = stringResource(R.string.settings_clear_log),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            AzButton(
-                onClick = { viewModel.resetLogColors() },
-                text = stringResource(R.string.settings_reset_colors),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
             SettingsFooter(context)
 
-            Spacer(modifier = Modifier.height(16.dp))
-            AdBannerSlot()
-
-            // Large trailing margin so the footer can be scrolled well up the screen.
-            Spacer(modifier = Modifier.height(240.dp))
+            // Modest trailing margin so the footer clears the persistent bottom ad.
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -1012,6 +1004,26 @@ private fun ContextModeDisclosureDialog(onDismiss: () -> Unit, onAgree: () -> Un
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
+}
+
+/**
+ * A visually distinct "compartment" for a group of related settings: a [Card] with an optional
+ * section title rendered via [SettingsSectionHeader]. Pass `title = null` when the content renders
+ * its own header (e.g. [PermissionsSection]) to avoid a duplicate.
+ */
+@Composable
+private fun SettingsCard(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (title != null) SettingsSectionHeader(title)
+            content()
+        }
+    }
 }
 
 @Composable
