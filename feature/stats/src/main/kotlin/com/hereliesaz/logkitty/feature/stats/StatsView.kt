@@ -100,7 +100,9 @@ fun StatsView(
         if (history.size >= 2) TrendsSection(history, fontFamily, fontSize, labelColor, valueColor)
 
         stats.cpu?.let { CpuSection(it, fontFamily, fontSize, labelColor, valueColor, onProbeThreadStack) }
-        stats.memory?.let { MemorySection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.memory?.let {
+            MemorySection(it, history.mapNotNull { s -> s.memory?.totalPssKb }, fontFamily, fontSize, labelColor, valueColor)
+        }
         stats.gpu?.let { GpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.network?.let { NetworkSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.power?.let { PowerSection(stats.packageName, it, stats.cpu, stats.sensors, fontFamily, fontSize, labelColor, valueColor) }
@@ -328,7 +330,9 @@ private fun CpuSection(
 }
 
 @Composable
-private fun MemorySection(m: MemoryStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+private fun MemorySection(
+    m: MemoryStats, pssHistory: List<Long>, ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+) {
     StatCard("Memory", ff, fs) {
         StatRow("Total PSS", kb(m.totalPssKb), ff, fs, lc, vc, emphasize = true)
         StatRow("Java heap", kb(m.javaHeapKb), ff, fs, lc, vc)
@@ -341,7 +345,32 @@ private fun MemorySection(m: MemoryStats, ff: FontFamily?, fs: Int, lc: Color, v
             val used = m.deviceTotalRamKb - (m.deviceAvailRamKb ?: 0)
             StatRow("Device RAM", "${kb(used)} / ${kb(m.deviceTotalRamKb)} used", ff, fs, lc, vc)
         }
+        MemoryTrend(pssHistory, ff, fs, lc)
     }
+}
+
+/**
+ * Leak/ramp hint from the rolling PSS history: if total PSS has climbed by more than a threshold over
+ * the window and is still near its peak, flag it. Turns the point-in-time number into "is it growing?"
+ */
+@Composable
+private fun MemoryTrend(pssHistory: List<Long>, ff: FontFamily?, fs: Int, lc: Color) {
+    if (pssHistory.size < MIN_TREND_SAMPLES) return
+    val first = pssHistory.first()
+    val last = pssHistory.last()
+    val deltaKb = last - first
+    if (deltaKb < LEAK_THRESHOLD_KB) return // not a meaningful rise
+    val peak = pssHistory.max()
+    val climbing = last >= peak - peak / 50 // within ~2% of the peak → still at/near the top
+    val windowSec = pssHistory.size * 2 // ~2s sampling cadence
+    val msg = "PSS +${kb(deltaKb)} over ~${windowSec}s" + if (climbing) " — still climbing (possible leak)" else ""
+    Spacer(Modifier.height(2.dp))
+    Text(
+        msg,
+        color = if (climbing) Color(0xFFFFB74D) else lc,
+        fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -615,3 +644,9 @@ private fun accentFor(library: String): Color {
     val idx = (library.hashCode() and 0x7FFFFFFF) % palette.size
     return palette[idx]
 }
+
+// --- Memory leak/ramp heuristics (used by MemoryTrend) ---
+/** Need at least this many PSS samples (~10s at the 2s cadence) before a trend is meaningful. */
+private const val MIN_TREND_SAMPLES = 5
+/** Only flag a rise once PSS has climbed by more than this (in KB ≈ 4 MB) over the window. */
+private const val LEAK_THRESHOLD_KB = 4096L
