@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 /**
  * The GitHub Actions drill-down: runs → jobs → job log. Phase 2 does a single fetch per screen with
@@ -82,9 +83,16 @@ private fun RunsScreen(
     onRun: (WorkflowRun) -> Unit, modifier: Modifier,
 ) {
     var refresh by remember { mutableStateOf(0) }
+    // Live polling: refresh fast while any run is in progress, slowly otherwise. produceState cancels
+    // the loop when this screen leaves composition (e.g. drilling into a run).
     val state by produceState<GitHubResult<List<WorkflowRun>>?>(null, owner, repo, refresh) {
         value = null
-        value = api.listRuns(owner, repo)
+        while (true) {
+            val result = api.listRuns(owner, repo)
+            value = result
+            val active = result is GitHubResult.Ok && result.value.any { !it.isTerminal }
+            delay(if (active) ACTIVE_POLL_MS else IDLE_POLL_MS)
+        }
     }
     Column(modifier = modifier.fillMaxSize()) {
         Header("$owner/$repo", ff, fs, onBack = null, onRefresh = { refresh++ })
@@ -119,7 +127,12 @@ private fun JobsScreen(
     var refresh by remember { mutableStateOf(0) }
     val state by produceState<GitHubResult<List<WorkflowJob>>?>(null, run.id, refresh) {
         value = null
-        value = api.listJobs(owner, repo, run.id)
+        while (true) {
+            val result = api.listJobs(owner, repo, run.id)
+            value = result
+            val active = result is GitHubResult.Ok && result.value.any { !it.isTerminal }
+            delay(if (active) ACTIVE_POLL_MS else IDLE_POLL_MS)
+        }
     }
     Column(modifier = modifier.fillMaxSize()) {
         Header("${statusGlyph(run.status, run.conclusion)} ${run.name}", ff, fs, onBack = onBack, onRefresh = { refresh++ })
@@ -151,7 +164,12 @@ private fun JobLogScreen(
     var refresh by remember { mutableStateOf(0) }
     val state by produceState<GitHubResult<List<String>>?>(null, job.id, refresh) {
         value = null
-        value = api.fetchJobLog(owner, repo, job.id)
+        // A running job's log grows, so re-fetch on a cadence until the job is terminal.
+        while (true) {
+            value = api.fetchJobLog(owner, repo, job.id)
+            if (job.isTerminal) break
+            delay(ACTIVE_POLL_MS)
+        }
     }
     Column(modifier = Modifier.fillMaxSize()) {
         Header("${statusGlyph(job.status, job.conclusion)} ${job.name}", ff, fs, onBack = onBack, onRefresh = { refresh++ })
@@ -220,3 +238,7 @@ private fun statusGlyph(status: String, conclusion: String?): String = when {
     conclusion == "skipped" -> "⏭️"
     else -> "⚠️"
 }
+
+// Poll cadence: brisk while something is in progress, relaxed when everything is terminal.
+private const val ACTIVE_POLL_MS = 5000L
+private const val IDLE_POLL_MS = 30000L
