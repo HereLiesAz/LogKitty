@@ -3,6 +3,7 @@ package com.hereliesaz.logkitty.feature.stats
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -30,6 +31,9 @@ class StatsFeatureImpl : StatsFeature {
         modifier: Modifier,
     ) {
         val appContext = LocalContext.current.applicationContext
+        // A separate collector instance for on-demand probes (e.g. a thread's stack). It doesn't use
+        // the polling collector's delta state, so running it alongside the loop is safe.
+        val probeCollector = remember(appContext) { AppStatsCollector(appContext) }
 
         // Poll on a fast cadence for live metrics, refreshing the heavy power/scheduling stats less
         // often, and keep a rolling window of recent snapshots so the UI can draw trend sparklines.
@@ -74,7 +78,13 @@ class StatsFeatureImpl : StatsFeature {
             }
         }
 
-        StatsView(history = history, fontFamily = fontFamily, fontSize = fontSize, modifier = modifier)
+        StatsView(
+            history = history,
+            fontFamily = fontFamily,
+            fontSize = fontSize,
+            modifier = modifier,
+            onProbeThreadStack = { pid, tid -> probeCollector.probeThreadStack(pid, tid, useRoot) },
+        )
     }
 
     private companion object {

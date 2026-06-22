@@ -20,8 +20,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 /**
  * The developer-stats body shown when an app tab is toggled from Logs to Stats. Renders the live
@@ -45,6 +48,8 @@ fun StatsView(
     fontFamily: FontFamily?,
     fontSize: Int,
     modifier: Modifier = Modifier,
+    /** On-demand kernel-stack probe for a (pid, tid); null disables the CPU thread drill-down. */
+    onProbeThreadStack: (suspend (Int, Int) -> List<String>?)? = null,
 ) {
     val stats = history.lastOrNull()
     if (stats == null) {
@@ -95,7 +100,7 @@ fun StatsView(
 
         if (history.size >= 2) TrendsSection(history, fontFamily, fontSize, labelColor, valueColor)
 
-        stats.cpu?.let { CpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.cpu?.let { CpuSection(it, fontFamily, fontSize, labelColor, valueColor, onProbeThreadStack) }
         stats.memory?.let { MemorySection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.gpu?.let { GpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.network?.let { NetworkSection(it, fontFamily, fontSize, labelColor, valueColor) }
@@ -245,7 +250,16 @@ private fun CrashSection(c: CrashStats, ff: FontFamily?, fs: Int, lc: Color, vc:
 }
 
 @Composable
-private fun CpuSection(cpu: CpuStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+private fun CpuSection(
+    cpu: CpuStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+    onProbeThreadStack: (suspend (Int, Int) -> List<String>?)? = null,
+) {
+    val scope = rememberCoroutineScope()
+    // Per-tid drill-down state: which rows are open, captured stacks (absent = not fetched), loading.
+    val expanded = remember(cpu) { mutableStateMapOf<Int, Boolean>() }
+    val stacks = remember(cpu) { mutableStateMapOf<Int, List<String>>() }
+    val loading = remember(cpu) { mutableStateMapOf<Int, Boolean>() }
+
     StatCard("CPU", ff, fs) {
         PercentBar("App CPU (of device)", cpu.appPercent, 100f, ff, fs, lc, vc)
         StatRow("User / Kernel", "${pct(cpu.userPercent)} / ${pct(cpu.kernelPercent)}", ff, fs, lc, vc)
@@ -254,11 +268,27 @@ private fun CpuSection(cpu: CpuStats, ff: FontFamily?, fs: Int, lc: Color, vc: C
         if (cpu.threads.isNotEmpty()) {
             Spacer(Modifier.height(4.dp))
             Text(
-                "Top threads — the library behind the load",
+                if (onProbeThreadStack != null) "Top threads — tap to capture a thread's stack"
+                else "Top threads — the library behind the load",
                 color = lc, fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
             )
             cpu.threads.forEach { t ->
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                val rowModifier = if (onProbeThreadStack != null) {
+                    Modifier.fillMaxWidth().clickable {
+                        val open = expanded[t.tid] == true
+                        expanded[t.tid] = !open
+                        if (!open && t.tid !in stacks && loading[t.tid] != true) {
+                            loading[t.tid] = true
+                            scope.launch {
+                                stacks[t.tid] = onProbeThreadStack(t.pid, t.tid) ?: emptyList()
+                                loading[t.tid] = false
+                            }
+                        }
+                    }.padding(top = 2.dp)
+                } else {
+                    Modifier.fillMaxWidth().padding(top = 2.dp)
+                }
+                Row(modifier = rowModifier, verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(t.name, color = vc, fontSize = (fs - 1).sp, fontFamily = ff,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -268,6 +298,22 @@ private fun CpuSection(cpu: CpuStats, ff: FontFamily?, fs: Int, lc: Color, vc: C
                     }
                     Text(pct(t.percent), color = vc, fontSize = (fs - 1).sp, fontFamily = ff,
                         fontWeight = FontWeight.Bold)
+                }
+                if (expanded[t.tid] == true) {
+                    when {
+                        loading[t.tid] == true ->
+                            Text("Capturing stack…", color = lc, fontSize = (fs - 2).sp, fontFamily = ff,
+                                modifier = Modifier.padding(start = 8.dp, bottom = 2.dp))
+                        stacks[t.tid].isNullOrEmpty() ->
+                            Text("No stack available (kernel-restricted, idle, or non-root).",
+                                color = lc, fontSize = (fs - 2).sp, fontFamily = ff,
+                                modifier = Modifier.padding(start = 8.dp, bottom = 2.dp))
+                        else -> stacks[t.tid]?.forEach { frame ->
+                            Text(frame, color = vc.copy(alpha = 0.85f), fontSize = (fs - 3).sp, fontFamily = ff,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.fillMaxWidth().padding(start = 8.dp))
+                        }
+                    }
                 }
             }
         } else {

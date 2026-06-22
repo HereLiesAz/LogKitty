@@ -156,6 +156,26 @@ class AppStatsCollector(private val context: Context) {
         return SlowStats(power = power, sensors = sensors, crashes = crashes)
     }
 
+    /**
+     * On-demand deep probe: the kernel call stack of one thread, from `/proc/<pid>/task/<tid>/stack`
+     * (root). Lets the user drill from a hot thread into *where* it's stuck/working. Best-effort —
+     * many kernels restrict this (returns "" or only an address); returns null when unreadable or
+     * when root is off. Doesn't touch the collector's delta state, so it's safe to call alongside the
+     * polling loop.
+     */
+    suspend fun probeThreadStack(pid: Int, tid: Int, useRoot: Boolean): List<String>? {
+        if (!useRoot || pid <= 0 || tid <= 0) return null
+        val raw = RootShell.run("cat /proc/$pid/task/$tid/stack 2>/dev/null", useRoot = true, timeoutMs = 4000)
+        val lines = raw?.lineSequence()
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            // Each frame looks like "[<0>] symbol+0x.." — drop the leading address marker for clarity.
+            ?.map { it.substringAfter("] ", it) }
+            ?.toList()
+            .orEmpty()
+        return lines.takeIf { it.isNotEmpty() }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Shell scripts
     // ---------------------------------------------------------------------------------------------
@@ -409,6 +429,7 @@ class AppStatsCollector(private val context: Context) {
         // Per-thread CPU (utime+stime), with library attribution from the thread name.
         val threadCur = HashMap<Int, Long>()
         val threadNames = HashMap<Int, String>()
+        val threadPid = HashMap<Int, Int>()
         for (pid in pids) {
             val tasks = sections["PTASKS $pid"] ?: continue
             for (line in tasks.lineSequence()) {
@@ -417,6 +438,7 @@ class AppStatsCollector(private val context: Context) {
                 val cpu = parseStatCpu(line) ?: continue
                 threadCur[tid] = cpu.first + cpu.second
                 threadNames[tid] = parseStatComm(line) ?: "tid $tid"
+                threadPid[tid] = pid
             }
         }
 
@@ -438,7 +460,7 @@ class AppStatsCollector(private val context: Context) {
                 val pct = 100f * (cur - prev).coerceAtLeast(0) / dt
                 if (pct <= 0.05f) null
                 else ThreadCpu(tid, threadNames[tid] ?: "tid $tid", pct,
-                    LibraryAttribution.forThread(threadNames[tid] ?: ""))
+                    LibraryAttribution.forThread(threadNames[tid] ?: ""), pid = threadPid[tid] ?: 0)
             }.sortedByDescending { it.percent }.take(12)
         } else {
             appPercent = 0f; userPercent = 0f; kernelPercent = 0f; deviceBusy = 0f; threads = emptyList()

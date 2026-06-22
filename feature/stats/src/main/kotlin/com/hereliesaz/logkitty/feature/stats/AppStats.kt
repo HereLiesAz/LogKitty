@@ -55,6 +55,8 @@ data class ThreadCpu(
     val percent: Float,
     /** Best-effort library/subsystem the thread belongs to (e.g. "OkHttp", "ART GC"); null if unknown. */
     val library: String?,
+    /** Owning process id, so an on-demand stack probe can read /proc/<pid>/task/<tid>/stack. */
+    val pid: Int = 0,
 )
 
 data class MemoryStats(
