@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +50,12 @@ fun StatsView(
     modifier: Modifier = Modifier,
     /** On-demand kernel-stack probe for a (pid, tid); null disables the CPU thread drill-down. */
     onProbeThreadStack: (suspend (Int, Int) -> List<String>?)? = null,
+    /** On-demand full crash-stack probe (rootless); null disables the crash drill-down. */
+    onProbeCrashStack: (suspend () -> List<String>?)? = null,
+    /** On-demand per-thread disk-I/O probe for a pid; null disables the disk-writer drill-down. */
+    onProbeIoThreads: (suspend (Int) -> List<ThreadIo>?)? = null,
+    /** On-demand active-socket probe for a pid; null disables the network connections drill-down. */
+    onProbeSockets: (suspend (Int) -> List<SocketConn>?)? = null,
 ) {
     val stats = history.lastOrNull()
     if (stats == null) {
@@ -103,14 +110,15 @@ fun StatsView(
         stats.memory?.let {
             MemorySection(it, history.mapNotNull { s -> s.memory?.totalPssKb }, fontFamily, fontSize, labelColor, valueColor)
         }
+        val pid = stats.pids.firstOrNull() ?: 0
         stats.gpu?.let { GpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
-        stats.network?.let { NetworkSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.network?.let { NetworkSection(it, pid, fontFamily, fontSize, labelColor, valueColor, onProbeSockets) }
         stats.power?.let { PowerSection(stats.packageName, it, stats.cpu, stats.sensors, fontFamily, fontSize, labelColor, valueColor) }
-        stats.health?.let { HealthSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.health?.let { HealthSection(it, pid, fontFamily, fontSize, labelColor, valueColor, onProbeIoThreads) }
         stats.sensors?.let { SensorSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.binder?.let { BinderSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.components?.let { ComponentsSection(it, fontFamily, fontSize, labelColor, valueColor) }
-        stats.crashes?.let { CrashSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.crashes?.let { CrashSection(it, fontFamily, fontSize, labelColor, valueColor, onProbeCrashStack) }
 
         Spacer(Modifier.height(16.dp))
     }
@@ -227,7 +235,10 @@ private fun BinderSection(b: BinderStats, ff: FontFamily?, fs: Int, lc: Color, v
 }
 
 @Composable
-private fun CrashSection(c: CrashStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+private fun CrashSection(
+    c: CrashStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+    onProbeCrashStack: (suspend () -> List<String>?)? = null,
+) {
     StatCard("Crashes & ANRs", ff, fs) {
         StatRow("Recent crashes", c.crashCount.toString(), ff, fs, lc, vc, emphasize = true)
         c.lastCrashWhen?.let { StatRow("Last crash", it, ff, fs, lc, vc) }
@@ -246,6 +257,12 @@ private fun CrashSection(c: CrashStats, ff: FontFamily?, fs: Int, lc: Color, vc:
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
             )
+        }
+        // Drill-down: the full stack of the most recent crash, straight from the crash buffer (rootless).
+        if (onProbeCrashStack != null && c.crashCount > 0) {
+            ExpandableProbe("Investigate: full crash stack", c.lastCrashWhen ?: c.crashCount, { onProbeCrashStack() }, ff, fs, lc) { frames ->
+                StackFrames(frames, ff, fs, vc)
+            }
         }
     }
 }
@@ -386,16 +403,51 @@ private fun GpuSection(g: GpuStats, ff: FontFamily?, fs: Int, lc: Color, vc: Col
         StatRow("Slow UI thread", g.slowUiThread?.toString() ?: "—", ff, fs, lc, vc)
         StatRow("Slow draw cmds", g.slowDrawCommands?.toString() ?: "—", ff, fs, lc, vc)
         g.gpuBusyPercent?.let { StatRow("GPU busy (device)", pct(it), ff, fs, lc, vc) }
+        // Interpretive hint: when there's meaningful jank, point at the dominant cause from the
+        // slow-frame breakdown already collected, so the developer knows where to look.
+        JankHint(g, ff, fs)
     }
 }
 
+/** Turns the gfxinfo slow-frame counters into a one-line "where the jank is coming from" pointer. */
 @Composable
-private fun NetworkSection(n: NetworkStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+private fun JankHint(g: GpuStats, ff: FontFamily?, fs: Int) {
+    if ((g.jankPercent ?: 0f) < 5f) return
+    val ui = g.slowUiThread ?: 0L
+    val draw = g.slowDrawCommands ?: 0L
+    val vsync = g.missedVsync ?: 0L
+    val worst = maxOf(ui, draw, vsync)
+    if (worst <= 0L) return
+    val cause = when (worst) {
+        ui -> "UI-thread work — move heavy work off the main thread"
+        draw -> "draw commands — overdraw or complex layouts"
+        else -> "missed vsync — work is overrunning the frame budget"
+    }
+    Spacer(Modifier.height(2.dp))
+    Text(
+        "Jank mostly from: $cause", color = Color(0xFFFFB74D), fontSize = (fs - 2).sp, fontFamily = ff,
+        fontWeight = FontWeight.Medium, modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun NetworkSection(
+    n: NetworkStats, pid: Int, ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+    onProbeSockets: (suspend (Int) -> List<SocketConn>?)? = null,
+) {
     StatCard("Network", ff, fs) {
         StatRow("Down / Up now", "${rate(n.rxBytesPerSec)} / ${rate(n.txBytesPerSec)}", ff, fs, lc, vc, emphasize = true)
         StatRow("Received (24h)", bytes(n.totalRxBytes), ff, fs, lc, vc)
         StatRow("Sent (24h)", bytes(n.totalTxBytes), ff, fs, lc, vc)
         StatRow("Wi-Fi / Mobile", "${bytes(n.wifiBytes)} / ${bytes(n.mobileBytes)}", ff, fs, lc, vc)
+        // Drill-down: who the app is actually connected to, from /proc/net/tcp{,6} ∩ uid (root).
+        if (onProbeSockets != null && pid > 0) {
+            ExpandableProbe("Investigate: active connections", pid, { onProbeSockets(pid) }, ff, fs, lc) { conns ->
+                conns.forEach { s ->
+                    WrapStatRow("${s.proto} · ${s.state}", s.remote, ff, fs, lc, vc)
+                }
+            }
+        }
     }
 }
 
@@ -491,13 +543,90 @@ private fun BatteryInvestigation(
 }
 
 @Composable
-private fun HealthSection(h: HealthStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+private fun HealthSection(
+    h: HealthStats, pid: Int, ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+    onProbeIoThreads: (suspend (Int) -> List<ThreadIo>?)? = null,
+) {
     StatCard("Process Health", ff, fs) {
         StatRow("Threads", h.threadCount?.toString() ?: "—", ff, fs, lc, vc)
         StatRow("Open file descriptors", h.fdCount?.toString() ?: "—", ff, fs, lc, vc)
         StatRow("Disk read / write now", "${rate(h.ioReadBytesPerSec)} / ${rate(h.ioWriteBytesPerSec)}", ff, fs, lc, vc, emphasize = true)
         StatRow("Disk read total", bytes(h.totalIoReadBytes), ff, fs, lc, vc)
         StatRow("Disk write total", bytes(h.totalIoWriteBytes), ff, fs, lc, vc)
+        // Drill-down: which thread is the writer behind the disk-write rate (per-thread /proc io, root).
+        if (onProbeIoThreads != null && pid > 0) {
+            ExpandableProbe("Investigate: top disk writers", pid, { onProbeIoThreads(pid) }, ff, fs, lc) { threads ->
+                threads.forEach { t ->
+                    WrapStatRow(t.name, "✎ ${bytes(t.writeBytes)}  ·  ${bytes(t.readBytes)} read", ff, fs, lc, vc)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A tappable "Investigate" affordance that lazily runs an on-demand [probe] when first expanded and
+ * renders its result with [content]. Mirrors the CPU thread-stack drill-down: state is keyed on
+ * [resetKey] so it survives the 2s poll but resets when the target changes, and closing drops the
+ * cached result so reopening refetches a fresh sample.
+ */
+@Composable
+private fun <T> ExpandableProbe(
+    label: String,
+    resetKey: Any?,
+    probe: suspend () -> T?,
+    ff: FontFamily?, fs: Int, lc: Color,
+    content: @Composable (T) -> Unit,
+) {
+    var expanded by remember(resetKey) { mutableStateOf(false) }
+    var loading by remember(resetKey) { mutableStateOf(false) }
+    var result by remember(resetKey) { mutableStateOf<T?>(null) }
+    // probe is intentionally NOT a LaunchedEffect key (we don't want to restart on every recomposition's
+    // new lambda); rememberUpdatedState keeps the effect calling the latest probe without restarting it.
+    val latestProbe by rememberUpdatedState(probe)
+    Spacer(Modifier.height(4.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable {
+            expanded = !expanded
+            if (!expanded) result = null // closing drops the cache so reopening refetches
+        }.padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "${if (expanded) "▾" else "▸"}  $label",
+            color = Color(0xFF4DD0E1), fontSize = (fs - 1).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+    if (!expanded) return
+    // Launch keyed only on (resetKey, expanded) — NOT on `loading` — so flipping `loading` inside the
+    // effect doesn't drop the effect from composition and cancel the probe mid-flight. `result == null`
+    // keeps it composed across the run and is reset to null on close so reopening refetches.
+    if (result == null) {
+        LaunchedEffect(resetKey, expanded) {
+            loading = true
+            result = latestProbe()
+            loading = false
+        }
+    }
+    when {
+        loading -> Text("Investigating…", color = lc, fontSize = (fs - 2).sp, fontFamily = ff,
+            modifier = Modifier.padding(start = 8.dp, top = 2.dp))
+        result == null -> Text("Nothing to show (restricted, none active, or non-root).",
+            color = lc, fontSize = (fs - 2).sp, fontFamily = ff, modifier = Modifier.padding(start = 8.dp, top = 2.dp))
+        else -> content(result!!)
+    }
+}
+
+/** Renders a captured stack/trace as monospace-ish lines (one ellipsized frame per row). */
+@Composable
+private fun StackFrames(frames: List<String>, ff: FontFamily?, fs: Int, vc: Color) {
+    frames.forEach { frame ->
+        Text(
+            frame, color = vc.copy(alpha = 0.85f), fontSize = (fs - 3).sp, fontFamily = ff,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp),
+        )
     }
 }
 

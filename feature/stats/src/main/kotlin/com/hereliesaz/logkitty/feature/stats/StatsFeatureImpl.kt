@@ -84,6 +84,9 @@ class StatsFeatureImpl : StatsFeature {
             fontSize = fontSize,
             modifier = modifier,
             onProbeThreadStack = { pid, tid -> probeCollector.probeThreadStack(pid, tid, useRoot) },
+            onProbeCrashStack = { probeCollector.probeCrashStack(packageName) },
+            onProbeIoThreads = { pid -> probeCollector.probeIoTopThreads(pid, useRoot) },
+            onProbeSockets = { pid -> probeCollector.probeSockets(pid, useRoot) },
         )
     }
 
