@@ -36,6 +36,7 @@ import com.google.android.play.core.install.model.UpdateAvailability
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
+import com.hereliesaz.logkitty.ui.AdBannerSlot
 import com.hereliesaz.logkitty.ui.GitHubScreen
 import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
@@ -128,39 +129,47 @@ class MainActivity : ComponentActivity() {
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val viewModel = (application as MainApplication).mainViewModel
-                    when {
-                        showSettings ->
-                            // Show the Settings Screen (Full Page).
-                            SettingsScreen(
-                                onBack = { showSettings = false },
-                                viewModel = viewModel
-                            )
-                        showGitHub ->
-                            // Full-screen GitHub Actions (same panel the overlay tab hosts).
-                            GitHubScreen(
-                                viewModel = viewModel,
-                                onBack = { showGitHub = false },
-                                // Keep showGitHub=true: the when checks showSettings first, so Settings
-                                // shows on top and backing out of it returns here, not the dashboard.
-                                onConfigure = { showSettings = true },
-                            )
-                        else -> {
-                            // Show the Main Dashboard / Permission Wizard.
-                            val isRootEnabled by viewModel.isRootEnabled.collectAsState()
+                    // One persistent banner anchored to the bottom of every in-app screen. Composed
+                    // once here, outside the navigation `when`, so the same AdView instance survives
+                    // dashboard <-> Settings <-> GitHub navigation instead of reloading per screen.
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            when {
+                                showSettings ->
+                                    // Show the Settings Screen (Full Page).
+                                    SettingsScreen(
+                                        onBack = { showSettings = false },
+                                        viewModel = viewModel
+                                    )
+                                showGitHub ->
+                                    // Full-screen GitHub Actions (same panel the overlay tab hosts).
+                                    GitHubScreen(
+                                        viewModel = viewModel,
+                                        onBack = { showGitHub = false },
+                                        // Keep showGitHub=true: the when checks showSettings first, so Settings
+                                        // shows on top and backing out of it returns here, not the dashboard.
+                                        onConfigure = { showSettings = true },
+                                    )
+                                else -> {
+                                    // Show the Main Dashboard / Permission Wizard.
+                                    val isRootEnabled by viewModel.isRootEnabled.collectAsState()
 
-                            MainScreenContent(
-                                isOverlayGranted = isOverlayGranted,
-                                isReadLogsGranted = isReadLogsGranted,
-                                isRootEnabled = isRootEnabled,
-                                isServiceRunning = isServiceRunning,
-                                updateReadyToInstall = updateReadyToInstall,
-                                onCompleteUpdate = { appUpdateManager.completeUpdate() },
-                                onGrantOverlay = { requestOverlayPermission() },
-                                onToggleService = { toggleOverlayService() },
-                                onOpenSettings = { showSettings = true },
-                                onOpenGitHub = { showGitHub = true }
-                            )
+                                    MainScreenContent(
+                                        isOverlayGranted = isOverlayGranted,
+                                        isReadLogsGranted = isReadLogsGranted,
+                                        isRootEnabled = isRootEnabled,
+                                        isServiceRunning = isServiceRunning,
+                                        updateReadyToInstall = updateReadyToInstall,
+                                        onCompleteUpdate = { appUpdateManager.completeUpdate() },
+                                        onGrantOverlay = { requestOverlayPermission() },
+                                        onToggleService = { toggleOverlayService() },
+                                        onOpenSettings = { showSettings = true },
+                                        onOpenGitHub = { showGitHub = true }
+                                    )
+                                }
+                            }
                         }
+                        AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
                     }
                 }
             }
