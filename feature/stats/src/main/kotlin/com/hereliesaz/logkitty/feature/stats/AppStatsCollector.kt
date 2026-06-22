@@ -137,9 +137,16 @@ class AppStatsCollector(private val context: Context) {
             val bs = sections["BATTERYSTATS"].orEmpty()
             val wakelockCount = Regex("Wake lock", RegexOption.IGNORE_CASE).findAll(bs).count().takeIf { it > 0 }
             val partialMs = parsePartialWakelockMs(bs)
-            val jobs = sections["JOBS"]?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
-            val alarms = sections["ALARMS"]?.trim()?.toIntOrNull()?.takeIf { it >= 0 }
-            PowerStats(wakelockCount, partialMs, jobs, alarms, level, temp, charging)
+            val wakelocks = parseWakelocks(bs)
+            val jobComponents = parseComponentTokens(sections["JOBS"], pkg)
+            val alarmComponents = parseComponentTokens(sections["ALARMS"], pkg)
+            // Registered counts now derive from the captured lines (was a `grep -c`).
+            val jobs = jobLineCount(sections["JOBS"])
+            val alarms = jobLineCount(sections["ALARMS"])
+            PowerStats(
+                wakelockCount, partialMs, jobs, alarms, level, temp, charging,
+                topWakelocks = wakelocks, jobComponents = jobComponents, alarmComponents = alarmComponents,
+            )
         } else {
             PowerStats(null, null, null, null, level, temp, charging)
         }
@@ -192,8 +199,8 @@ class AppStatsCollector(private val context: Context) {
         if (!useRoot) return crashLogs
         return """
             echo "@@BATTERYSTATS@@"; dumpsys batterystats $p 2>/dev/null
-            echo "@@JOBS@@"; dumpsys jobscheduler 2>/dev/null | grep -c $p
-            echo "@@ALARMS@@"; dumpsys alarm 2>/dev/null | grep -c $p
+            echo "@@JOBS@@"; dumpsys jobscheduler 2>/dev/null | grep -F $p | head -n 60
+            echo "@@ALARMS@@"; dumpsys alarm 2>/dev/null | grep -F $p | head -n 60
             echo "@@SENSORS@@"; dumpsys sensorservice 2>/dev/null
             echo "@@LOCATION@@"; dumpsys location 2>/dev/null
         """.trimIndent() + "\n" + crashLogs
@@ -659,12 +666,54 @@ class AppStatsCollector(private val context: Context) {
         return if (matched) total else null
     }
 
+    /** Number of non-blank lines (the captured `grep` output for jobs/alarms), or null if absent. */
+    private fun jobLineCount(section: String?): Int? =
+        section?.lineSequence()?.count { it.isNotBlank() }?.takeIf { it > 0 }
+
+    /**
+     * Top partial wakelocks by held time, name + ms, from `dumpsys batterystats`. Same line shape as
+     * [parsePartialWakelockMs] but keeping the name so the drill-down can show *which* lock.
+     */
+    private fun parseWakelocks(bs: String): List<NamedDuration> {
+        val out = ArrayList<NamedDuration>()
+        for (m in WAKELOCK_NAMED.findAll(bs)) {
+            val name = m.groupValues[1].trim()
+            val h = m.groupValues[2].toLongOrNull() ?: 0
+            val min = m.groupValues[3].toLongOrNull() ?: 0
+            val s = m.groupValues[4].toLongOrNull() ?: 0
+            val ms = m.groupValues[5].toLongOrNull() ?: 0
+            val sum = ((h * 60 + min) * 60 + s) * 1000 + ms
+            if (name.isNotEmpty() && sum > 0) out.add(NamedDuration(name, sum))
+        }
+        return out.sortedByDescending { it.ms ?: 0 }.distinctBy { it.name }.take(6)
+    }
+
+    /**
+     * Best-effort `package/Component`-style tokens from grepped jobscheduler/alarm output, for the
+     * battery drill-down. Returns distinct components (capped); empty if the format isn't recognized.
+     */
+    private fun parseComponentTokens(section: String?, pkg: String): List<String> {
+        if (section.isNullOrBlank()) return emptyList()
+        return COMPONENT_TOKEN.findAll(section)
+            .map { it.value }
+            .filter { it.contains(pkg) }
+            .map { it.substringAfterLast('/') }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(8)
+            .toList()
+    }
+
     companion object {
         private val MARKER = Regex("""@@([A-Z]+(?: \d+)?)@@""")
         // Captures the class name from `ServiceRecord{hash u0 pkg/<Name> ...}` (running service).
         private val SERVICE_RECORD = Regex("""ServiceRecord\{[^}]*/([^\s}]+)""")
         // `<provider> provider:` section header in `dumpsys location`.
         private val PROVIDER_HEADER = Regex("""(?m)^\s*(\w+) provider:""")
+        // Named partial wakelock: "Wake lock <name>: 1h 2m 3s 4ms partial".
+        private val WAKELOCK_NAMED = Regex("""Wake lock\s+([^:]+):\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*(?:(\d+)s)?\s*(?:(\d+)ms)?\s+partial""")
+        // A `package/Component` token (job service / alarm receiver), e.g. com.x.app/.MyService.
+        private val COMPONENT_TOKEN = Regex("""[\w.]+/[\w.${'$'}]+""")
         // Leading timestamp of a `-v threadtime` logcat line: "MM-DD HH:MM:SS".
         private val LOG_TIME = Regex("""^(\d{2}-\d{2} \d{2}:\d{2}:\d{2})""")
         // Common sensor type names to look for inside a connection block (format-tolerant).

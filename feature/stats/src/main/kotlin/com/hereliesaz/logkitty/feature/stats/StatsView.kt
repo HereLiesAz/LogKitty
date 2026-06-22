@@ -2,6 +2,7 @@ package com.hereliesaz.logkitty.feature.stats
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,7 +99,7 @@ fun StatsView(
         stats.memory?.let { MemorySection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.gpu?.let { GpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.network?.let { NetworkSection(it, fontFamily, fontSize, labelColor, valueColor) }
-        stats.power?.let { PowerSection(it, fontFamily, fontSize, labelColor, valueColor) }
+        stats.power?.let { PowerSection(it, stats.cpu, stats.sensors, fontFamily, fontSize, labelColor, valueColor) }
         stats.health?.let { HealthSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.sensors?.let { SensorSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.binder?.let { BinderSection(it, fontFamily, fontSize, labelColor, valueColor) }
@@ -315,7 +320,10 @@ private fun NetworkSection(n: NetworkStats, ff: FontFamily?, fs: Int, lc: Color,
 }
 
 @Composable
-private fun PowerSection(p: PowerStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color) {
+private fun PowerSection(
+    p: PowerStats, cpu: CpuStats?, sensors: SensorStats?,
+    ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+) {
     StatCard("Power & Scheduling", ff, fs) {
         StatRow("Wakelocks held", p.wakelockCount?.toString() ?: "—", ff, fs, lc, vc)
         StatRow("Partial wakelock time", p.partialWakelockMs?.let { ms(it) } ?: "—", ff, fs, lc, vc)
@@ -324,6 +332,80 @@ private fun PowerSection(p: PowerStats, ff: FontFamily?, fs: Int, lc: Color, vc:
         val batt = p.batteryLevelPercent?.let { "$it%${if (p.charging == true) " ⚡" else ""}" } ?: "—"
         StatRow("Battery", batt, ff, fs, lc, vc)
         StatRow("Battery temp", p.batteryTempC?.let { "${"%.1f".format(it)}°C" } ?: "—", ff, fs, lc, vc)
+
+        // Drill-down: aggregate the concrete causes (top CPU threads, wakelocks, jobs/alarms, sensors)
+        // into one "what's draining battery" view. Tap to expand; lazily shown so it's out of the way.
+        BatteryInvestigation(p, cpu, sensors, ff, fs, lc, vc)
+    }
+}
+
+/** Expandable "what's draining battery" breakdown that ranks the concrete causes from each section. */
+@Composable
+private fun BatteryInvestigation(
+    p: PowerStats, cpu: CpuStats?, sensors: SensorStats?,
+    ff: FontFamily?, fs: Int, lc: Color, vc: Color,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Spacer(Modifier.height(4.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "${if (expanded) "▾" else "▸"}  Investigate: what's draining battery",
+            color = Color(0xFF4DD0E1), fontSize = (fs - 1).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
+    }
+    if (!expanded) return
+
+    var anything = false
+    // 1) Active CPU work — usually the real cost; already attributed to a library.
+    val threads = cpu?.threads.orEmpty().filter { it.percent > 0.05f }.take(3)
+    if (threads.isNotEmpty()) {
+        anything = true
+        Text("Active work (CPU)", color = lc, fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 4.dp))
+        threads.forEach { t ->
+            val lib = t.library?.let { " · $it" } ?: ""
+            StatRow(t.name + lib, pct(t.percent), ff, fs, lc, vc)
+        }
+    }
+    // 2) Wakelocks holding the CPU awake.
+    if (p.topWakelocks.isNotEmpty()) {
+        anything = true
+        Text("Wakelocks", color = lc, fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 4.dp))
+        p.topWakelocks.forEach { w -> StatRow(w.name, w.ms?.let { ms(it) } ?: "—", ff, fs, lc, vc) }
+    }
+    // 3) Sensors / GPS quietly held.
+    val sensorList = sensors?.activeSensors.orEmpty()
+    val providers = sensors?.locationProviders.orEmpty()
+    if (sensorList.isNotEmpty() || providers.isNotEmpty()) {
+        anything = true
+        Text("Sensors & location", color = lc, fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 4.dp))
+        if (sensorList.isNotEmpty()) WrapStatRow("Sensors", sensorList.joinToString(", "), ff, fs, lc, vc)
+        if (providers.isNotEmpty()) WrapStatRow("Location", providers.joinToString(", "), ff, fs, lc, vc)
+    }
+    // 4) Scheduled wakeups.
+    if (p.jobComponents.isNotEmpty()) {
+        anything = true
+        Text("Jobs", color = lc, fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 4.dp))
+        p.jobComponents.forEach { WrapStatRow("Job", it, ff, fs, lc, vc) }
+    }
+    if (p.alarmComponents.isNotEmpty()) {
+        anything = true
+        Text("Alarms", color = lc, fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 4.dp))
+        p.alarmComponents.forEach { WrapStatRow("Alarm", it, ff, fs, lc, vc) }
+    }
+    if (!anything) {
+        Text(
+            "No specific causes detected. (Full detail needs root — wakelock, job and alarm names come from dumpsys.)",
+            color = lc, fontSize = (fs - 2).sp, fontFamily = ff, modifier = Modifier.padding(top = 4.dp),
+        )
     }
 }
 
