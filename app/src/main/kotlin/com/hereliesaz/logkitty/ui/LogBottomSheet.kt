@@ -477,7 +477,6 @@ private fun ExpandedView(
                     repo = githubRepo,
                     tokenProvider = githubTokenProvider,
                     onConfigure = onSettingsClick,
-                    onWatchRun = { _, _, _, _ -> },
                     fontFamily = fontFamily,
                     fontSize = fontSize,
                     modifier = Modifier.fillMaxSize(),
