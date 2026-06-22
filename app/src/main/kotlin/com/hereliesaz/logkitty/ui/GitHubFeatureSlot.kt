@@ -51,7 +51,6 @@ fun GitHubFeatureSlot(
     repo: String,
     tokenProvider: () -> String?,
     onConfigure: () -> Unit,
-    onWatchRun: (owner: String, repo: String, runId: Long, runName: String) -> Unit,
     fontFamily: FontFamily?,
     fontSize: Int,
     modifier: Modifier = Modifier,
@@ -71,7 +70,11 @@ fun GitHubFeatureSlot(
                     tokenProvider = tokenProvider,
                     fontFamily = fontFamily,
                     fontSize = fontSize,
-                    onWatchRun = onWatchRun,
+                    // "Watch this run" → a WorkManager job that polls to completion (survives the
+                    // panel closing / process death) and posts a ✅/❌ notification.
+                    onWatchRun = { o, r, runId, runName ->
+                        com.hereliesaz.logkitty.work.RunWatchWorker.enqueue(context, o, r, runId, runName)
+                    },
                     onConfigure = onConfigure,
                     modifier = modifier,
                 )

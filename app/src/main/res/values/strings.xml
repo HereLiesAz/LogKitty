@@ -27,6 +27,7 @@
     <string name="main_ready_to_purr">Ready to Purr</string>
     <string name="main_stop_service">Stop Service</string>
     <string name="main_start_service">Start Service</string>
+    <string name="main_open_github">GitHub Actions</string>
     <string name="update_ready_title">Update ready</string>
     <string name="update_ready_desc">A new version has downloaded. Restart to finish updating.</string>
     <string name="update_restart">Restart &amp; update</string>
@@ -152,6 +153,11 @@
     <string name="github_clear_token">Clear token</string>
     <string name="toast_github_saved">GitHub settings saved</string>
     <string name="toast_github_token_cleared">GitHub token cleared</string>
+    <!-- GitHub run-completion notifications -->
+    <string name="github_notif_channel">GitHub Actions</string>
+    <string name="github_notif_passed">%1$s Workflow run passed</string>
+    <string name="github_notif_finished">%1$s Workflow run finished</string>
+    <string name="github_notif_run">%1$s · %2$s</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>
