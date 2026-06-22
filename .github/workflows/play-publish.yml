@@ -31,7 +31,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # write so the post-publish step can push a tag and create a GitHub Release for the APK.
+      contents: write
 
     steps:
       - name: Checkout
@@ -141,6 +142,96 @@ jobs:
           mappingFile: app/build/outputs/mapping/release/mapping.txt
           track: ${{ inputs.track }}
           status: ${{ inputs.status }}
+
+      # When (and only when) the bundle actually went to Play, also produce a signed, sideloadable
+      # APK and attach it to a GitHub Release pinned to this exact build. Extract a single universal
+      # APK from the same bundle: each dynamic feature declares <dist:fusing include="true">, so
+      # --mode=universal fuses them all into one APK (Play still delivers the modules on-demand).
+      # Runs before "Destroy Keystore" so the same signing key is available.
+      - name: Build universal APK from bundle
+        if: ${{ inputs.publish && success() }}
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          BT_VERSION=1.17.2
+          curl -fsSL -o bundletool.jar \
+            "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+
+          AAB=$(find app/build/outputs/bundle -name "*.aab" | head -n 1)
+          if [ -z "$AAB" ]; then echo "Error: no .aab produced!"; exit 1; fi
+          echo "Bundle: $AAB"
+
+          java -jar bundletool.jar build-apks --bundle="$AAB" --output=universal.apks \
+            --mode=universal --overwrite \
+            --ks="$KEYSTORE_FILE" --ks-pass=pass:"$KEYSTORE_PASSWORD" \
+            --ks-key-alias="$KEY_ALIAS" --key-pass=pass:"$KEY_PASSWORD"
+
+          unzip -o -p universal.apks universal.apk > app-universal.apk
+          ls -la app-universal.apk
+          echo "UNIVERSAL_APK=$(pwd)/app-universal.apk" >> $GITHUB_ENV
+
+      # Create/refresh an immutable, per-version GitHub Release for the build that shipped to Play.
+      # Tagged v<version> (distinct from build-and-release.yml's rolling latest-release-* prerelease).
+      # Marked as a full release only for a completed production rollout; otherwise a prerelease.
+      - name: Publish APK to GitHub Releases
+        if: ${{ inputs.publish && success() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+
+          MAJOR=$(grep 'major=' version.properties | cut -d'=' -f2)
+          MINOR=$(grep 'minor=' version.properties | cut -d'=' -f2)
+          # Patch = commits since the minor= line last changed (matches build-and-release.yml).
+          MINOR_COMMIT=$(git blame -L '/minor=/',+1 version.properties | awk '{print $1}' | tr -d '^')
+          if [ -n "$MINOR_COMMIT" ]; then
+            PATCH=$(git rev-list --count "$MINOR_COMMIT"..HEAD)
+          else
+            PATCH=$(grep 'patch=' version.properties | cut -d'=' -f2)
+          fi
+          VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
+          TAG_NAME="v${VERSION_NAME}"
+
+          if [ -z "$UNIVERSAL_APK" ] || [ ! -f "$UNIVERSAL_APK" ]; then
+            echo "Error: universal APK not found!"; exit 1
+          fi
+          APK_FILE="LogKitty-${VERSION_NAME}.apk"
+          cp "$UNIVERSAL_APK" "$APK_FILE"
+
+          # A finished production rollout is a real release; everything else (internal/alpha/beta or
+          # a draft) is a prerelease.
+          PRERELEASE_FLAG="--prerelease"
+          if [ "${{ inputs.track }}" = "production" ] && [ "${{ inputs.status }}" = "completed" ]; then
+            PRERELEASE_FLAG=""
+          fi
+
+          NOTES="Signed APK for the build published to Google Play (track: ${{ inputs.track }}, status: ${{ inputs.status }}).
+
+          Built from commit ${GITHUB_SHA}."
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$TAG_NAME" -m "Play release $VERSION_NAME"
+          git push origin "$TAG_NAME" --force
+
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            echo "Updating existing release..."
+            gh release edit "$TAG_NAME" $PRERELEASE_FLAG \
+              --title "LogKitty ${VERSION_NAME}" \
+              --notes "$NOTES" \
+              --target "$GITHUB_SHA"
+            gh release upload "$TAG_NAME" "$APK_FILE" --clobber
+          else
+            echo "Creating new release..."
+            gh release create "$TAG_NAME" "$APK_FILE" $PRERELEASE_FLAG \
+              --title "LogKitty ${VERSION_NAME}" \
+              --notes "$NOTES" \
+              --target "$GITHUB_SHA"
+          fi
 
       - name: Destroy Keystore
         if: always()
