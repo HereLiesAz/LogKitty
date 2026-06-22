@@ -85,6 +85,12 @@ android {
         // unit id to that module's banner. (Unit IDs are public — they ship in the APK.)
         buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
 
+        // GitHub OAuth app client id for the device-flow sign-in (optional; PAT works without it).
+        // Public value (no secret in device flow); supply via local.properties/env to enable the
+        // "Sign in with GitHub" button. Blank by default → the UI shows PAT entry only.
+        val githubOauthClientId = getLocalProperty("GITHUB_OAUTH_CLIENT_ID", rootProject.projectDir)
+        buildConfigField("String", "GITHUB_OAUTH_CLIENT_ID", "\"$githubOauthClientId\"")
+
         // Build Tools Config
         val toolsOwner = project.findProperty("build.tools.owner") as? String ?: "HereLiesAz"
         val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "LogKitty-buildtools"
