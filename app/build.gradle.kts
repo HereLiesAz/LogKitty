@@ -205,8 +205,8 @@ configurations.all {
                 // Netty artifacts are versioned together; force the whole family (except the
                 // separately-versioned tcnative natives) to the latest 4.1 security release.
                 g == "io.netty" && !n.startsWith("netty-tcnative") -> {
-                    useVersion("4.1.133.Final")
-                    because("Security fixes: CVE-2025-67735, CVE-2026-42583, CVE-2026-42587, et al.")
+                    useVersion("4.1.121.Final")
+                    because("Build-tooling transitive only (never shipped); pin Netty to the latest 4.1.x security release")
                 }
                 g == "org.bouncycastle" && n.endsWith("-jdk18on") -> {
                     useVersion("1.84")
