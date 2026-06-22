@@ -38,4 +38,8 @@ dependencies {
     // fillMaxWidth/height & lazy lists live in compose-foundation (not pulled by compose-ui alone).
     implementation("androidx.compose.foundation:foundation")
     implementation(libs.kotlinx.coroutines.core)
+    // GitHub REST client. Same version the base uses (aligned by the root subprojects{} block), so
+    // AGP de-dupes it against the base and it isn't duplicated in this split. (org.json is in the
+    // Android framework, so it needs no declaration.)
+    implementation(libs.okhttp)
 }

@@ -120,6 +120,8 @@ fun LogBottomSheet(
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
+    val githubOwner by viewModel.githubOwner.collectAsState()
+    val githubRepo by viewModel.githubRepo.collectAsState()
 
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
@@ -241,6 +243,9 @@ fun LogBottomSheet(
                 selectedLineIds = emptySet()
                 isMultiSelectMode = false
             },
+            githubOwner = githubOwner,
+            githubRepo = githubRepo,
+            githubTokenProvider = { viewModel.readGithubToken() },
         )
     }
 }
@@ -338,6 +343,9 @@ private fun ExpandedView(
     onCopySelected: () -> Unit,
     onSearchLine: (IndexedLogLine) -> Unit,
     onProhibitLine: (IndexedLogLine) -> Unit,
+    githubOwner: String,
+    githubRepo: String,
+    githubTokenProvider: () -> String?,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
 
@@ -465,6 +473,11 @@ private fun ExpandedView(
             if (selectedTab.type == TabType.GITHUB) {
                 // The GitHub tab's body is the on-demand :feature:github panel, not the log stream.
                 GitHubFeatureSlot(
+                    owner = githubOwner,
+                    repo = githubRepo,
+                    tokenProvider = githubTokenProvider,
+                    onConfigure = onSettingsClick,
+                    onWatchRun = { _, _, _, _ -> },
                     fontFamily = fontFamily,
                     fontSize = fontSize,
                     modifier = Modifier.fillMaxSize(),
