@@ -74,6 +74,8 @@ import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.BuildConfig
 import com.hereliesaz.logkitty.R
+import com.hereliesaz.logkitty.utils.GitHubDeviceAuth
+import kotlinx.coroutines.Job
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogSources
 
@@ -528,8 +530,8 @@ private fun SettingsMainScreen(
             var showToken by remember { mutableStateOf(false) }
             // OAuth device-flow state (only used when an OAuth client id is configured).
             val githubAuthScope = rememberCoroutineScope()
-            var deviceCode by remember { mutableStateOf<com.hereliesaz.logkitty.utils.GitHubDeviceAuth.DeviceCode?>(null) }
-            var authJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+            var deviceCode by remember { mutableStateOf<GitHubDeviceAuth.DeviceCode?>(null) }
+            var authJob by remember { mutableStateOf<Job?>(null) }
             OutlinedTextField(
                 value = ownerField,
                 onValueChange = { ownerField = it },
@@ -595,9 +597,10 @@ private fun SettingsMainScreen(
             if (oauthClientId.isNotBlank()) {
                 AzButton(
                     onClick = {
-                        if (deviceCode != null) return@AzButton
+                        // Ignore taps while a request/poll is already running (avoids overlapping jobs).
+                        if (authJob?.isActive == true) return@AzButton
                         authJob = githubAuthScope.launch {
-                            val dc = com.hereliesaz.logkitty.utils.GitHubDeviceAuth.requestDeviceCode(oauthClientId)
+                            val dc = GitHubDeviceAuth.requestDeviceCode(oauthClientId)
                             if (dc == null) {
                                 Toast.makeText(context, context.getString(R.string.toast_github_signin_failed), Toast.LENGTH_SHORT).show()
                                 return@launch
@@ -609,7 +612,7 @@ private fun SettingsMainScreen(
                                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
                                 )
                             }
-                            val token = com.hereliesaz.logkitty.utils.GitHubDeviceAuth.pollForToken(oauthClientId, dc)
+                            val token = GitHubDeviceAuth.pollForToken(oauthClientId, dc)
                             deviceCode = null
                             if (token != null) {
                                 viewModel.setGithubToken(token)

@@ -1,5 +1,6 @@
 package com.hereliesaz.logkitty.utils
 
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -7,6 +8,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -53,7 +55,9 @@ object GitHubDeviceAuth {
                         expiresInSec = o.optInt("expires_in", 900).coerceAtLeast(30),
                     )
                 }
-            } catch (e: Exception) {
+            } catch (e: IOException) {
+                null
+            } catch (e: JSONException) {
                 null
             }
         }
@@ -81,8 +85,10 @@ object GitHubDeviceAuth {
                 .build()
             val o = try {
                 client.newCall(req).execute().use { resp -> JSONObject(resp.body?.string().orEmpty()) }
-            } catch (e: Exception) {
-                continue // transient — try again next interval
+            } catch (e: IOException) {
+                continue // transient network error — try again next interval
+            } catch (e: JSONException) {
+                continue // malformed response — try again next interval
             }
             val token = o.optString("access_token")
             if (token.isNotBlank()) return@withContext token
