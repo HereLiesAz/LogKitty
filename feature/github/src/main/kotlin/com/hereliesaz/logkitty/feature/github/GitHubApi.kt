@@ -39,6 +39,10 @@ class GitHubApi(private val tokenProvider: () -> String?) {
             }
         }
 
+    /** Current status of a single job — used to detect when a live log can stop polling. */
+    suspend fun getJob(owner: String, repo: String, jobId: Long): GitHubResult<WorkflowJob> =
+        get("$API/repos/$owner/$repo/actions/jobs/$jobId") { body -> parseJob(JSONObject(body.string())) }
+
     /**
      * Fetches a job's plain-text log as lines. The endpoint 302-redirects to a short-lived signed URL
      * on another host; OkHttp follows it and drops the `Authorization` header on the cross-host hop
