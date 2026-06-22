@@ -165,7 +165,7 @@ class AppStatsCollector(private val context: Context) {
      */
     suspend fun probeThreadStack(pid: Int, tid: Int, useRoot: Boolean): List<String>? {
         if (!useRoot || pid <= 0 || tid <= 0) return null
-        val raw = RootShell.run("cat /proc/$pid/task/$tid/stack 2>/dev/null", useRoot = true, timeoutMs = 4000)
+        val raw = RootShell.run("cat /proc/$pid/task/$tid/stack 2>/dev/null", useRoot = useRoot, timeoutMs = 4000)
         val lines = raw?.lineSequence()
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }

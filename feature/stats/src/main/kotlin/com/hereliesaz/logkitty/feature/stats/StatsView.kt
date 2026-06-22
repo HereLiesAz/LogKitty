@@ -19,11 +19,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 
 /**
  * The developer-stats body shown when an app tab is toggled from Logs to Stats. Renders the live
@@ -254,11 +253,14 @@ private fun CpuSection(
     cpu: CpuStats, ff: FontFamily?, fs: Int, lc: Color, vc: Color,
     onProbeThreadStack: (suspend (Int, Int) -> List<String>?)? = null,
 ) {
-    val scope = rememberCoroutineScope()
     // Per-tid drill-down state: which rows are open, captured stacks (absent = not fetched), loading.
-    val expanded = remember(cpu) { mutableStateMapOf<Int, Boolean>() }
-    val stacks = remember(cpu) { mutableStateMapOf<Int, List<String>>() }
-    val loading = remember(cpu) { mutableStateMapOf<Int, Boolean>() }
+    // Key on the top thread's PID, not on `cpu`: the 2s poll hands us a fresh CpuStats every tick, so
+    // keying on it would wipe the open rows and their stacks each cycle. The PID is stable while the
+    // same process is targeted and only changes if the app restarts or a different app is selected.
+    val processKey = cpu.threads.firstOrNull()?.pid ?: 0
+    val expanded = remember(processKey) { mutableStateMapOf<Int, Boolean>() }
+    val stacks = remember(processKey) { mutableStateMapOf<Int, List<String>>() }
+    val loading = remember(processKey) { mutableStateMapOf<Int, Boolean>() }
 
     StatCard("CPU", ff, fs) {
         PercentBar("App CPU (of device)", cpu.appPercent, 100f, ff, fs, lc, vc)
@@ -273,17 +275,20 @@ private fun CpuSection(
                 color = lc, fontSize = (fs - 2).sp, fontFamily = ff, fontWeight = FontWeight.Medium,
             )
             cpu.threads.forEach { t ->
+                // Fetch the stack as a composition side effect once a row is open and unfetched, so a
+                // reopen (which clears the cached stack on close) captures a fresh sample each time.
+                if (onProbeThreadStack != null && expanded[t.tid] == true && t.tid !in stacks && loading[t.tid] != true) {
+                    LaunchedEffect(t.tid) {
+                        loading[t.tid] = true
+                        stacks[t.tid] = onProbeThreadStack(t.pid, t.tid) ?: emptyList()
+                        loading[t.tid] = false
+                    }
+                }
                 val rowModifier = if (onProbeThreadStack != null) {
                     Modifier.fillMaxWidth().clickable {
                         val open = expanded[t.tid] == true
                         expanded[t.tid] = !open
-                        if (!open && t.tid !in stacks && loading[t.tid] != true) {
-                            loading[t.tid] = true
-                            scope.launch {
-                                stacks[t.tid] = onProbeThreadStack(t.pid, t.tid) ?: emptyList()
-                                loading[t.tid] = false
-                            }
-                        }
+                        if (open) stacks.remove(t.tid) // closing drops the cache so reopening refetches
                     }.padding(top = 2.dp)
                 } else {
                     Modifier.fillMaxWidth().padding(top = 2.dp)
