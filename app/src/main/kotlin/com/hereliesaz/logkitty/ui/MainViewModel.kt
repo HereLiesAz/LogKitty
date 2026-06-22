@@ -49,7 +49,8 @@ enum class TabType {
     SYSTEM,
     ERRORS,
     APP,
-    SOURCE
+    SOURCE,
+    GITHUB
 }
 
 /**
@@ -154,8 +155,11 @@ class MainViewModel(
     // Tab Management
     private val systemTab = LogTab("system", application.getString(com.hereliesaz.logkitty.R.string.tab_all), TabType.SYSTEM)
     private val errorsTab = LogTab("errors", application.getString(com.hereliesaz.logkitty.R.string.tab_errors), TabType.ERRORS)
+    // Always-present GitHub Actions tab; its content is the on-demand :feature:github panel, not the
+    // logcat stream, so it carries no log filter (see the TabType.GITHUB branch below).
+    private val githubTab = LogTab("github", application.getString(com.hereliesaz.logkitty.R.string.tab_github), TabType.GITHUB)
 
-    private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab))
+    private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab, githubTab))
     val tabs: StateFlow<List<LogTab>> = _tabs
 
     private val _selectedTab = MutableStateFlow(systemTab)
@@ -213,6 +217,8 @@ class MainViewModel(
                         result = result.filter { sourceClassifier.classify(it.uid).contains(key) }
                     }
                 }
+                // The GitHub tab isn't backed by the logcat stream; its body is the feature panel.
+                TabType.GITHUB -> result = emptyList()
             }
             if (input.userFilter.isNotBlank()) {
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }

@@ -60,7 +60,7 @@ android {
 
     // On-demand feature modules. Delivered individually on Google Play; fused into the universal /
     // standalone APK (see each module's <dist:fusing>) for the sideloaded GitHub build.
-    dynamicFeatures += setOf(":feature:stats", ":feature:ads")
+    dynamicFeatures += setOf(":feature:stats", ":feature:ads", ":feature:github")
 
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"

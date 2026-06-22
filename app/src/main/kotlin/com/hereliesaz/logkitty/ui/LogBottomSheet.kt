@@ -462,7 +462,14 @@ private fun ExpandedView(
                 .fillMaxWidth()
                 .pointerInputHorizontalDrag(threshold = 64f, onLeft = onSwipeLeft, onRight = onSwipeRight)
         ) {
-            if (statsActive) {
+            if (selectedTab.type == TabType.GITHUB) {
+                // The GitHub tab's body is the on-demand :feature:github panel, not the log stream.
+                GitHubFeatureSlot(
+                    fontFamily = fontFamily,
+                    fontSize = fontSize,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else if (statsActive) {
                 StatsFeatureSlot(
                     packageName = selectedTab.filterValue,
                     label = selectedTab.title,
@@ -503,8 +510,11 @@ private fun ExpandedView(
 
         // --- Banner ad, pinned to the bottom of the expanded sheet (HALF / FULL only). ---
         // Takes no space (and shows no divider) until the on-demand :feature:ads module is installed
-        // and the ad loads, so it never leaves an empty gap below the log.
-        AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
+        // and the ad loads, so it never leaves an empty gap below the log. Suppressed on the GitHub
+        // tab, whose panel manages its own full-height layout.
+        if (selectedTab.type != TabType.GITHUB) {
+            AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
+        }
     }
 }
 

@@ -8,9 +8,11 @@ package com.hereliesaz.logkitty.core.feature
 object FeatureModules {
     const val STATS = "stats"
     const val ADS = "ads"
+    const val GITHUB = "github"
 
     const val STATS_IMPL = "com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl"
     const val ADS_IMPL = "com.hereliesaz.logkitty.feature.ads.AdsFeatureImpl"
+    const val GITHUB_IMPL = "com.hereliesaz.logkitty.feature.github.GitHubFeatureImpl"
 }
 
 /**

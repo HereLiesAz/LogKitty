@@ -34,3 +34,25 @@ interface AdsFeature {
     @Composable
     fun BannerAd(adUnitId: String, modifier: Modifier)
 }
+
+/**
+ * GitHub Actions feature (`:feature:github`). Renders the workflow-runs → jobs → job-log drill-down;
+ * owns the GitHub REST networking and the ANSI/annotation log parser.
+ *
+ * Signatures use only types visible to every module (framework + Compose + function types). The PAT
+ * is read lazily through [tokenProvider] (never passed as a snapshot String) so it isn't captured in
+ * a recomposition-stable param and edits in Settings are picked up on the next read.
+ */
+interface GitHubFeature {
+    @Composable
+    fun GitHubPanel(
+        owner: String,
+        repo: String,
+        tokenProvider: () -> String?,
+        fontFamily: FontFamily?,
+        fontSize: Int,
+        onWatchRun: (owner: String, repo: String, runId: Long, runName: String) -> Unit,
+        onConfigure: () -> Unit,
+        modifier: Modifier,
+    )
+}

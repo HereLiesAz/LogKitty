@@ -129,6 +129,15 @@
     <!-- Dynamic feature module titles (shown by Play during on-demand install) -->
     <string name="feature_stats_title">Developer Stats</string>
     <string name="feature_ads_title">Ads</string>
+    <string name="feature_github_title">GitHub Actions</string>
+
+    <!-- GitHub feature -->
+    <string name="tab_github">GitHub</string>
+    <string name="github_install_prompt">GitHub Actions is an optional add-on. Download it to browse your repo\'s workflow runs, jobs and logs right here.</string>
+    <string name="github_get">Get GitHub Actions</string>
+    <string name="github_installing">Installing GitHub Actions…</string>
+    <string name="github_finishing_install">Finishing install — tap to load.</string>
+    <string name="github_coming_soon">GitHub Actions coming soon…</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>

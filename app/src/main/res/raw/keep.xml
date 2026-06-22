@@ -5,4 +5,4 @@
   see the cross-module reference. Keep them explicitly.
 -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@string/feature_stats_title,@string/feature_ads_title" />
+    tools:keep="@string/feature_stats_title,@string/feature_ads_title,@string/feature_github_title" />
