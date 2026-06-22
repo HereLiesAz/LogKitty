@@ -140,7 +140,9 @@ class MainActivity : ComponentActivity() {
                             GitHubScreen(
                                 viewModel = viewModel,
                                 onBack = { showGitHub = false },
-                                onConfigure = { showGitHub = false; showSettings = true },
+                                // Keep showGitHub=true: the when checks showSettings first, so Settings
+                                // shows on top and backing out of it returns here, not the dashboard.
+                                onConfigure = { showSettings = true },
                             )
                         else -> {
                             // Show the Main Dashboard / Permission Wizard.

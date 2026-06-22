@@ -1,5 +1,6 @@
 package com.hereliesaz.logkitty.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,8 @@ import com.hereliesaz.logkitty.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GitHubScreen(viewModel: MainViewModel, onBack: () -> Unit, onConfigure: () -> Unit) {
+    // System back / gesture returns to the dashboard rather than exiting the activity.
+    BackHandler(onBack = onBack)
     val owner by viewModel.githubOwner.collectAsState()
     val repo by viewModel.githubRepo.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
