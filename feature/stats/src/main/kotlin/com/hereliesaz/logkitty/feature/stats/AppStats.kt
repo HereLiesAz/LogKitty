@@ -115,6 +115,21 @@ data class PowerStats(
 /** A named thing with an optional held/elapsed duration in milliseconds (e.g. a wakelock). */
 data class NamedDuration(val name: String, val ms: Long?)
 
+/**
+ * A thread's cumulative disk I/O (bytes that actually hit storage), produced by the on-demand disk
+ * drill-down [com.hereliesaz.logkitty.feature.stats.AppStatsCollector.probeIoTopThreads]. Lets the
+ * developer see *which* thread is the writer behind a high disk-write rate.
+ */
+data class ThreadIo(val tid: Int, val name: String, val readBytes: Long, val writeBytes: Long)
+
+/**
+ * One active network socket for the app, produced by the on-demand network drill-down
+ * [com.hereliesaz.logkitty.feature.stats.AppStatsCollector.probeSockets]. Decoded from
+ * `/proc/net/tcp{,6}` filtered to the app's uid (root). Tells the developer *who* the app is
+ * talking to behind a network rate.
+ */
+data class SocketConn(val proto: String, val state: String, val remote: String)
+
 data class HealthStats(
     val threadCount: Int?,
     val fdCount: Int?,

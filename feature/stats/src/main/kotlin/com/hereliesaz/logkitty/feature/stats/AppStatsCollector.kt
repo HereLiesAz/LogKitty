@@ -176,6 +176,60 @@ class AppStatsCollector(private val context: Context) {
         return lines.takeIf { it.isNotEmpty() }
     }
 
+    /**
+     * On-demand deep probe: the *full* stack trace of the most recent crash for the package, read
+     * straight from the logcat **crash** buffer. Like [parseCrashes] this needs only `READ_LOGS`, so
+     * it works **without root** — it's the drill-down behind the one-line crash summary, giving the
+     * developer the whole call chain. Returns null when no readable trace is found.
+     */
+    suspend fun probeCrashStack(pkg: String): List<String>? {
+        val raw = RootShell.run(
+            "logcat -b crash -d -v threadtime -t 1000 2>/dev/null",
+            useRoot = false,
+            timeoutMs = 6000,
+        ) ?: return null
+        return extractLastCrashStack(raw, pkg).takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * On-demand deep probe: per-thread cumulative disk I/O from `/proc/<pid>/task/*/io` (root), to
+     * find *which* thread is the writer behind a high disk-write rate. Best-effort and root-gated;
+     * returns the threads with non-zero write bytes, descending, or null when unavailable.
+     */
+    suspend fun probeIoTopThreads(pid: Int, useRoot: Boolean): List<ThreadIo>? {
+        if (!useRoot || pid <= 0) return null
+        val script = """
+            for t in /proc/$pid/task/*; do
+              echo "@@TIO ${'$'}(basename ${'$'}t)@@"
+              cat ${'$'}t/comm 2>/dev/null
+              cat ${'$'}t/io 2>/dev/null
+            done
+        """.trimIndent()
+        val raw = RootShell.run(script, useRoot = useRoot, timeoutMs = 5000) ?: return null
+        return parseThreadIo(raw).takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * On-demand deep probe: the app's active TCP sockets, decoded from `/proc/net/tcp{,6}` filtered to
+     * the app's uid (root). Tells the developer *who* the app is connected to behind a network rate.
+     * Best-effort: many ROMs hide other uids' entries (hidepid), in which case this returns null.
+     */
+    suspend fun probeSockets(pid: Int, useRoot: Boolean): List<SocketConn>? {
+        if (!useRoot || pid <= 0) return null
+        val script = """
+            echo "@@UID@@"; cat /proc/$pid/status 2>/dev/null | grep '^Uid:'
+            echo "@@TCP@@"; cat /proc/net/tcp 2>/dev/null
+            echo "@@TCP6@@"; cat /proc/net/tcp6 2>/dev/null
+        """.trimIndent()
+        val raw = RootShell.run(script, useRoot = useRoot, timeoutMs = 5000) ?: return null
+        val sections = splitSections(raw)
+        val uid = sections["UID"]?.trim()?.split(Regex("\\s+"))?.getOrNull(1)?.toIntOrNull() ?: return null
+        val conns = ArrayList<SocketConn>()
+        parseNetSockets(sections["TCP"], uid, ipv6 = false, into = conns)
+        parseNetSockets(sections["TCP6"], uid, ipv6 = true, into = conns)
+        return conns.distinctBy { it.proto + it.remote + it.state }.take(20).takeIf { it.isNotEmpty() }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Shell scripts
     // ---------------------------------------------------------------------------------------------
@@ -409,6 +463,111 @@ class AppStatsCollector(private val context: Context) {
     /** Extracts the leading `MM-DD HH:MM:SS` from a `-v threadtime` logcat line, or null. */
     private fun parseLogTime(line: String): String? =
         LOG_TIME.find(line.trimStart())?.groupValues?.get(1)
+
+    /**
+     * Pulls the full stack trace of the *most recent* `FATAL EXCEPTION` belonging to [pkg] out of the
+     * raw crash-buffer dump. Strips the threadtime + `AndroidRuntime:` tag from each line so only the
+     * trace text remains, and bounds the block to the next FATAL so two crashes never bleed together.
+     */
+    private fun extractLastCrashStack(crashLog: String, pkg: String): List<String> {
+        val lines = crashLog.lines()
+        var start = -1
+        var i = 0
+        while (i < lines.size) {
+            if (lines[i].contains("FATAL EXCEPTION")) {
+                val limit = minOf(i + 6, lines.size)
+                val matched = (i + 1 until limit).any {
+                    lines[it].contains("Process: $pkg,") || lines[it].contains("Process: $pkg ")
+                }
+                if (matched) start = i
+            }
+            i++
+        }
+        if (start < 0) return emptyList()
+        val tag = "AndroidRuntime:"
+        val out = ArrayList<String>()
+        var k = start
+        while (k < lines.size && out.size < 140) {
+            val l = lines[k]
+            if (k > start && l.contains("FATAL EXCEPTION")) break // next crash → stop
+            val idx = l.indexOf(tag)
+            if (idx < 0) {
+                if (out.isNotEmpty()) break // left the trace block
+            } else {
+                out.add(l.substring(idx + tag.length).removePrefix(" "))
+            }
+            k++
+        }
+        return out
+    }
+
+    /** Per-thread cumulative disk I/O from the `@@TIO <tid>@@` sections; top writers first. */
+    private fun parseThreadIo(raw: String): List<ThreadIo> {
+        val out = ArrayList<ThreadIo>()
+        for ((key, body) in splitSections(raw)) {
+            if (!key.startsWith("TIO ")) continue
+            val tid = key.removePrefix("TIO ").trim().toIntOrNull() ?: continue
+            val bodyLines = body.lines()
+            val name = bodyLines.firstOrNull { it.isNotBlank() }?.trim() ?: "tid $tid"
+            var rb = 0L
+            var wb = 0L
+            for (l in bodyLines) {
+                val t = l.trim()
+                when {
+                    t.startsWith("read_bytes:") -> rb = t.substringAfter(':').trim().toLongOrNull() ?: rb
+                    t.startsWith("write_bytes:") -> wb = t.substringAfter(':').trim().toLongOrNull() ?: wb
+                }
+            }
+            if (rb > 0 || wb > 0) out.add(ThreadIo(tid, name, rb, wb))
+        }
+        return out.sortedByDescending { it.writeBytes }.take(8)
+    }
+
+    /** Decodes `/proc/net/tcp{,6}` rows for [uid] into [SocketConn]s, skipping the header and others. */
+    private fun parseNetSockets(section: String?, uid: Int, ipv6: Boolean, into: MutableList<SocketConn>) {
+        if (section.isNullOrBlank()) return
+        for (line in section.lineSequence()) {
+            val cols = line.trim().split(Regex("\\s+"))
+            if (cols.size < 8 || !cols[0].endsWith(":")) continue // data rows look like "0: ...", header is "sl"
+            if (cols[7].toIntOrNull() != uid) continue
+            val state = TCP_STATES[cols[3]] ?: continue
+            val remote = decodeNetAddr(cols[2], ipv6) ?: continue
+            into.add(SocketConn(if (ipv6) "tcp6" else "tcp", state, remote))
+        }
+    }
+
+    /** Decodes a `HEXIP:HEXPORT` token from `/proc/net/tcp{,6}` to a readable `ip:port`. */
+    private fun decodeNetAddr(token: String, ipv6: Boolean): String? {
+        val parts = token.split(":")
+        if (parts.size != 2) return null
+        val port = parts[1].toIntOrNull(16) ?: return null
+        val ip = if (ipv6) decodeIpv6(parts[0]) else decodeIpv4(parts[0]) ?: return null
+        return if (ipv6) "[$ip]:$port" else "$ip:$port"
+    }
+
+    /** `/proc/net` stores the v4 address as a little-endian 32-bit hex word → reverse the octets. */
+    private fun decodeIpv4(hex: String): String? {
+        if (hex.length != 8) return null
+        return try {
+            val b = (0 until 4).map { hex.substring(it * 2, it * 2 + 2).toInt(16) }
+            "${b[3]}.${b[2]}.${b[1]}.${b[0]}"
+        } catch (e: NumberFormatException) {
+            null
+        }
+    }
+
+    /** v6 is four little-endian 32-bit words → reverse bytes within each word, then group as hextets. */
+    private fun decodeIpv6(hex: String): String? {
+        if (hex.length != 32) return null
+        return try {
+            val bytes = IntArray(16) { hex.substring(it * 2, it * 2 + 2).toInt(16) }
+            val ordered = IntArray(16)
+            for (w in 0 until 4) for (i in 0 until 4) ordered[w * 4 + i] = bytes[w * 4 + (3 - i)]
+            (0 until 8).joinToString(":") { g -> "%02x%02x".format(ordered[g * 2], ordered[g * 2 + 1]) }
+        } catch (e: NumberFormatException) {
+            null
+        }
+    }
 
     private fun parseCpu(sections: Map<String, String>, pids: List<Int>): CpuStats? {
         val cpuLine = sections["CPU"]?.trim() ?: return null
@@ -735,7 +894,14 @@ class AppStatsCollector(private val context: Context) {
     }
 
     companion object {
-        private val MARKER = Regex("""@@([A-Z]+(?: \d+)?)@@""")
+        // Section name (letters/digits, e.g. TCP6) optionally followed by a numeric id (e.g. PSTAT 1234).
+        private val MARKER = Regex("""@@([A-Z0-9]+(?: \d+)?)@@""")
+        // Linux TCP socket states we surface, keyed by the hex `st` column of /proc/net/tcp{,6}.
+        private val TCP_STATES = mapOf(
+            "01" to "ESTABLISHED", "02" to "SYN_SENT", "03" to "SYN_RECV",
+            "04" to "FIN_WAIT1", "05" to "FIN_WAIT2", "06" to "TIME_WAIT",
+            "08" to "CLOSE_WAIT", "0A" to "LISTEN",
+        )
         // Captures the class name from `ServiceRecord{hash u0 pkg/<Name> ...}` (running service).
         private val SERVICE_RECORD = Regex("""ServiceRecord\{[^}]*/([^\s}]+)""")
         // `<provider> provider:` section header in `dumpsys location`.
