@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -580,6 +581,9 @@ private fun <T> ExpandableProbe(
     var expanded by remember(resetKey) { mutableStateOf(false) }
     var loading by remember(resetKey) { mutableStateOf(false) }
     var result by remember(resetKey) { mutableStateOf<T?>(null) }
+    // probe is intentionally NOT a LaunchedEffect key (we don't want to restart on every recomposition's
+    // new lambda); rememberUpdatedState keeps the effect calling the latest probe without restarting it.
+    val latestProbe by rememberUpdatedState(probe)
     Spacer(Modifier.height(4.dp))
     Row(
         modifier = Modifier.fillMaxWidth().clickable {
@@ -601,7 +605,7 @@ private fun <T> ExpandableProbe(
     if (result == null) {
         LaunchedEffect(resetKey, expanded) {
             loading = true
-            result = probe()
+            result = latestProbe()
             loading = false
         }
     }

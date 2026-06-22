@@ -192,9 +192,9 @@ class AppStatsCollector(private val context: Context) {
     }
 
     /**
-     * On-demand deep probe: per-thread cumulative disk I/O from `/proc/<pid>/task/*/io` (root), to
-     * find *which* thread is the writer behind a high disk-write rate. Best-effort and root-gated;
-     * returns the threads with non-zero write bytes, descending, or null when unavailable.
+     * On-demand deep probe: per-thread cumulative disk I/O from each `/proc/<pid>/task/<tid>/io`
+     * (root), to find which thread is the writer behind a high disk-write rate. Best-effort and
+     * root-gated; returns the threads with non-zero write bytes, descending, or null when unavailable.
      */
     suspend fun probeIoTopThreads(pid: Int, useRoot: Boolean): List<ThreadIo>? {
         if (!useRoot || pid <= 0) return null
@@ -476,8 +476,12 @@ class AppStatsCollector(private val context: Context) {
         while (i < lines.size) {
             if (lines[i].contains("FATAL EXCEPTION")) {
                 val limit = minOf(i + 6, lines.size)
+                // Match "Process: <pkg>" only when the next char ends the token (comma, space, or EOL),
+                // so we don't accept a prefix of a longer package and still match ROMs with no trailer.
+                val needle = "Process: $pkg"
                 val matched = (i + 1 until limit).any {
-                    lines[it].contains("Process: $pkg,") || lines[it].contains("Process: $pkg ")
+                    val at = lines[it].indexOf(needle)
+                    at >= 0 && lines[it].getOrNull(at + needle.length).let { c -> c == null || c == ',' || c.isWhitespace() }
                 }
                 if (matched) start = i
             }
@@ -541,7 +545,9 @@ class AppStatsCollector(private val context: Context) {
         val parts = token.split(":")
         if (parts.size != 2) return null
         val port = parts[1].toIntOrNull(16) ?: return null
-        val ip = if (ipv6) decodeIpv6(parts[0]) else decodeIpv4(parts[0]) ?: return null
+        // Parens matter: `?:` binds tighter than if/else, so without them the fallback would only
+        // apply to the v4 branch and a null v6 decode would yield a malformed "[null]:port".
+        val ip = (if (ipv6) decodeIpv6(parts[0]) else decodeIpv4(parts[0])) ?: return null
         return if (ipv6) "[$ip]:$port" else "$ip:$port"
     }
 
@@ -900,7 +906,8 @@ class AppStatsCollector(private val context: Context) {
         private val TCP_STATES = mapOf(
             "01" to "ESTABLISHED", "02" to "SYN_SENT", "03" to "SYN_RECV",
             "04" to "FIN_WAIT1", "05" to "FIN_WAIT2", "06" to "TIME_WAIT",
-            "08" to "CLOSE_WAIT", "0A" to "LISTEN",
+            "07" to "CLOSE", "08" to "CLOSE_WAIT", "09" to "LAST_ACK",
+            "0A" to "LISTEN", "0B" to "CLOSING",
         )
         // Captures the class name from `ServiceRecord{hash u0 pkg/<Name> ...}` (running service).
         private val SERVICE_RECORD = Regex("""ServiceRecord\{[^}]*/([^\s}]+)""")
