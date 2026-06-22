@@ -360,7 +360,7 @@ private fun MemoryTrend(pssHistory: List<Long>, ff: FontFamily?, fs: Int, lc: Co
     val last = pssHistory.last()
     val deltaKb = last - first
     if (deltaKb < LEAK_THRESHOLD_KB) return // not a meaningful rise
-    val peak = pssHistory.max()
+    val peak = pssHistory.maxOrNull() ?: 0L
     val climbing = last >= peak - peak / 50 // within ~2% of the peak → still at/near the top
     val windowSec = pssHistory.size * 2 // ~2s sampling cadence
     val msg = "PSS +${kb(deltaKb)} over ~${windowSec}s" + if (climbing) " — still climbing (possible leak)" else ""
