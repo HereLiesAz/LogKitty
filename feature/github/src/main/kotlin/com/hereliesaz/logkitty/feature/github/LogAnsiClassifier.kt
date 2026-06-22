@@ -170,7 +170,13 @@ object LogAnsiClassifier {
                     // 38;5;n (256) or 38;2;r;g;b (truecolor)
                     when (codes.getOrNull(k + 1)) {
                         5 -> { c = xterm256(codes.getOrNull(k + 2) ?: 0); k += 2 }
-                        2 -> { c = Color(codes.getOrNull(k + 2) ?: 0, codes.getOrNull(k + 3) ?: 0, codes.getOrNull(k + 4) ?: 0); k += 4 }
+                        2 -> {
+                            // Coerce — Color(Int,Int,Int) throws if a malformed escape gives out-of-range channels.
+                            val r = (codes.getOrNull(k + 2) ?: 0).coerceIn(0, 255)
+                            val g = (codes.getOrNull(k + 3) ?: 0).coerceIn(0, 255)
+                            val b = (codes.getOrNull(k + 4) ?: 0).coerceIn(0, 255)
+                            c = Color(r, g, b); k += 4
+                        }
                     }
                 }
                 // Backgrounds (40-49, 100-107) and other codes are ignored.

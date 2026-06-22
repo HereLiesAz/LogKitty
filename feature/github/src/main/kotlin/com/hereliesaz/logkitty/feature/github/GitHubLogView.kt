@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.produceState
@@ -47,11 +48,18 @@ fun GitHubLogView(logLines: List<String>, fontFamily: FontFamily?, fontSize: Int
         return
     }
 
-    // groupId -> collapsed. Reading it during the filter below subscribes to toggles.
-    val collapsed = remember(logLines) { mutableStateMapOf<Int, Boolean>() }
-    val visible = lines.filter { line ->
-        val g = line.groupId
-        g == null || line.isGroupHeader || collapsed[g] != true
+    // groupId -> collapsed. Keyless so a poll/refresh of the same job's log doesn't re-expand folded
+    // groups (the view is disposed/recreated when switching jobs, so state doesn't leak across jobs).
+    val collapsed = remember { mutableStateMapOf<Int, Boolean>() }
+    // derivedStateOf so the filter only re-runs when the lines or collapsed set change — not on every
+    // recomposition (scroll/animation) over potentially thousands of lines.
+    val visible by remember(lines) {
+        derivedStateOf {
+            lines.filter { line ->
+                val g = line.groupId
+                g == null || line.isGroupHeader || collapsed[g] != true
+            }
+        }
     }
 
     val listState = rememberLazyListState()
