@@ -15,8 +15,8 @@ buildscript {
                     because("Security fixes: CVE-2023-2976 & CVE-2020-8908 (insecure temp-dir use / info disclosure)")
                 }
                 g == "io.netty" && !n.startsWith("netty-tcnative") -> {
-                    useVersion("4.1.133.Final")
-                    because("Security fixes: CVE-2025-67735, CVE-2026-42583, CVE-2026-42587, et al.")
+                    useVersion("4.1.121.Final")
+                    because("Build-tooling transitive only (never shipped); pin Netty to the latest 4.1.x security release")
                 }
                 g == "org.bouncycastle" && n.endsWith("-jdk18on") -> {
                     useVersion("1.84")
@@ -74,7 +74,7 @@ subprojects {
                     useVersion("3.25.5"); because("Security fix")
                 }
                 g == "io.netty" && !n.startsWith("netty-tcnative") -> {
-                    useVersion("4.1.133.Final"); because("Security fixes")
+                    useVersion("4.1.121.Final"); because("Latest 4.1.x security release")
                 }
                 g == "org.bouncycastle" && n.endsWith("-jdk18on") -> {
                     useVersion("1.84"); because("Security fixes")
