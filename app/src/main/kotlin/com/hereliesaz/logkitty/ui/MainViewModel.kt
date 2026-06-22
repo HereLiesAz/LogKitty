@@ -74,6 +74,8 @@ class MainViewModel(
 
     // Repositories
     private val userPreferences = UserPreferences(application)
+    // Secure, backup-excluded store for the GitHub PAT (kept out of UserPreferences/backups).
+    private val githubCredentials = com.hereliesaz.logkitty.utils.GitHubCredentials(application)
 
     // Cache of package name -> Android UID (-1 = resolved-but-unknown). Used to filter the log
     // stream to a specific app reliably (UID is stable across process restarts, unlike PID).
@@ -145,6 +147,23 @@ class MainViewModel(
     val activeLogLevels: StateFlow<Set<String>> = userPreferences.activeLogLevels
     val colorScheme: StateFlow<LogColorScheme> = userPreferences.colorScheme
     val tagColoringEnabled: StateFlow<Boolean> = userPreferences.tagColoringEnabled
+
+    // GitHub Actions config. Repo coordinates are non-secret (UserPreferences); the PAT lives in the
+    // backup-excluded secure store. Only a boolean is exposed reactively — the decrypted secret is
+    // produced on demand via [readGithubToken] (called off the main thread by the feature panel).
+    val githubOwner: StateFlow<String> = userPreferences.githubOwner
+    val githubRepo: StateFlow<String> = userPreferences.githubRepo
+    val hasGithubToken: StateFlow<Boolean> = githubCredentials.hasToken
+    fun setGithubOwner(owner: String) = userPreferences.setGithubOwner(owner)
+    fun setGithubRepo(repo: String) = userPreferences.setGithubRepo(repo)
+
+    /** Stores/clears the PAT off the main thread (AES/GCM + Keystore work). */
+    fun setGithubToken(token: String?) {
+        viewModelScope.launch(Dispatchers.IO) { githubCredentials.setToken(token) }
+    }
+
+    /** Decrypts the PAT on demand. Call off the main thread (it touches the Keystore). */
+    fun readGithubToken(): String? = githubCredentials.readToken()
 
     /**
      * Per-tab "cleared" baseline. When the user clears a single tab we record the size of the

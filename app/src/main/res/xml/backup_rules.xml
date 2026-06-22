@@ -3,4 +3,6 @@
     <include domain="sharedpref" path="."/>
     <include domain="database" path="."/>
     <include domain="file" path="."/>
+    <!-- Never back up the GitHub PAT (Keystore-encrypted and device-bound). -->
+    <exclude domain="sharedpref" path="logkitty_secure_prefs.xml"/>
 </full-backup-content>

@@ -36,7 +36,11 @@ data class ExportedPreferences(
     val colorScheme: String = LogColorScheme.MATERIAL.name,
     val tagColoringEnabled: Boolean = true,
     val monitoredApps: List<String> = emptyList(),
-    val activeSourceFilters: List<String> = emptyList()
+    val activeSourceFilters: List<String> = emptyList(),
+    // GitHub repo config is non-secret and safe to back up. The PAT is NOT here — it lives in the
+    // separate, backup-excluded GitHubCredentials store and is never exported.
+    val githubOwner: String = "",
+    val githubRepo: String = ""
 )
 
 /**
@@ -132,6 +136,14 @@ class UserPreferences(context: Context) {
     // --- Preference: Tag-Based Coloring ---
     private val _tagColoringEnabled = MutableStateFlow(prefs.getBoolean(KEY_TAG_COLORING, true))
     val tagColoringEnabled: StateFlow<Boolean> = _tagColoringEnabled.asStateFlow()
+
+    // --- Preference: GitHub repo (owner/name) ---
+    // Non-secret repo coordinates for the GitHub Actions tab. The PAT is stored separately in the
+    // backup-excluded GitHubCredentials store, never here.
+    private val _githubOwner = MutableStateFlow(prefs.getString(KEY_GITHUB_OWNER, "") ?: "")
+    val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
+    private val _githubRepo = MutableStateFlow(prefs.getString(KEY_GITHUB_REPO, "") ?: "")
+    val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
 
     // --- Preference: Log Colors ---
     // Map of LogLevel to ARGB Color Integer. Reflects the active scheme until the user customizes.
@@ -302,6 +314,16 @@ class UserPreferences(context: Context) {
         _tagColoringEnabled.value = enabled
     }
 
+    fun setGithubOwner(owner: String) {
+        prefs.edit().putString(KEY_GITHUB_OWNER, owner).apply()
+        _githubOwner.value = owner
+    }
+
+    fun setGithubRepo(repo: String) {
+        prefs.edit().putString(KEY_GITHUB_REPO, repo).apply()
+        _githubRepo.value = repo
+    }
+
     // --- Helpers ---
 
     private fun loadProhibitedTags(): Set<String> {
@@ -356,7 +378,9 @@ class UserPreferences(context: Context) {
             colorScheme = _colorScheme.value.name,
             tagColoringEnabled = _tagColoringEnabled.value,
             monitoredApps = _monitoredApps.value.toList(),
-            activeSourceFilters = _activeSourceFilters.value.toList()
+            activeSourceFilters = _activeSourceFilters.value.toList(),
+            githubOwner = _githubOwner.value,
+            githubRepo = _githubRepo.value
         )
         return try {
             Json { prettyPrint = true }.encodeToString(exported)
@@ -399,6 +423,9 @@ class UserPreferences(context: Context) {
             prefs.edit().putStringSet(KEY_ACTIVE_SOURCE_FILTERS, sources).apply()
             _activeSourceFilters.value = sources
 
+            setGithubOwner(imported.githubOwner)
+            setGithubRepo(imported.githubRepo)
+
             val scheme = try { LogColorScheme.valueOf(imported.colorScheme) } catch (e: Exception) { LogColorScheme.MATERIAL }
 
             val editor = prefs.edit()
@@ -440,5 +467,7 @@ class UserPreferences(context: Context) {
         private const val KEY_TAG_COLORING = "tag_coloring_enabled"
         private const val KEY_MONITORED_APPS = "monitored_apps"
         private const val KEY_ACTIVE_SOURCE_FILTERS = "active_source_filters"
+        private const val KEY_GITHUB_OWNER = "github_owner"
+        private const val KEY_GITHUB_REPO = "github_repo"
     }
 }
