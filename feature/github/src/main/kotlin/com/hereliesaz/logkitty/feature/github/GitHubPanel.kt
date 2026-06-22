@@ -149,16 +149,13 @@ private fun JobLogScreen(
     api: GitHubApi, owner: String, repo: String, job: WorkflowJob, ff: FontFamily?, fs: Int, onBack: () -> Unit,
 ) {
     var refresh by remember { mutableStateOf(0) }
-    val state by produceState<GitHubResult<String>?>(null, job.id, refresh) {
+    val state by produceState<GitHubResult<List<String>>?>(null, job.id, refresh) {
         value = null
         value = api.fetchJobLog(owner, repo, job.id)
     }
     Column(modifier = Modifier.fillMaxSize()) {
         Header("${statusGlyph(job.status, job.conclusion)} ${job.name}", ff, fs, onBack = onBack, onRefresh = { refresh++ })
-        ResultBody(state, ff, fs, empty = "No log output.") { log ->
-            // Cap to the most recent lines so a multi-MB log can't blow up the layout (Phase 3 adds
-            // ANSI coloring + smarter virtualization).
-            val lines = remember(log) { log.split('\n').let { if (it.size > MAX_LOG_LINES) it.takeLast(MAX_LOG_LINES) else it } }
+        ResultBody(state, ff, fs, empty = "No log output.") { lines ->
             LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                 items(lines.size) { i ->
                     Text(lines[i], color = Color.White.copy(alpha = 0.92f), fontSize = (fs - 1).sp, fontFamily = ff)
@@ -226,5 +223,3 @@ private fun statusGlyph(status: String, conclusion: String?): String = when {
     conclusion == "skipped" -> "⏭️"
     else -> "⚠️"
 }
-
-private const val MAX_LOG_LINES = 4000

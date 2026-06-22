@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.ResponseBody
 import org.json.JSONObject
 
 /**
@@ -24,7 +25,7 @@ class GitHubApi(private val tokenProvider: () -> String?) {
 
     suspend fun listRuns(owner: String, repo: String, perPage: Int = 20): GitHubResult<List<WorkflowRun>> =
         get("$API/repos/$owner/$repo/actions/runs?per_page=$perPage") { body ->
-            val arr = JSONObject(body).optJSONArray("workflow_runs") ?: return@get emptyList()
+            val arr = JSONObject(body.string()).optJSONArray("workflow_runs") ?: return@get emptyList()
             buildList {
                 for (i in 0 until arr.length()) add(parseRun(arr.getJSONObject(i)))
             }
@@ -32,22 +33,28 @@ class GitHubApi(private val tokenProvider: () -> String?) {
 
     suspend fun listJobs(owner: String, repo: String, runId: Long): GitHubResult<List<WorkflowJob>> =
         get("$API/repos/$owner/$repo/actions/runs/$runId/jobs?per_page=100") { body ->
-            val arr = JSONObject(body).optJSONArray("jobs") ?: return@get emptyList()
+            val arr = JSONObject(body.string()).optJSONArray("jobs") ?: return@get emptyList()
             buildList {
                 for (i in 0 until arr.length()) add(parseJob(arr.getJSONObject(i)))
             }
         }
 
     /**
-     * Fetches a job's plain-text log. The endpoint 302-redirects to a short-lived signed URL on
-     * another host; OkHttp follows it and drops the `Authorization` header on the cross-host hop
+     * Fetches a job's plain-text log as lines. The endpoint 302-redirects to a short-lived signed URL
+     * on another host; OkHttp follows it and drops the `Authorization` header on the cross-host hop
      * (correct — re-sending it would make the signed fetch fail), so we must NOT add a global auth
-     * interceptor. Returns the raw text (ANSI escapes intact — Phase 3 colorizes them).
+     * interceptor.
+     *
+     * Logs can be tens of MB, so we **stream** the body line-by-line and keep only the most recent
+     * [MAX_LOG_LINES] — never materializing the whole log as one String (avoids OOM). ANSI escapes
+     * are left intact for the colored view to parse.
      */
-    suspend fun fetchJobLog(owner: String, repo: String, jobId: Long): GitHubResult<String> =
-        get("$API/repos/$owner/$repo/actions/jobs/$jobId/logs", parse = { it })
+    suspend fun fetchJobLog(owner: String, repo: String, jobId: Long): GitHubResult<List<String>> =
+        get("$API/repos/$owner/$repo/actions/jobs/$jobId/logs") { body ->
+            body.charStream().useLines { lines -> lines.toList().let { if (it.size > MAX_LOG_LINES) it.takeLast(MAX_LOG_LINES) else it } }
+        }
 
-    private suspend fun <T> get(url: String, parse: (String) -> T): GitHubResult<T> =
+    private suspend fun <T> get(url: String, parse: (ResponseBody) -> T): GitHubResult<T> =
         withContext(Dispatchers.IO) {
             val builder = Request.Builder()
                 .url(url)
@@ -56,9 +63,11 @@ class GitHubApi(private val tokenProvider: () -> String?) {
             tokenProvider()?.takeIf { it.isNotBlank() }?.let { builder.header("Authorization", "Bearer $it") }
             try {
                 client.newCall(builder.build()).execute().use { resp ->
-                    val body = resp.body?.string().orEmpty()
                     when {
-                        resp.isSuccessful -> GitHubResult.Ok(parse(body))
+                        resp.isSuccessful -> {
+                            val body = resp.body ?: return@use GitHubResult.Err("Empty response from GitHub.")
+                            GitHubResult.Ok(parse(body))
+                        }
                         resp.code == 401 || resp.code == 403 ->
                             GitHubResult.Err("Unauthorized — check your token and its scopes.", unauthorized = true)
                         resp.code == 404 ->
@@ -73,23 +82,34 @@ class GitHubApi(private val tokenProvider: () -> String?) {
 
     private fun parseRun(o: JSONObject) = WorkflowRun(
         id = o.optLong("id"),
-        name = o.optString("name").ifBlank { o.optString("display_title").ifBlank { "Workflow run" } },
-        status = o.optString("status"),
-        conclusion = o.optString("conclusion").takeIf { it.isNotBlank() && it != "null" },
-        branch = o.optString("head_branch"),
-        event = o.optString("event"),
+        name = o.optStringSafe("name").ifBlank { o.optStringSafe("display_title").ifBlank { "Workflow run" } },
+        status = o.optStringSafe("status"),
+        conclusion = o.optStringSafe("conclusion").takeIf { it.isNotBlank() },
+        branch = o.optStringSafe("head_branch"),
+        event = o.optStringSafe("event"),
         runNumber = o.optInt("run_number"),
-        createdAt = o.optString("created_at"),
+        createdAt = o.optStringSafe("created_at"),
     )
 
     private fun parseJob(o: JSONObject) = WorkflowJob(
         id = o.optLong("id"),
-        name = o.optString("name").ifBlank { "Job" },
-        status = o.optString("status"),
-        conclusion = o.optString("conclusion").takeIf { it.isNotBlank() && it != "null" },
+        name = o.optStringSafe("name").ifBlank { "Job" },
+        status = o.optStringSafe("status"),
+        conclusion = o.optStringSafe("conclusion").takeIf { it.isNotBlank() },
     )
 
     private companion object {
         const val API = "https://api.github.com"
+        const val MAX_LOG_LINES = 4000
     }
+}
+
+/**
+ * Android's `JSONObject.optString` returns the literal string "null" for an explicit JSON null
+ * (`JSONObject.NULL`), which breaks `ifBlank`/`takeIf` fallbacks. This maps both a missing key and an
+ * explicit null to "".
+ */
+private fun JSONObject.optStringSafe(key: String): String {
+    val v = opt(key)
+    return if (v == null || v == JSONObject.NULL) "" else v.toString()
 }
