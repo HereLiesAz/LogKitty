@@ -666,9 +666,15 @@ class AppStatsCollector(private val context: Context) {
         return if (matched) total else null
     }
 
-    /** Number of non-blank lines (the captured `grep` output for jobs/alarms), or null if absent. */
-    private fun jobLineCount(section: String?): Int? =
-        section?.lineSequence()?.count { it.isNotBlank() }?.takeIf { it > 0 }
+    /**
+     * Non-blank line count of the captured jobs/alarms grep output. 0 when present-but-empty
+     * (genuinely none registered); null only when the section is absent (root off) — so the UI shows
+     * "0" rather than "—" when there simply are none.
+     */
+    private fun jobLineCount(section: String?): Int? {
+        if (section == null) return null
+        return section.lineSequence().count { it.isNotBlank() }
+    }
 
     /**
      * Top partial wakelocks by held time, name + ms, from `dumpsys batterystats`. Same line shape as
@@ -696,7 +702,9 @@ class AppStatsCollector(private val context: Context) {
         if (section.isNullOrBlank()) return emptyList()
         return COMPONENT_TOKEN.findAll(section)
             .map { it.value }
-            .filter { it.contains(pkg) }
+            // Exact package match on the `package/Component` token — avoids matching another package
+            // that merely has ours as a substring (e.g. com.example vs com.example.helper).
+            .filter { it.substringBefore('/') == pkg }
             .map { it.substringAfterLast('/') }
             .filter { it.isNotBlank() }
             .distinct()

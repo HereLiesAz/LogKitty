@@ -99,7 +99,7 @@ fun StatsView(
         stats.memory?.let { MemorySection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.gpu?.let { GpuSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.network?.let { NetworkSection(it, fontFamily, fontSize, labelColor, valueColor) }
-        stats.power?.let { PowerSection(it, stats.cpu, stats.sensors, fontFamily, fontSize, labelColor, valueColor) }
+        stats.power?.let { PowerSection(stats.packageName, it, stats.cpu, stats.sensors, fontFamily, fontSize, labelColor, valueColor) }
         stats.health?.let { HealthSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.sensors?.let { SensorSection(it, fontFamily, fontSize, labelColor, valueColor) }
         stats.binder?.let { BinderSection(it, fontFamily, fontSize, labelColor, valueColor) }
@@ -321,7 +321,7 @@ private fun NetworkSection(n: NetworkStats, ff: FontFamily?, fs: Int, lc: Color,
 
 @Composable
 private fun PowerSection(
-    p: PowerStats, cpu: CpuStats?, sensors: SensorStats?,
+    packageName: String, p: PowerStats, cpu: CpuStats?, sensors: SensorStats?,
     ff: FontFamily?, fs: Int, lc: Color, vc: Color,
 ) {
     StatCard("Power & Scheduling", ff, fs) {
@@ -335,17 +335,18 @@ private fun PowerSection(
 
         // Drill-down: aggregate the concrete causes (top CPU threads, wakelocks, jobs/alarms, sensors)
         // into one "what's draining battery" view. Tap to expand; lazily shown so it's out of the way.
-        BatteryInvestigation(p, cpu, sensors, ff, fs, lc, vc)
+        BatteryInvestigation(packageName, p, cpu, sensors, ff, fs, lc, vc)
     }
 }
 
 /** Expandable "what's draining battery" breakdown that ranks the concrete causes from each section. */
 @Composable
 private fun BatteryInvestigation(
-    p: PowerStats, cpu: CpuStats?, sensors: SensorStats?,
+    packageName: String, p: PowerStats, cpu: CpuStats?, sensors: SensorStats?,
     ff: FontFamily?, fs: Int, lc: Color, vc: Color,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    // Key on the package so the expanded state resets when switching apps but persists across polls.
+    var expanded by remember(packageName) { mutableStateOf(false) }
     Spacer(Modifier.height(4.dp))
     Row(
         modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 2.dp),
