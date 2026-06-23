@@ -50,6 +50,19 @@ interface AdsFeature {
     /** Whether ads may be requested yet — consent obtained or not required. Reads UMP's persisted state. */
     fun canRequestAds(context: android.content.Context): Boolean
 
+    /**
+     * Whether a "privacy options" entry must be offered so the user can change consent later — i.e.
+     * UMP reports `privacyOptionsRequirementStatus == REQUIRED` (consent applies to this user). Used
+     * to decide whether to show the Settings entry at all.
+     */
+    fun isPrivacyOptionsRequired(context: android.content.Context): Boolean
+
+    /**
+     * Shows the UMP privacy-options form so the user can review/change consent, then invokes
+     * [onComplete]. Needs an [android.app.Activity]; safe to call when one is available (Settings).
+     */
+    fun showPrivacyOptions(activity: android.app.Activity, onComplete: () -> Unit)
+
     @Composable
     fun BannerAd(adUnitId: String, modifier: Modifier)
 }

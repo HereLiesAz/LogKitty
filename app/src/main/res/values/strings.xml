@@ -197,6 +197,11 @@
     <string name="notif_action_stop">Stop</string>
     <string name="notif_action_app_settings">App Settings</string>
 
+    <!-- Privacy / ad consent section -->
+    <string name="settings_section_privacy">Privacy</string>
+    <string name="settings_ad_privacy">Manage ad consent</string>
+    <string name="settings_ad_privacy_desc">Review or change your ad personalization choices.</string>
+
     <!-- Permissions section -->
     <string name="settings_section_permissions">Permissions</string>
     <string name="perm_granted">Granted</string>
