@@ -28,4 +28,6 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
+    // Bounded, watchdog-protected shell runner (RootShell) shared by the base app and feature modules.
+    implementation(libs.kotlinx.coroutines.core)
 }

@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.lifecycleScope
+import com.hereliesaz.logkitty.core.shell.RootShell
+import kotlinx.coroutines.launch
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.InstallStateUpdatedListener
@@ -261,19 +264,16 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Checks if Root access is available by executing `su -c exit`.
-     * If successful, updates the ViewModel to enable Root features.
+     * Checks if Root access is available (via [RootShell.isRootAvailable], a bounded `su -c id -u`
+     * probe with a watchdog) and, if so, enables Root features. Runs on [lifecycleScope] so the work
+     * is cancelled with the Activity and a hung `su` can't leak a thread for the process lifetime.
      */
     private fun requestRootAccess() {
-        Thread {
-            try {
-                val process = Runtime.getRuntime().exec("su -c exit")
-                val exitCode = process.waitFor()
-                if (exitCode == 0) {
-                    runOnUiThread { (application as MainApplication).mainViewModel.setRootEnabled(true) }
-                }
-            } catch (e: Exception) { e.printStackTrace() }
-        }.start()
+        lifecycleScope.launch {
+            if (RootShell.isRootAvailable()) {
+                (application as MainApplication).mainViewModel.setRootEnabled(true)
+            }
+        }
     }
 
     /** Starts a flexible Play update if one is available, or surfaces the restart prompt if already downloaded. */

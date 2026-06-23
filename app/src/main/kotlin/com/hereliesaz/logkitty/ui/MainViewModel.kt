@@ -5,8 +5,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import androidx.compose.ui.graphics.Color
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hereliesaz.logkitty.core.AccessibilityActions
@@ -15,6 +15,7 @@ import com.hereliesaz.logkitty.ui.delegates.StateDelegate
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogcatReader
 import com.hereliesaz.logkitty.utils.LogSourceClassifier
+import com.hereliesaz.logkitty.utils.LogTagFilter
 import com.hereliesaz.logkitty.utils.LogSources
 import com.hereliesaz.logkitty.utils.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -208,7 +209,8 @@ class MainViewModel(
                 result = result.filter { line -> input.levels.contains(LogLevel.fromLine(line.text).name) }
             }
             if (input.prohibited.isNotEmpty()) {
-                result = result.filter { line -> input.prohibited.none { tag -> line.text.contains(tag, ignoreCase = true) } }
+                // Hide by *tag* match (not arbitrary substring) — see [LogTagFilter.isProhibited].
+                result = result.filter { line -> !LogTagFilter.isProhibited(line.text, input.prohibited) }
             }
             when (input.tab.type) {
                 TabType.SYSTEM -> { }
@@ -270,22 +272,10 @@ class MainViewModel(
     }
 
     private var logJob: Job? = null
+    private var captureJob: Job? = null
+    private var receiverRegistered = false
 
     init {
-        // Observe Root Mode toggle.
-        // If changed, we must restart the LogcatReader with the new privileges.
-        viewModelScope.launch {
-            isRootEnabled.collect { useRoot ->
-                logJob?.cancel() // Stop existing reader
-                stateDelegate.clearLog() // Clear old logs (optional, but cleaner)
-                logJob = launch {
-                    LogcatReader.observe(useRoot).collect {
-                        if (!_isPaused.value) stateDelegate.appendSystemLog(it)
-                    }
-                }
-            }
-        }
-
         // Keep pinned, app-specific tabs in sync with the user's "Monitor specific apps" choices.
         // Collected on IO because syncMonitoredTabs resolves app labels/UIDs via PackageManager.
         viewModelScope.launch(Dispatchers.IO) {
@@ -296,14 +286,60 @@ class MainViewModel(
         viewModelScope.launch {
             userPreferences.activeSourceFilters.collect { syncSourceTabs(it) }
         }
+    }
 
-        // Register the Accessibility Receiver
-        val filter = IntentFilter(AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            application.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            application.registerReceiver(receiver, filter)
+    /**
+     * Starts the logcat capture pipeline and the foreground-app receiver. Idempotent.
+     *
+     * Capture used to run for the entire process lifetime (launched eagerly in `init`), draining
+     * battery and holding a registered receiver even when nothing displayed logs. It's now started
+     * by the only consumer of the live stream — [com.hereliesaz.logkitty.services.LogKittyOverlayService]
+     * — when the overlay comes up, and torn down in [stopCapture] when it goes away.
+     */
+    fun startCapture() {
+        if (captureJob != null) return
+        registerForegroundReceiver()
+        // Observe Root Mode toggle: when it changes, restart the reader with the new privileges.
+        captureJob = viewModelScope.launch {
+            isRootEnabled.collect { useRoot ->
+                logJob?.cancel() // Stop existing reader
+                stateDelegate.clearLog() // Clear old logs (optional, but cleaner)
+                logJob = launch {
+                    LogcatReader.observe(useRoot).collect {
+                        if (!_isPaused.value) stateDelegate.appendSystemLog(it)
+                    }
+                }
+            }
         }
+    }
+
+    /** Stops capture and unregisters the foreground-app receiver when no consumer needs the stream. */
+    fun stopCapture() {
+        captureJob?.cancel() // also cancels the child logJob
+        captureJob = null
+        logJob = null
+        unregisterForegroundReceiver()
+    }
+
+    private fun registerForegroundReceiver() {
+        if (receiverRegistered) return
+        ContextCompat.registerReceiver(
+            getApplication(),
+            receiver,
+            IntentFilter(AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        receiverRegistered = true
+    }
+
+    private fun unregisterForegroundReceiver() {
+        if (!receiverRegistered) return
+        try {
+            getApplication<Application>().unregisterReceiver(receiver)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        receiverRegistered = false
     }
 
     /**
@@ -409,11 +445,7 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        try {
-            getApplication<Application>().unregisterReceiver(receiver)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        stopCapture()
     }
 
     // --- Actions Delegate to Data Layer ---

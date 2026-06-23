@@ -6,13 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import com.hereliesaz.logkitty.core.AccessibilityActions
+import com.hereliesaz.logkitty.core.shell.RootShell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 /**
  * Detects the foreground app for Context Mode **without an accessibility service**.
@@ -84,16 +83,16 @@ class ForegroundAppMonitor(context: Context) {
         }
     }
 
-    private fun rootForeground(): String? = try {
-        val process = ProcessBuilder(
-            "su", "-c", "dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity'"
-        ).redirectErrorStream(true).start()
-        val output = BufferedReader(InputStreamReader(process.inputStream)).use { it.readText() }
-        if (!process.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) process.destroyForcibly()
+    private suspend fun rootForeground(): String? {
+        // RootShell enforces the 3s budget with a watchdog that force-kills a hung `su` before the
+        // blocking read, so a stalled root prompt can't drag the poll past its interval.
+        val output = RootShell.run(
+            "dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity'",
+            useRoot = true,
+            timeoutMs = 3000,
+        ) ?: return null
         // Lines look like: topResumedActivity=ActivityRecord{hash u0 com.example/.MainActivity t123}
-        RESUMED_PACKAGE.find(output)?.groupValues?.get(1)
-    } catch (e: Exception) {
-        null
+        return RESUMED_PACKAGE.find(output)?.groupValues?.get(1)
     }
 
     private companion object {

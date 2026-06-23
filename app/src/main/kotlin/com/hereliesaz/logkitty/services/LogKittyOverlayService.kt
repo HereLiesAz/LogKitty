@@ -16,6 +16,7 @@ import android.provider.Settings
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.hereliesaz.aznavrail.bottomsheet.AzBottomSheetWindowHost
 import com.hereliesaz.aznavrail.bottomsheet.AzSheetController
 import com.hereliesaz.aznavrail.model.AzSheetConfig
@@ -61,6 +62,10 @@ class LogKittyOverlayService : Service() {
     private val controller = AzSheetController(initial = AzSheetDetent.HIDDEN)
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
+    // True once startForeground() has succeeded. If the OS refuses the (background) foreground-service
+    // start, we never flip this and tear the service down instead of crashing or lingering.
+    private var startedForeground = false
+
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AccessibilityActions.ACTION_COLLAPSE_OVERLAY) {
@@ -72,6 +77,12 @@ class LogKittyOverlayService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // If onCreate() could not promote us to a foreground service (e.g. the OS refused a
+        // background sticky-restart on Android 12+), don't keep getting restarted — bail.
+        if (!startedForeground) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         when (intent?.action) {
             ACTION_STOP_SERVICE -> {
                 stopSelf()
@@ -96,39 +107,80 @@ class LogKittyOverlayService : Service() {
         super.onCreate()
         createNotificationChannel()
         val notification = createNotification()
+
+        if (!promoteToForeground(notification)) {
+            // The OS refused the foreground-service start (e.g. a background sticky-restart on
+            // Android 12+). Bail cleanly instead of crashing or lingering as a started-but-not-
+            // foreground service. onStartCommand will also short-circuit via startedForeground.
+            stopSelf()
+            return
+        }
+        startedForeground = true
+
+        // Anything past the foreground promotion can fail (overlay setup, receiver registration);
+        // a failure here must tear the service down, not leave a half-initialized foreground service.
         try {
-            if (Build.VERSION.SDK_INT >= 34) {
-                startForeground(SERVICE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            } else {
-                startForeground(SERVICE_ID, notification)
+            if (Settings.canDrawOverlays(this)) setupOverlay()
+
+            val viewModel = (applicationContext as MainApplication).mainViewModel
+            // Each new service session starts actively logging — the app-scoped ViewModel would
+            // otherwise retain a stale paused state from a previous session.
+            viewModel.setPaused(false)
+            // Capture only runs while the overlay (the sole consumer of the live stream) is up.
+            viewModel.startCapture()
+
+            // Keep the notification's Start/Stop action in sync with the capture state, whether it's
+            // toggled from the notification or the bottom sheet's play/pause control.
+            serviceScope.launch {
+                viewModel.isPaused.collect { updateNotification() }
             }
+
+            ContextCompat.registerReceiver(
+                this,
+                receiver,
+                IntentFilter(AccessibilityActions.ACTION_COLLAPSE_OVERLAY),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "Overlay initialization failed; tearing down service", e)
+            stopSelf()
+        }
+    }
+
+    /**
+     * Promotes the service to the foreground, returning `true` on success.
+     *
+     * On Android 14+ the call MUST pass [ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE] (the
+     * service is declared `specialUse` in the manifest); the 2-arg overload is illegal there and was
+     * the original crash. If the OS refuses the start outright — `ForegroundServiceStartNotAllowedException`
+     * on Android 12+, thrown when a `START_STICKY` service is restarted in the background — we do NOT
+     * retry (a second start would throw again) and simply report failure so the caller can stop.
+     */
+    private fun promoteToForeground(notification: Notification): Boolean = try {
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(SERVICE_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
             startForeground(SERVICE_ID, notification)
         }
-
-        if (Settings.canDrawOverlays(this)) setupOverlay()
-
-        val viewModel = (applicationContext as MainApplication).mainViewModel
-        // Each new service session starts actively logging — the app-scoped ViewModel would
-        // otherwise retain a stale paused state from a previous session.
-        viewModel.setPaused(false)
-
-        // Keep the notification's Start/Stop action in sync with the capture state, whether it's
-        // toggled from the notification or the bottom sheet's play/pause control.
-        serviceScope.launch {
-            viewModel.isPaused.collect { updateNotification() }
-        }
-
-        val filter = IntentFilter(AccessibilityActions.ACTION_COLLAPSE_OVERLAY)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
+        true
+    } catch (e: Exception) {
+        // Compare by class name so the (API 31+) exception type isn't referenced on API 30 devices.
+        val notAllowed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            e.javaClass.name == "android.app.ForegroundServiceStartNotAllowedException"
+        if (notAllowed) {
+            android.util.Log.w(TAG, "Foreground start not allowed; stopping service", e)
         } else {
-            registerReceiver(receiver, filter)
+            android.util.Log.e(TAG, "Failed to start foreground service", e)
         }
+        false
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        // Stop logcat capture / unregister the foreground receiver now that the overlay is gone.
+        if (startedForeground) {
+            (applicationContext as MainApplication).mainViewModel.stopCapture()
+        }
         serviceScope.cancel()
         sheetHost?.detach()
         sheetHost = null
@@ -323,6 +375,7 @@ class LogKittyOverlayService : Service() {
     }
 
     companion object {
+        private const val TAG = "LogKittyOverlay"
         private const val CHANNEL_ID = "logkitty_overlay_channel"
         private const val SERVICE_ID = 1001
         private const val ACTION_STOP_SERVICE = "com.hereliesaz.logkitty.STOP_SERVICE"

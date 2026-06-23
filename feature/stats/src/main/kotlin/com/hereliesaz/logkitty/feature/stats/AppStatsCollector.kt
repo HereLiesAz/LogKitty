@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.os.BatteryManager
+import com.hereliesaz.logkitty.core.shell.RootShell
 
 /**
  * Gathers a full [AppStats] snapshot for one targeted package.

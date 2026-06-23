@@ -29,8 +29,14 @@ import com.hereliesaz.logkitty.feature.rememberFeatureInstall
  *
  * The unit ID comes from [BuildConfig.ADMOB_BANNER_UNIT_ID]: Google's test unit for debug, the real
  * unit for release when configured in local.properties/env. The app ID lives in AndroidManifest;
- * SDK init happens here via [AdsFeature.initialize]. TODO: add a UMP consent flow before serving
- * personalized ads.
+ * SDK init happens here via [AdsFeature.initialize].
+ *
+ * Known limitation — no UMP (User Messaging Platform) consent flow yet. A compliant GDPR/UMP gate
+ * can't live here as-is: `UserMessagingPlatform.loadAndShowConsentFormIfRequired` needs an *Activity*,
+ * but this banner is also hosted by the overlay foreground service, which has none. Adding it
+ * properly means a new `user-messaging-platform` dependency in `:feature:ads`, an Activity-only
+ * consent entry point on [AdsFeature], and gating ad init on the returned consent state. Tracked as a
+ * deliberate follow-up rather than shipped half-implemented (a wrong consent gate is a policy risk).
  *
  * @param showTopDivider draws a hairline divider above the banner — but only once the banner is
  *   actually rendered, so no stray line is left behind when ads aren't available.
