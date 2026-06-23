@@ -27,9 +27,28 @@ interface StatsFeature {
     )
 }
 
-/** Ads feature (`:feature:ads`). Renders the AdMob banner; owns play-services-ads + AD_ID. */
+/**
+ * Ads feature (`:feature:ads`). Renders the AdMob banner; owns play-services-ads, the AD_ID
+ * permission, and the UMP (User Messaging Platform) consent flow.
+ *
+ * Consent must be gathered before ads are requested. The UMP form needs an [android.app.Activity],
+ * but the banner is also hosted by the overlay foreground service (no Activity) — so the contract is
+ * split: [gatherConsent] runs the form from an Activity host (e.g. the launcher Activity), while the
+ * service-hosted banner relies on the consent state UMP persists across the process, queried via
+ * [canRequestAds]. [BannerAd] only loads an ad once consent allows it.
+ */
 interface AdsFeature {
     fun initialize(appContext: android.content.Context)
+
+    /**
+     * Runs the UMP consent flow (requests the latest consent info and shows the form if required),
+     * then invokes [onComplete] regardless of outcome. Must be called with an [android.app.Activity]
+     * because the form needs one. Idempotent and safe to call repeatedly.
+     */
+    fun gatherConsent(activity: android.app.Activity, onComplete: () -> Unit)
+
+    /** Whether ads may be requested yet — consent obtained or not required. Reads UMP's persisted state. */
+    fun canRequestAds(context: android.content.Context): Boolean
 
     @Composable
     fun BannerAd(adUnitId: String, modifier: Modifier)

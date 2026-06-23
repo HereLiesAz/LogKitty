@@ -29,6 +29,8 @@ dependencies {
 
     // The ad SDK + AD_ID permission live in this module so they're only pulled in with it.
     implementation(libs.play.services.ads)
+    // UMP (User Messaging Platform) for the GDPR/consent flow gating ad requests.
+    implementation(libs.user.messaging.platform)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
