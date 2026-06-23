@@ -2,6 +2,7 @@ package com.hereliesaz.logkitty.ui
 
 import androidx.compose.ui.graphics.Color
 import com.hereliesaz.logkitty.R
+import com.hereliesaz.logkitty.utils.LogTagFilter
 
 /**
  * [LogLevel] mirrors the canonical Android Logcat priorities.
@@ -36,10 +37,7 @@ enum class LogLevel(val letter: String, val defaultColor: Color) {
             return VERBOSE
         }
 
-        fun tagFromLine(line: String): String? {
-            val match = tagWithLetterRegex.find(line) ?: return null
-            return match.groupValues.getOrNull(2)?.trim()?.takeIf { it.isNotEmpty() }
-        }
+        fun tagFromLine(line: String): String? = LogTagFilter.tagOf(line)
     }
 }
 

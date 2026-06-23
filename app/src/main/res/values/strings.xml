@@ -1,14 +1,9 @@
 <resources>
     <string name="app_name">LogKitty</string>
-    <string name="selection_prompt_hint">What do you want to do here?</string>
     <string name="submit">Submit</string>
     <string name="cancel">Cancel</string>
-    <string name="starting_task">Starting task...</string>
     <string name="accessibility_service_label">LogKitty Inspection Service</string>
     <string name="accessibility_service_description">Allows LogKitty to provide contextual log filtering based on the foreground app.</string>
-    <string name="error_app_not_installed">App not installed. Please build first.</string>
-    <string name="error_launch_failed">Failed to launch app: %1$s</string>
-    <string name="deploy_instruction_gh_pages">Deployed! Enable GitHub Pages in repo settings.</string>
 
     <!-- Common -->
     <string name="select">Select</string>
@@ -58,7 +53,6 @@
     <string name="accessibility_disclosure_title">Enable Context Mode</string>
     <string name="accessibility_disclosure_body">Context Mode uses Usage Access so LogKitty can detect which app is currently in the foreground. LogKitty uses this only to automatically filter the log to the app you\'re using and to get out of the way when you\'re on the home screen.\n\nIt does not read screen contents, the text you type, passwords, or any personal data, and this information never leaves your device. To turn Context Mode on, you\'ll be taken to the Usage Access settings to enable LogKitty. (On rooted devices this works without any grant.)</string>
     <string name="accessibility_disclosure_agree">Agree &amp; open settings</string>
-    <string name="accessibility_service_disabled_warning">Accessibility service is off — Context Mode won\'t work until you enable it.</string>
     <string name="context_mode_usage_disabled_warning">Usage Access is off — Context Mode won\'t work until you grant it.</string>
     <string name="settings_root_access">Root Access</string>
     <string name="settings_reverse_log_order">Reverse Log Order</string>
@@ -143,7 +137,6 @@
     <string name="github_get">Get GitHub Actions</string>
     <string name="github_installing">Installing GitHub Actions…</string>
     <string name="github_finishing_install">Finishing install — tap to load.</string>
-    <string name="github_coming_soon">GitHub Actions coming soon…</string>
     <!-- GitHub settings -->
     <string name="settings_section_github">GitHub Actions</string>
     <string name="settings_github_desc">Browse a repo\'s workflow runs, jobs and logs from the GitHub tab. Use a fine-grained token with Actions: Read access (plus repository access for private repos). The token is encrypted on this device and never backed up.</string>

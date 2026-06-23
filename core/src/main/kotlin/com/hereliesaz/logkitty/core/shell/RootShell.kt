@@ -1,4 +1,4 @@
-package com.hereliesaz.logkitty.feature.stats
+package com.hereliesaz.logkitty.core.shell
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -10,10 +10,14 @@ import java.io.InputStreamReader
 /**
  * Runs short, one-shot shell scripts and returns their combined output.
  *
- * Mirrors the privilege model [LogcatReader] already uses: when [useRoot] is true the script is run
- * through `su -c`, capturing data from any process on the device; otherwise it runs in the app's own
- * unprivileged shell, where most `/proc/<other-pid>` reads and `dumpsys` calls are denied. Callers
- * are expected to treat a `null` result (or empty sections) as "unavailable" and degrade gracefully.
+ * Mirrors the privilege model the logcat reader already uses: when [useRoot] is true the script is
+ * run through `su -c`, capturing data from any process on the device; otherwise it runs in the app's
+ * own unprivileged shell, where most `/proc/<other-pid>` reads and `dumpsys` calls are denied.
+ * Callers are expected to treat a `null` result (or empty sections) as "unavailable" and degrade
+ * gracefully.
+ *
+ * Lives in `:core` so the base app (root probe, foreground-app monitor) and the on-demand stats
+ * feature can share one bounded, watchdog-protected process runner.
  */
 object RootShell {
 
