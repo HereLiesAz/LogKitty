@@ -143,6 +143,9 @@ class LogKittyOverlayService : Service() {
             )
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Overlay initialization failed; tearing down service", e)
+            // Mark not-foregrounded so a subsequent onStartCommand short-circuits; onDestroy still
+            // rolls back any capture that had already started (stopCapture is idempotent).
+            startedForeground = false
             stopSelf()
         }
     }
@@ -176,11 +179,9 @@ class LogKittyOverlayService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         // Stop logcat capture / unregister the foreground receiver now that the overlay is gone.
-        if (startedForeground) {
-            (applicationContext as MainApplication).mainViewModel.stopCapture()
-        }
+        // stopCapture() is idempotent, so it's safe even if the service never fully started.
+        (applicationContext as MainApplication).mainViewModel.stopCapture()
         serviceScope.cancel()
         sheetHost?.detach()
         sheetHost = null
@@ -190,6 +191,8 @@ class LogKittyOverlayService : Service() {
         }
         owners = null
         try { unregisterReceiver(receiver) } catch (e: Exception) { e.printStackTrace() }
+        // Call super last so our cleanup runs while the service Context is still fully valid.
+        super.onDestroy()
     }
 
     private fun setupOverlay() {

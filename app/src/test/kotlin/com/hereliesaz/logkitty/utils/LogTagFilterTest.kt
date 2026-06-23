@@ -17,6 +17,12 @@ class LogTagFilterTest {
     }
 
     @Test
+    fun tagOf_extractsTagWhenLevelStartsLine() {
+        // `-v brief` style (or stripped timestamp/pid): line begins directly with the level.
+        assertEquals("MyTag", LogTagFilter.tagOf("D/MyTag( 1234): hello"))
+    }
+
+    @Test
     fun tagOf_returnsNullWhenNoTag() {
         assertNull(LogTagFilter.tagOf("Logcat reader warning: stream closed. Retrying..."))
     }

@@ -1,5 +1,11 @@
 name: '📋 Gemini Scheduled Issue Triage'
 
+# Allow the Gemini CLI to run in CI's non-interactive checkout. Without this it treats the
+# workspace as "untrusted", refuses to start, and exits 1 (failing the check). See
+# https://geminicli.com/docs/cli/trusted-folders/#headless-and-automated-environments
+env:
+  GEMINI_CLI_TRUST_WORKSPACE: 'true'
+
 on:
   schedule:
     - cron: '0 * * * *' # Runs every hour

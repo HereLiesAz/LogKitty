@@ -12,10 +12,12 @@ object LogTagFilter {
     /**
      * Matches the `L/Tag` portion of a standard logcat line; group 2 is the tag.
      *
-     * The tag class excludes `(` so the trailing `( pid)` in the `-v time` shape
+     * `(?:^|\s)` lets the level letter sit at the very start of the line too (e.g. `-v brief`
+     * output, or any line where the timestamp/pid were stripped), not only after whitespace. The
+     * tag class excludes `(` so the trailing `( pid)` in the `-v time` shape
      * (`D/ActivityManager( 1234): …`) isn't captured as part of the tag.
      */
-    private val tagWithLetterRegex = Regex("""\s([VDIWEA])/([^\s:(]+)""")
+    private val tagWithLetterRegex = Regex("""(?:^|\s)([VDIWEA])/([^\s:(]+)""")
 
     /** Extracts the tag from a log line, or `null` when the line carries no recognizable tag. */
     fun tagOf(line: String): String? =
