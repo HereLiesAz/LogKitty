@@ -734,8 +734,8 @@ private fun PrivacyOptionsSlot() {
     val handle = rememberFeatureInstall(FeatureModules.ADS)
     if (handle.status !is FeatureInstallStatus.Installed) return
     val context = LocalContext.current
-    val feature = remember { FeatureLoader.load<AdsFeature>(FeatureModules.ADS_IMPL, context) } ?: return
-    if (!remember { feature.isPrivacyOptionsRequired(context) }) return
+    val feature = remember(context) { FeatureLoader.load<AdsFeature>(FeatureModules.ADS_IMPL, context) } ?: return
+    if (!remember(feature, context) { feature.isPrivacyOptionsRequired(context) }) return
     val activity = remember(context) { context.findActivity() }
 
     SettingsCard(stringResource(R.string.settings_section_privacy)) {
