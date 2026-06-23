@@ -76,6 +76,11 @@ import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.BuildConfig
 import com.hereliesaz.logkitty.R
+import com.hereliesaz.logkitty.core.feature.AdsFeature
+import com.hereliesaz.logkitty.core.feature.FeatureLoader
+import com.hereliesaz.logkitty.core.feature.FeatureModules
+import com.hereliesaz.logkitty.feature.FeatureInstallStatus
+import com.hereliesaz.logkitty.feature.rememberFeatureInstall
 import com.hereliesaz.logkitty.utils.GitHubDeviceAuth
 import kotlinx.coroutines.Job
 import com.hereliesaz.logkitty.ui.theme.CodingFont
@@ -699,6 +704,8 @@ private fun SettingsMainScreen(
                 )
             }
 
+            PrivacyOptionsSlot()
+
             SettingsFooter(context)
 
             // Modest trailing margin so the footer clears the persistent bottom ad.
@@ -712,6 +719,47 @@ private fun appLabel(context: android.content.Context, pkg: String): String = tr
     val pm = context.packageManager
     pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
 } catch (e: Exception) { pkg }
+
+/**
+ * Settings entry that lets the user revisit their ad-consent choices via the UMP privacy-options
+ * form (a Google UMP requirement: consent must be changeable later).
+ *
+ * Rendered only when the `:feature:ads` module is already installed AND UMP reports a privacy-options
+ * requirement — so users who never loaded ads, or for whom consent doesn't apply, see nothing (and we
+ * never install the module just to show this). The form needs an Activity, which Settings always has
+ * (it's hosted by MainActivity); the row is disabled if one can't be resolved.
+ */
+@Composable
+private fun PrivacyOptionsSlot() {
+    val handle = rememberFeatureInstall(FeatureModules.ADS)
+    if (handle.status !is FeatureInstallStatus.Installed) return
+    val context = LocalContext.current
+    val feature = remember { FeatureLoader.load<AdsFeature>(FeatureModules.ADS_IMPL, context) } ?: return
+    if (!remember { feature.isPrivacyOptionsRequired(context) }) return
+    val activity = remember(context) { context.findActivity() }
+
+    SettingsCard(stringResource(R.string.settings_section_privacy)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = activity != null) {
+                    activity?.let { act -> feature.showPrivacyOptions(act) {} }
+                }
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_ad_privacy), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.settings_ad_privacy_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
 
 /**
  * Bottom-of-settings footer mirroring AzNavRail's footer: About (repo), Feedback (email),

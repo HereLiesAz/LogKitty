@@ -80,7 +80,7 @@ fun AdBannerSlot(modifier: Modifier = Modifier, showTopDivider: Boolean = false)
 }
 
 /** Unwraps a [Context] to its hosting [Activity], or `null` (e.g. the overlay service's context). */
-private fun Context.findActivity(): Activity? {
+internal fun Context.findActivity(): Activity? {
     var ctx: Context? = this
     while (ctx is ContextWrapper) {
         if (ctx is Activity) return ctx

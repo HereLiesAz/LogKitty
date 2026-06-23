@@ -19,6 +19,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
+import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 import com.hereliesaz.logkitty.core.feature.AdsFeature
@@ -72,6 +73,19 @@ class AdsFeatureImpl : AdsFeature {
                 onComplete()
             },
         )
+    }
+
+    override fun isPrivacyOptionsRequired(context: Context): Boolean = runCatching {
+        UserMessagingPlatform.getConsentInformation(context).privacyOptionsRequirementStatus ==
+            ConsentInformation.PrivacyOptionsRequirementStatus.REQUIRED
+    }.getOrDefault(false)
+
+    override fun showPrivacyOptions(activity: Activity, onComplete: () -> Unit) {
+        if (activity.isFinishing || activity.isDestroyed) {
+            onComplete()
+            return
+        }
+        UserMessagingPlatform.showPrivacyOptionsForm(activity) { onComplete() }
     }
 
     @Composable
