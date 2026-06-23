@@ -1,11 +1,17 @@
 package com.hereliesaz.logkitty.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -31,12 +37,11 @@ import com.hereliesaz.logkitty.feature.rememberFeatureInstall
  * unit for release when configured in local.properties/env. The app ID lives in AndroidManifest;
  * SDK init happens here via [AdsFeature.initialize].
  *
- * Known limitation — no UMP (User Messaging Platform) consent flow yet. A compliant GDPR/UMP gate
- * can't live here as-is: `UserMessagingPlatform.loadAndShowConsentFormIfRequired` needs an *Activity*,
- * but this banner is also hosted by the overlay foreground service, which has none. Adding it
- * properly means a new `user-messaging-platform` dependency in `:feature:ads`, an Activity-only
- * consent entry point on [AdsFeature], and gating ad init on the returned consent state. Tracked as a
- * deliberate follow-up rather than shipped half-implemented (a wrong consent gate is a policy risk).
+ * UMP consent: ads are gated on [AdsFeature.canRequestAds]. When this slot is hosted by an Activity
+ * (e.g. the launcher), it runs [AdsFeature.gatherConsent] to request consent info and show the form
+ * if required. When hosted by the overlay service (no Activity), it relies on the consent state UMP
+ * persisted during an earlier Activity session. The banner — and thus any ad request — appears only
+ * once consent permits it.
  *
  * @param showTopDivider draws a hairline divider above the banner — but only once the banner is
  *   actually rendered, so no stray line is left behind when ads aren't available.
@@ -49,15 +54,37 @@ fun AdBannerSlot(modifier: Modifier = Modifier, showTopDivider: Boolean = false)
     if (handle.status is FeatureInstallStatus.Installed) {
         val ads = remember { FeatureLoader.load<AdsFeature>(FeatureModules.ADS_IMPL, context) }
         if (ads != null) {
-            LaunchedEffect(ads) { ads.initialize(context.applicationContext) }
-            if (showTopDivider) {
-                Column(modifier = modifier) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                    ads.BannerAd(BuildConfig.ADMOB_BANNER_UNIT_ID, Modifier.fillMaxWidth())
+            val activity = remember(context) { context.findActivity() }
+            // Seed from UMP's persisted state (true on the overlay path after a prior Activity
+            // session, or when consent isn't required); the Activity path may flip it after the form.
+            var consentReady by remember(ads, context) { mutableStateOf(ads.canRequestAds(context)) }
+            LaunchedEffect(ads, activity) {
+                if (!consentReady && activity != null) {
+                    ads.gatherConsent(activity) { consentReady = ads.canRequestAds(activity) }
                 }
-            } else {
-                ads.BannerAd(BuildConfig.ADMOB_BANNER_UNIT_ID, modifier)
+            }
+            if (consentReady) {
+                // Initialize the SDK only once consent allows requesting ads.
+                LaunchedEffect(ads) { ads.initialize(context.applicationContext) }
+                if (showTopDivider) {
+                    Column(modifier = modifier) {
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        ads.BannerAd(BuildConfig.ADMOB_BANNER_UNIT_ID, Modifier.fillMaxWidth())
+                    }
+                } else {
+                    ads.BannerAd(BuildConfig.ADMOB_BANNER_UNIT_ID, modifier)
+                }
             }
         }
     }
+}
+
+/** Unwraps a [Context] to its hosting [Activity], or `null` (e.g. the overlay service's context). */
+private fun Context.findActivity(): Activity? {
+    var ctx: Context? = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
 }

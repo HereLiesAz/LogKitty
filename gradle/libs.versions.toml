@@ -3,6 +3,7 @@ agp = "9.2.1"
 aetherTransportFile = "2.0.14"
 aznavrail = "10.1"
 playServicesAds = "25.3.0"
+userMessagingPlatform = "4.0.0"
 coreKtx = "1.19.0"
 kotlinxCoroutinesCore = "1.11.0"
 junit = "4.13.2"
@@ -34,6 +35,7 @@ androidx-localbroadcastmanager = { module = "androidx.localbroadcastmanager:loca
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 aznavrail = { module = "com.github.HereLiesAz:AzNavRail", version.ref = "aznavrail" }
 play-services-ads = { module = "com.google.android.gms:play-services-ads", version.ref = "playServicesAds" }
+user-messaging-platform = { module = "com.google.android.ump:user-messaging-platform", version.ref = "userMessagingPlatform" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
