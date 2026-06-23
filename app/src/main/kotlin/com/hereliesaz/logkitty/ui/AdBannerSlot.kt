@@ -57,7 +57,7 @@ fun AdBannerSlot(modifier: Modifier = Modifier, showTopDivider: Boolean = false)
             val activity = remember(context) { context.findActivity() }
             // Seed from UMP's persisted state (true on the overlay path after a prior Activity
             // session, or when consent isn't required); the Activity path may flip it after the form.
-            var consentReady by remember { mutableStateOf(ads.canRequestAds(context)) }
+            var consentReady by remember(ads, context) { mutableStateOf(ads.canRequestAds(context)) }
             LaunchedEffect(ads, activity) {
                 if (!consentReady && activity != null) {
                     ads.gatherConsent(activity) { consentReady = ads.canRequestAds(activity) }

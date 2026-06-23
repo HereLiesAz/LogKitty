@@ -45,15 +45,26 @@ class AdsFeatureImpl : AdsFeature {
     }.getOrDefault(false)
 
     override fun gatherConsent(activity: Activity, onComplete: () -> Unit) {
+        // requestConsentInfoUpdate is async; the Activity could go away before it returns, and
+        // showing a form on a finishing/destroyed Activity would crash (bad window token).
+        if (activity.isFinishing || activity.isDestroyed) {
+            onComplete()
+            return
+        }
         val consentInfo = UserMessagingPlatform.getConsentInformation(activity)
         val params = ConsentRequestParameters.Builder().build()
         consentInfo.requestConsentInfoUpdate(
             activity,
             params,
             {
-                // Info updated: show the consent form if one is required/available. The dismissal
-                // callback fires whether the form was shown, dismissed, or wasn't needed.
-                UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { onComplete() }
+                // Info updated: show the consent form if one is required/available, but only while
+                // the Activity is still valid. The dismissal callback fires whether the form was
+                // shown, dismissed, or wasn't needed.
+                if (activity.isFinishing || activity.isDestroyed) {
+                    onComplete()
+                } else {
+                    UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { onComplete() }
+                }
             },
             {
                 // Update failed (e.g. offline). Proceed — canRequestAds() may still be true from a
