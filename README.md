@@ -19,7 +19,9 @@ LogKitty is a developer tool that puts your system logs right where you need the
 
 ## Documentation
 
-Comprehensive documentation is available in the `docs/` directory:
+The [Privacy Policy](https://hereliesaz.github.io/LogKitty/privacy/) and
+[Permissions](https://hereliesaz.github.io/LogKitty/permissions/) are published on the
+web. Comprehensive documentation is available in the `docs/` directory:
 
 *   **[Setup Guide](docs/SETUP.md):** Build instructions, prerequisites, and installation.
 *   **[Releasing](docs/RELEASING.md):** Signed App Bundle, versionCode, dynamic feature modules, and Play Console publishing.

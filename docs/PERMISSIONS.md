@@ -1,3 +1,8 @@
+---
+title: Permissions
+permalink: /permissions/
+---
+
 # Permissions
 
 This document explains every permission LogKitty declares, why it's needed, and
