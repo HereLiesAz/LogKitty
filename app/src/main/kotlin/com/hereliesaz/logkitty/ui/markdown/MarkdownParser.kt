@@ -236,9 +236,22 @@ fun parseInline(input: String): List<MdSpan> {
                     if (end > i) { flush(); spans += MdSpan.Bold(input.substring(i + 2, end)); i = end + 2 }
                     else { plain.append(c); i++ }
                 } else {
-                    // Treat `_` as italic only at a word boundary, so snake_case identifiers survive.
+                    // Treat `_` as italic only when both delimiters sit at word boundaries, so
+                    // snake_case identifiers survive even when emphasized (e.g. `_PACKAGE_USAGE_STATS_`
+                    // italicizes the whole token) and a stray `_` before one doesn't swallow it.
                     val prevOk = i == 0 || !input[i - 1].isLetterOrDigit()
-                    val end = if (prevOk) input.indexOf('_', i + 1) else -1
+                    var end = -1
+                    if (prevOk) {
+                        var searchStart = i + 1
+                        while (searchStart < n) {
+                            val candidate = input.indexOf('_', searchStart)
+                            if (candidate < 0) break
+                            val nextOk = candidate == n - 1 || !input[candidate + 1].isLetterOrDigit()
+                            val prevSpace = input[candidate - 1].isWhitespace()
+                            if (nextOk && !prevSpace) { end = candidate; break }
+                            searchStart = candidate + 1
+                        }
+                    }
                     if (end > i) { flush(); spans += MdSpan.Italic(input.substring(i + 1, end)); i = end + 1 }
                     else { plain.append(c); i++ }
                 }

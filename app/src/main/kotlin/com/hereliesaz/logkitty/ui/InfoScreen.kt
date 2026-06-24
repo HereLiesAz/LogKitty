@@ -155,8 +155,12 @@ private val InfoDocuments = listOf(
 
 /** Opens a URL with the app's standard pattern: an ACTION_VIEW intent, toast on failure. */
 private fun openUrl(context: Context, url: String) {
-    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
-        .onFailure {
-            Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
-        }
+    runCatching {
+        // NEW_TASK so the link still opens if the context is ever non-Activity (matches the app's
+        // other launch sites in LogBottomSheet / the GitHub OAuth flow).
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        context.startActivity(intent)
+    }.onFailure {
+        Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()
+    }
 }

@@ -65,6 +65,26 @@ class MarkdownParserTest {
     }
 
     @Test
+    fun emphasizedSnakeCaseTokenItalicizesWhole() {
+        // `_PACKAGE_USAGE_STATS_` must italicize the entire token, not just up to the first internal _.
+        val spans = parseInline("_PACKAGE_USAGE_STATS_")
+        assertEquals("PACKAGE_USAGE_STATS", (spans.single() as MdSpan.Italic).text)
+    }
+
+    @Test
+    fun strayUnderscoreDoesNotSwallowFollowingIdentifier() {
+        // An unclosed `_` before a snake_case token must not consume it into an italic span.
+        val spans = parseInline("_unclosed and PACKAGE_USAGE_STATS")
+        assertTrue(spans.none { it is MdSpan.Italic })
+    }
+
+    @Test
+    fun plainUnderscoreEmphasisStillWorks() {
+        val spans = parseInline("an _emphasized_ word")
+        assertTrue(spans.any { it is MdSpan.Italic && it.text == "emphasized" })
+    }
+
+    @Test
     fun parsesBulletList() {
         val blocks = parseMarkdownBlocks("- one\n- two")
         assertEquals(2, blocks.size)
