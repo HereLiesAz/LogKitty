@@ -36,7 +36,8 @@ server (there is no LogKitty server).
   apps via a scoped `<queries>` launcher filter, and on rooted devices lists the
   rest via `pm list packages`. This lookup happens on‑device and is not transmitted.
 - **Usage access (`PACKAGE_USAGE_STATS`).** Used, where available, to identify
-  the foreground app for context filtering. Processed on‑device only.
+  the foreground app for context filtering and, in the optional Developer Stats
+  module, to read per‑app network usage. Processed on‑device only.
 - **App preferences.** Your settings (colors, font, filters, monitored apps,
   prohibited tags, etc.) are stored locally in the app's private storage.
 
@@ -48,7 +49,7 @@ server (there is no LogKitty server).
 | `SYSTEM_ALERT_WINDOW` | Draw the floating log overlay over other apps. |
 | `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the log capture running with a persistent notification. |
 | `POST_NOTIFICATIONS` | Show the persistent silent control notification. |
-| `PACKAGE_USAGE_STATS` | Detect the foreground app for context filtering. |
+| `PACKAGE_USAGE_STATS` | Detect the foreground app for context filtering; read per‑app network usage in the Developer Stats module. |
 | `INTERNET` | Required by the components below (fonts, ads, GitHub Actions, optional crash reporting). |
 | `AD_ID` | Declared by the on‑demand `:feature:ads` module and used by the Google Mobile Ads SDK (see "Advertising"). |
 
