@@ -62,6 +62,11 @@ android {
     // standalone APK (see each module's <dist:fusing>) for the sideloaded GitHub build.
     dynamicFeatures += setOf(":feature:stats", ":feature:ads", ":feature:github")
 
+    // The in-app About/Help reader (InfoScreen) displays the project's own docs. They're copied from
+    // the canonical README + docs/ into a generated assets directory at build time, so there's a
+    // single source of truth and no committed duplicates. Wired via the Variant API below
+    // (androidComponents.onVariants) so the task dependency reaches every consumer (merge + lint).
+
     defaultConfig {
         applicationId = "com.hereliesaz.logkitty"
         minSdk = 30
@@ -177,6 +182,45 @@ android {
             pickFirsts.add("misc/registry.properties")
             pickFirsts.add("**/libjnidispatch.so")
         }
+    }
+}
+
+// Copies the canonical README + user-facing docs into a generated assets directory for the in-app
+// About/Help reader (InfoScreen). A typed task with a declared output directory lets the Variant API
+// (below) carry the task dependency to every consumer automatically.
+abstract class CopyInAppDocsTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val docFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val root = outputDir.get().asFile
+        root.deleteRecursively()
+        val docs = File(root, "docs").apply { mkdirs() }
+        docFiles.files.forEach { src ->
+            if (src.exists()) src.copyTo(File(docs, src.name), overwrite = true)
+        }
+    }
+}
+
+val copyInAppDocs = tasks.register<CopyInAppDocsTask>("copyInAppDocs") {
+    description = "Bundles README + user-facing docs into assets for the in-app About/Help reader."
+    docFiles.from(
+        rootProject.file("README.md"),
+        rootProject.file("docs/PRIVACY_POLICY.md"),
+        rootProject.file("docs/PERMISSIONS.md"),
+        rootProject.file("docs/conduct.md"),
+    )
+    outputDir.set(layout.buildDirectory.dir("generated/inAppDocs"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(copyInAppDocs, CopyInAppDocsTask::outputDir)
     }
 }
 
