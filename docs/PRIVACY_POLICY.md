@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: June 8, 2026_
+_Last updated: June 23, 2026_
 
 LogKitty ("the app") is an on-device Android log viewer. It overlays the system
 logcat output so you can read your device's logs in real time. This policy
@@ -30,11 +30,14 @@ server (there is no LogKitty server).
   or errors that other apps write to the log). LogKitty keeps the log only in
   memory (and a bounded in‑memory buffer you can size in Settings) for display.
   It does not transmit the log anywhere on its own.
-- **Installed app information (`QUERY_ALL_PACKAGES`).** Used to let you pick an
-  app to monitor and to classify log sources (user / system / Play Store /
-  category). This lookup happens on‑device and is not transmitted.
+- **Installed app information.** Used to let you pick an app to monitor and to
+  classify log sources (user / system / Play Store / category). LogKitty does
+  **not** request the broad `QUERY_ALL_PACKAGES` permission: it sees launchable
+  apps via a scoped `<queries>` launcher filter, and on rooted devices lists the
+  rest via `pm list packages`. This lookup happens on‑device and is not transmitted.
 - **Usage access (`PACKAGE_USAGE_STATS`).** Used, where available, to identify
-  the foreground app for context filtering. Processed on‑device only.
+  the foreground app for context filtering and, in the optional Developer Stats
+  module, to read per‑app network usage. Processed on‑device only.
 - **App preferences.** Your settings (colors, font, filters, monitored apps,
   prohibited tags, etc.) are stored locally in the app's private storage.
 
@@ -46,10 +49,9 @@ server (there is no LogKitty server).
 | `SYSTEM_ALERT_WINDOW` | Draw the floating log overlay over other apps. |
 | `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the log capture running with a persistent notification. |
 | `POST_NOTIFICATIONS` | Show the persistent silent control notification. |
-| `QUERY_ALL_PACKAGES` | Resolve app names/sources for monitoring and filtering. |
-| `PACKAGE_USAGE_STATS` | Detect the foreground app for context filtering. |
-| `INTERNET` | Required by the components below (fonts, ads, optional crash reporting). |
-| `AD_ID` | Used by the Google Mobile Ads SDK (see "Advertising"). |
+| `PACKAGE_USAGE_STATS` | Detect the foreground app for context filtering; read per‑app network usage in the Developer Stats module. |
+| `INTERNET` | Required by the components below (fonts, ads, GitHub Actions, optional crash reporting). |
+| `AD_ID` | Declared by the on‑demand `:feature:ads` module and used by the Google Mobile Ads SDK (see "Advertising"). |
 
 You can review the live grant status of these permissions in
 **Settings → Permissions**.
@@ -70,6 +72,12 @@ measure ads. This processing is governed by Google's policies, not LogKitty:
 - How Google uses information from apps that use its services:
   https://policies.google.com/technologies/partner-sites
 
+Where consent is legally required (e.g. the EEA/UK), the app uses Google's
+**User Messaging Platform (UMP)** to show a consent form before requesting ads,
+and only requests ads once your choice allows it. You can review or change your
+choice at any time via **Settings → Privacy → Manage ad consent**, or opt out of
+ads personalization through your device's Google ad settings.
+
 > Note: development builds use Google's **test** ad unit IDs, which do not serve
 > real ads. Production builds use live AdMob units.
 
@@ -79,6 +87,21 @@ Code fonts are fetched on demand from Google's downloadable‑fonts provider. Wh
 a font is requested, the request is handled by Google Play services and is
 subject to Google's privacy policy (linked above). No LogKitty user data is
 attached to these requests.
+
+### GitHub Actions (optional, only if you configure it)
+
+If you use the optional GitHub Actions feature, the app talks to the **GitHub
+REST API** (`api.github.com`) to show workflow runs, jobs, and logs for the
+repository you configure. To do this you provide a Personal Access Token (PAT),
+which is stored **encrypted on your device** (Android Keystore, AES/GCM) in a
+backup‑excluded store — it is never included in settings backups/exports and is
+sent only to GitHub to authenticate your own requests.
+
+### On‑demand feature modules
+
+Ads, Developer Stats, and GitHub Actions ship as optional modules downloaded
+from **Google Play** the first time you use them. Fetching a module is a request
+to Google Play, governed by Google's privacy policy (linked above).
 
 ### Saving or sharing logs (only when you choose to)
 
