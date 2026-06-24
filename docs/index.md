@@ -13,10 +13,10 @@ on your device.
 
 ## Documents
 
-- [Privacy Policy](/LogKitty/privacy/) — what data the app accesses, what stays on
-  your device, and the limited cases where data leaves it.
-- [Permissions](/LogKitty/permissions/) — every permission the app declares and why
-  it's needed.
+- [Privacy Policy]({{ '/privacy/' | relative_url }}) — what data the app accesses, what
+  stays on your device, and the limited cases where data leaves it.
+- [Permissions]({{ '/permissions/' | relative_url }}) — every permission the app declares
+  and why it's needed.
 
 ## Project
 
