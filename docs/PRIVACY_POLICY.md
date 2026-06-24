@@ -1,3 +1,8 @@
+---
+title: Privacy Policy
+permalink: /privacy/
+---
+
 # Privacy Policy
 
 _Last updated: June 23, 2026_
@@ -143,6 +148,8 @@ This policy may be updated as the app changes. Material changes will be
 reflected by updating the "Last updated" date above and committing the revised
 policy to the project repository:
 https://github.com/HereLiesAz/LogKitty
+
+The current policy is published at **https://hereliesaz.github.io/LogKitty/privacy/**.
 
 ## Contact
 

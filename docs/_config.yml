@@ -1,0 +1,38 @@
+# GitHub Pages configuration for the public LogKitty docs site.
+# The Jekyll build (see .github/workflows/jekyll-gh-pages.yml) uses ./docs as its
+# source, so this file lives alongside the documents it publishes.
+title: LogKitty
+description: The always-on logcat overlay for Android.
+theme: jekyll-theme-cayman
+
+url: "https://hereliesaz.github.io"
+baseurl: "/LogKitty"
+
+# Only the landing page and the user-facing policy/permissions docs are published.
+# The internal development docs are excluded so they don't appear on the public site.
+# (Jekyll only renders files that carry YAML front matter; everything else would be
+# copied verbatim — excluding them keeps the site clean.)
+exclude:
+  - API.md
+  - AZNAVRAIL_COMPLETE_GUIDE.md
+  - PRE_RELEASE_CHECKLIST.md
+  - RELEASING.md
+  - SETUP.md
+  - TODO.md
+  - UI_UX.md
+  - architecture.md
+  - auth.md
+  - blueprint.md
+  - build_pipeline.md
+  - conduct.md
+  - data_layer.md
+  - error_handling.md
+  - fauxpas.md
+  - file_descriptions.md
+  - manifest.md
+  - misc.md
+  - performance.md
+  - screens.md
+  - task_flow.md
+  - testing.md
+  - workflow.md
