@@ -100,7 +100,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: MainViewModel) {
             viewModel = viewModel,
             onBack = onBack,
             onOpenProhibited = { currentRoute = SettingsRoute.PROHIBITED },
-            onOpenColorEditor = { currentRoute = SettingsRoute.COLORS }
+            onOpenColorEditor = { currentRoute = SettingsRoute.COLORS },
+            onOpenInfo = { currentRoute = SettingsRoute.INFO }
         )
         SettingsRoute.PROHIBITED -> ProhibitedLogsScreen(
             viewModel = viewModel,
@@ -110,10 +111,13 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: MainViewModel) {
             viewModel = viewModel,
             onBack = { currentRoute = SettingsRoute.MAIN }
         )
+        SettingsRoute.INFO -> InfoScreen(
+            onBack = { currentRoute = SettingsRoute.MAIN }
+        )
     }
 }
 
-private enum class SettingsRoute { MAIN, PROHIBITED, COLORS }
+private enum class SettingsRoute { MAIN, PROHIBITED, COLORS, INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,6 +126,7 @@ private fun SettingsMainScreen(
     onBack: () -> Unit,
     onOpenProhibited: () -> Unit,
     onOpenColorEditor: () -> Unit,
+    onOpenInfo: () -> Unit,
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
@@ -705,6 +710,26 @@ private fun SettingsMainScreen(
             }
 
             PrivacyOptionsSlot()
+
+            SettingsCard(stringResource(R.string.settings_section_about)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenInfo() }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.info_title), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.settings_about_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
 
             SettingsFooter(context)
 

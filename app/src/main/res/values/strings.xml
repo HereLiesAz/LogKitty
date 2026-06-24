@@ -202,6 +202,21 @@
     <string name="settings_ad_privacy">Manage ad consent</string>
     <string name="settings_ad_privacy_desc">Review or change your ad personalization choices.</string>
 
+    <!-- About / Help section + in-app document reader -->
+    <string name="settings_section_about">About &amp; Help</string>
+    <string name="settings_about_desc">Read the project info, privacy policy, and permissions.</string>
+    <string name="info_title">About &amp; Help</string>
+    <string name="info_loading">Loading…</string>
+    <string name="info_load_error">Couldn\'t load this document.</string>
+    <string name="info_doc_readme">About LogKitty</string>
+    <string name="info_doc_readme_desc">What the app is and what it does.</string>
+    <string name="info_doc_privacy">Privacy Policy</string>
+    <string name="info_doc_privacy_desc">What data the app accesses and when anything leaves your device.</string>
+    <string name="info_doc_permissions">Permissions</string>
+    <string name="info_doc_permissions_desc">Every permission the app declares and why.</string>
+    <string name="info_doc_conduct">Code of Conduct</string>
+    <string name="info_doc_conduct_desc">Community standards for the project.</string>
+
     <!-- Permissions section -->
     <string name="settings_section_permissions">Permissions</string>
     <string name="perm_granted">Granted</string>
