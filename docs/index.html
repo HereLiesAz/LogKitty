@@ -4,94 +4,166 @@ layout: null
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LogKitty | Android Developer Tool</title>
-  <meta name="description" content="The always-on logcat overlay for Android." />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LogKitty | Contextual Logcat Overlay</title>
+  <meta name="description" content="Always-on Android logcat overlay.">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Decorative background elements for parallax -->
-  <div class="bg-orb orb-1" data-speed="0.15"></div>
-  <div class="bg-orb orb-2" data-speed="-0.1"></div>
-  <div class="bg-grid"></div>
+  <canvas id="matrix-canvas"></canvas>
 
-  <nav class="navbar parallax" data-speed="0">
-    <div class="logo">LogKitty</div>
-    <div class="nav-links">
-      <a href="https://github.com/HereLiesAz/LogKitty">GitHub</a>
-      <a href="privacy/">Privacy</a>
-      <a href="permissions/">Permissions</a>
-    </div>
+  <nav class="top-nav">
+    <a href="https://github.com/HereLiesAz/LogKitty">GitHub</a>
+    <a href="privacy/">Privacy</a>
+    <a href="permissions/">Permissions</a>
   </nav>
 
-  <header class="hero">
-    <div class="hero-content">
-      <h1 class="parallax" data-speed="0.4">The always-on <span class="highlight">logcat</span> overlay.</h1>
-      <p class="parallax" data-speed="0.3">
-        LogKitty puts your system logs right where you need them: floating above your target app, in real time. Reads and displays logs entirely on your device.
+  <div class="terminal-layout">
+    
+    <!-- Hero Monolith -->
+    <section class="monolith title-monolith">
+      <div class="sys-tag">System.out</div>
+      <h1 class="glitch-text" data-text="LOGKITTY">LOGKITTY</h1>
+      <p style="font-size: 1.2rem; max-width: 600px; color: var(--text-dim);">
+        A custom 4-detent floating overlay. Monitor logs directly on top of your app. No context switching. No PC required.
       </p>
-      <div class="actions parallax" data-speed="0.2">
-        <a href="https://github.com/HereLiesAz/LogKitty/releases" class="btn btn-primary">Download APK</a>
-        <a href="https://github.com/HereLiesAz/LogKitty" class="btn btn-secondary">View Source</a>
+      <div class="title-actions">
+        <a href="https://github.com/HereLiesAz/LogKitty/releases" class="exec-btn">./install --release</a>
+        <a href="https://github.com/HereLiesAz/LogKitty" class="exec-btn" style="border-color: var(--border); color: var(--text-dim);">./view --source</a>
       </div>
-    </div>
-    <div class="hero-image-container parallax" data-speed="0.5">
-      <img src="assets/hero.webp" alt="LogKitty UI" class="hero-image" />
-    </div>
-  </header>
+    </section>
 
-  <main class="features">
-    <div class="feature-card parallax" data-speed="0.1">
-      <div class="feature-icon">⚡</div>
-      <h3>Real-time Context</h3>
-      <p>Pin logs to specific apps. Automatically filter noise to see only what matters while interacting with the UI.</p>
-    </div>
-    <div class="feature-card parallax" data-speed="0.2">
-      <div class="feature-icon">🔒</div>
-      <h3>On-Device Privacy</h3>
-      <p>Everything runs locally. No cloud sync, no tracking. Your logs never leave your phone unless you export them.</p>
-    </div>
-    <div class="feature-card parallax" data-speed="0.3">
-      <div class="feature-icon">🎨</div>
-      <h3>Fully Customizable</h3>
-      <p>Configure detents, color schemes, and tag-based highlights to match your exact debugging workflow.</p>
-    </div>
-  </main>
+    <!-- Features Monolith -->
+    <section class="monolith">
+      <div class="stack-trace">
+        
+        <!-- Frame 1 -->
+        <div class="trace-frame info">
+          <div class="trace-header">
+            <span class="trace-level level-i">I</span>
+            <span class="trace-method">com.hereliesaz.logkitty.OverlayService</span>
+          </div>
+          <div class="trace-body">
+            <span class="highlight">Always-On Context:</span> Injects a 4-detent bottom sheet (Hidden, Peek, Half, Full) natively over the Android system. Scroll the buffer or peek at the last 4 lines without minimizing your target app.
+          </div>
+        </div>
 
-  <footer>
-    <p>&copy; 2026 HereLiesAz. All rights reserved.</p>
-  </footer>
+        <!-- Frame 2 -->
+        <div class="trace-frame warn">
+          <div class="trace-header">
+            <span class="trace-level level-w">W</span>
+            <span class="trace-method">com.hereliesaz.logkitty.AppMonitor</span>
+          </div>
+          <div class="trace-body">
+            <span class="highlight">Target Isolation:</span> Intercepts UID boundaries to filter noise. Pin a dedicated tab to isolate logs strictly for the current foreground application.
+          </div>
+        </div>
+
+        <!-- Frame 3 -->
+        <div class="trace-frame info">
+          <div class="trace-header">
+            <span class="trace-level level-i">I</span>
+            <span class="trace-method">com.hereliesaz.logkitty.feature.GitHub</span>
+          </div>
+          <div class="trace-body">
+            <span class="highlight">Dynamic Play Delivery:</span> Mounts the `:feature:github` module on-demand. Trigger and monitor remote GitHub Actions workflows directly from the floating overlay.
+          </div>
+        </div>
+
+        <!-- Frame 4 -->
+        <div class="trace-frame error">
+          <div class="trace-header">
+            <span class="trace-level level-e">E</span>
+            <span class="trace-method">com.hereliesaz.logkitty.utils.CrashReporter</span>
+          </div>
+          <div class="trace-body">
+            <span class="highlight">Fatal Handler:</span> Hooks the default UncaughtExceptionHandler. Serializes local stack traces to internal storage and autonomously dispatches GitHub Issues upon recovery.
+          </div>
+        </div>
+
+        <!-- Frame 5 -->
+        <div class="trace-frame info">
+          <div class="trace-header">
+            <span class="trace-level level-v">V</span>
+            <span class="trace-method">com.hereliesaz.logkitty.FilterEngine</span>
+          </div>
+          <div class="trace-body">
+            <span class="highlight">Local Buffer Resilience:</span> Multi-select log levels, tag-based regex highlights, and a Prohibited list to aggressively suppress syslog noise. Extensible color schemes (Material, Pidcat, Solarized).
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
 
   <script>
-    // Parallax scrolling logic
-    document.addEventListener("DOMContentLoaded", () => {
-      const parallaxElements = document.querySelectorAll(".parallax, .bg-orb");
-      
-      let ticking = false;
-
-      window.addEventListener("scroll", () => {
-        if (!ticking) {
-          window.requestAnimationFrame(() => {
-            const scrollY = window.scrollY;
-            
-            parallaxElements.forEach((el) => {
-              const speed = parseFloat(el.getAttribute("data-speed"));
-              const yPos = -(scrollY * speed);
-              
-              // Apply smooth transform
-              el.style.transform = `translate3d(0, ${yPos}px, 0)`;
-            });
-            
-            ticking = false;
-          });
-          ticking = true;
-        }
-      });
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+    
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
     });
+
+    const chars = '0123456789ABCDEF!@#$%^&*()_+-=[]{}|;:,.<>/?~'.split('');
+    const font_size = 14;
+    const columns = Math.floor(width / font_size);
+    const drops = [];
+    for (let x = 0; x < columns; x++) drops[x] = Math.random() * height;
+
+    let mouseX = -1000;
+    let mouseY = -1000;
+    
+    window.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    function draw() {
+      // Create a fading trailing effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.font = font_size + 'px "JetBrains Mono"';
+      
+      for (let i = 0; i < drops.length; i++) {
+        // Find position
+        const x = i * font_size;
+        const y = drops[i] * font_size;
+
+        // Calculate distance to mouse for "anomaly" effect
+        const dx = mouseX - x;
+        const dy = mouseY - y;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+
+        let char = chars[Math.floor(Math.random() * chars.length)];
+        
+        if (distance < 150) {
+          // The cursor decrypts the noise into Logcat structures
+          const logcatChars = '01-24 12:00:00.000 D/LogKitty: [Decoded]'.split('');
+          char = logcatChars[i % logcatChars.length] || ' ';
+          ctx.fillStyle = 'rgba(244, 240, 230, 0.9)'; // Bright white near cursor
+        } else {
+          // Dim noise
+          ctx.fillStyle = 'rgba(85, 85, 85, 0.3)';
+        }
+
+        ctx.fillText(char, x, y);
+
+        // Reset drop to top randomly
+        if (y > height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
   </script>
 </body>
 </html>
