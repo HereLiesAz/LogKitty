@@ -168,7 +168,7 @@ uid: 10254 com.target.app</span>
     let isDragging = false;
     let rotation = { x: -15, y: -25 };
     let targetRotation = { x: -15, y: -25 };
-    let translateZ = -200; 
+    const fixedTranslateZ = -300; // Locked zoom
     
     const faceNormals = [
       { el: document.querySelector('.front'), v: {x: 0, y: 0, z: 1} },
@@ -182,7 +182,6 @@ uid: 10254 com.target.app</span>
     // Kinetic JS Scroller setup
     const kineticBoxes = Array.from(document.querySelectorAll('.term-box[data-dir]')).map(box => {
       const content = box.querySelector('.term-content');
-      // Clone content to allow infinite scrolling seamlessly
       const clone = content.cloneNode(true);
       box.appendChild(clone);
       
@@ -194,25 +193,30 @@ uid: 10254 com.target.app</span>
         speed: parseInt(box.getAttribute('data-speed')) || 10,
         pos: 0,
         lastJump: 0,
-        jumpInterval: Math.random() * 300 + 100 // random jump intervals
+        jumpInterval: Math.random() * 300 + 100 
       };
     });
 
+    function clamp(val, min, max) {
+      return Math.min(Math.max(val, min), max);
+    }
+
     function updateTransform(time) {
+      // Clamp target X to prevent unnatural tumbling/gimbal lock
+      targetRotation.x = clamp(targetRotation.x, -85, 85);
+      
       // Smooth interpolation for rotation
       rotation.x += (targetRotation.x - rotation.x) * 0.1;
       rotation.y += (targetRotation.y - rotation.y) * 0.1;
       
-      cube.style.transform = `translateZ(${translateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
+      cube.style.transform = `translateZ(${fixedTranslateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
       
-      // Calculate Depth of Field perfectly using DOMMatrix
-      // CSS applies rotateY then rotateX locally, or M = Rx * Ry. 
+      // Depth of Field via DOMMatrix
       const m = new DOMMatrix();
       m.rotateSelf(rotation.x, 0, 0);
       m.rotateSelf(0, rotation.y, 0);
 
       faceNormals.forEach(face => {
-        // Transform the normal vector exactly as the browser transforms the cube
         const rotatedZ = face.v.x * m.m13 + face.v.y * m.m23 + face.v.z * m.m33;
         
         let blur = 0;
@@ -224,25 +228,19 @@ uid: 10254 com.target.app</span>
           brightness = Math.max(10, 100 - (depth * 90)); 
         }
         
-        const globalZBlur = translateZ < -1000 ? Math.abs(translateZ + 1000) * 0.005 : 0;
-        blur += globalZBlur;
-
+        // No global zoom blur since Z is fixed
         face.el.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
       });
 
       // Kinetic Scroller Loop
       kineticBoxes.forEach(kb => {
         if (time - kb.lastJump > kb.jumpInterval) {
-          // Calculate an erratic jump distance (simulating logs bursting)
           const burst = Math.random() > 0.8 ? kb.speed * 4 : kb.speed;
           kb.pos += burst;
           
-          // Reset interval erratically
           kb.jumpInterval = Math.random() * 200 + 50;
           kb.lastJump = time;
           
-          // Apply translations based on direction
-          // Assume content is about 1000px wide/tall for wrapping
           if (kb.pos > 1000) kb.pos = 0;
           
           let t1, t2;
@@ -269,7 +267,7 @@ uid: 10254 com.target.app</span>
     }
     requestAnimationFrame(updateTransform);
 
-    // Mouse & Drag Events
+    // Gestures: 1-Finger Drag (Grab & Spin)
     document.addEventListener('mousedown', (e) => {
       isDragging = true;
       document.body.style.cursor = 'grabbing';
@@ -277,9 +275,10 @@ uid: 10254 com.target.app</span>
 
     document.addEventListener('mousemove', (e) => {
       if (isDragging) {
-        targetRotation.y += e.movementX * 0.5;
-        targetRotation.x -= e.movementY * 0.5;
+        targetRotation.y += e.movementX * 0.4;
+        targetRotation.x -= e.movementY * 0.4;
       } else {
+        // Passive ambient parallax
         const xPercent = (e.clientX / window.innerWidth) - 0.5;
         const yPercent = (e.clientY / window.innerHeight) - 0.5;
         targetRotation.x -= yPercent * 1.5;
@@ -294,14 +293,17 @@ uid: 10254 com.target.app</span>
     
     let lastTouch = null;
     document.addEventListener('touchstart', (e) => {
+      // Ignore if clicking a link so it doesn't interrupt navigation
+      if(e.target.closest('a')) return;
       isDragging = true;
       lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }, {passive: true});
     
     document.addEventListener('touchmove', (e) => {
       if (isDragging && lastTouch) {
-        targetRotation.y += (e.touches[0].clientX - lastTouch.x) * 0.6;
-        targetRotation.x -= (e.touches[0].clientY - lastTouch.y) * 0.6;
+        // 1-finger touch spins the cube just like a drag
+        targetRotation.y += (e.touches[0].clientX - lastTouch.x) * 0.5;
+        targetRotation.x -= (e.touches[0].clientY - lastTouch.y) * 0.5;
         lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       }
     }, {passive: true});
@@ -311,12 +313,13 @@ uid: 10254 com.target.app</span>
       lastTouch = null;
     });
 
+    // Gestures: 2-Finger Scroll / Trackpad (Fluid Trackball Spin)
     document.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const zoomSpeed = 3;
-      translateZ += e.deltaY > 0 ? -zoomSpeed * 15 : zoomSpeed * 15;
-      if (translateZ > 800) translateZ = 800;
-      if (translateZ < -3000) translateZ = -3000;
+      // Repurposed from zoom to X/Y rotation
+      // e.deltaX/Y represents trackpad swipe distance or scroll wheel
+      targetRotation.y -= e.deltaX * 0.2;
+      targetRotation.x -= e.deltaY * 0.2;
     }, {passive: false});
   </script>
 </body>
