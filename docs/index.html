@@ -7,163 +7,293 @@ layout: null
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LogKitty | Contextual Logcat Overlay</title>
-  <meta name="description" content="Always-on Android logcat overlay.">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <canvas id="matrix-canvas"></canvas>
-
+  
   <nav class="top-nav">
     <a href="https://github.com/HereLiesAz/LogKitty">GitHub</a>
     <a href="privacy/">Privacy</a>
     <a href="permissions/">Permissions</a>
   </nav>
 
-  <div class="terminal-layout">
-    
-    <!-- Hero Monolith -->
-    <section class="monolith title-monolith">
-      <div class="sys-tag">System.out</div>
-      <h1 class="glitch-text" data-text="LOGKITTY">LOGKITTY</h1>
-      <p style="font-size: 1.2rem; max-width: 600px; color: var(--text-dim);">
-        A custom 4-detent floating overlay. Monitor logs directly on top of your app. No context switching. No PC required.
-      </p>
-      <div class="title-actions">
-        <a href="https://github.com/HereLiesAz/LogKitty/releases" class="exec-btn">./install --release</a>
-        <a href="https://github.com/HereLiesAz/LogKitty" class="exec-btn" style="border-color: var(--border); color: var(--text-dim);">./view --source</a>
+  <div id="scene">
+    <div id="cube">
+      
+      <!-- FRONT FACE (Title & Overlay) -->
+      <div class="face front">
+        <div class="term-box anim-up speed-2">
+          <div class="term-content">
+01-24 12:00:00.000 <span class="c-info">I/OverlayService</span>: Injecting 4-detent bottom sheet
+01-24 12:00:00.005 <span class="c-dim">D/OverlayService</span>: Calculating heights: HIDDEN, PEEK, HALF, FULL
+01-24 12:00:00.012 <span class="c-info">I/OverlayService</span>: <span class="c-main">Always-On Context established.</span>
+01-24 12:00:00.020 <span class="c-dim">D/OverlayService</span>: Scrolling buffer natively over Android system.
+01-24 12:00:00.025 <span class="c-info">I/OverlayService</span>: Target app remains active in background.
+...
+01-24 12:00:00.000 <span class="c-info">I/OverlayService</span>: Injecting 4-detent bottom sheet
+01-24 12:00:00.005 <span class="c-dim">D/OverlayService</span>: Calculating heights: HIDDEN, PEEK, HALF, FULL
+01-24 12:00:00.012 <span class="c-info">I/OverlayService</span>: <span class="c-main">Always-On Context established.</span>
+          </div>
+        </div>
+        <div class="term-box title-box">
+          <h1>LOGKITTY</h1>
+          <p>Contextual Overlay</p>
+          <a href="https://github.com/HereLiesAz/LogKitty/releases" style="color:var(--text-main); margin-top:20px; text-decoration:none; border:1px solid var(--border); padding:10px;">> ./install</a>
+        </div>
+        <div class="term-box anim-left speed-3" style="grid-column: span 2;">
+          <div class="term-content">
+<span class="c-err">E/AppMonitor</span>: Target Isolation Active. Intercepting UID boundaries. <span class="c-warn">W/AppMonitor</span>: Filter applied. <span class="c-err">E/AppMonitor</span>: Target Isolation Active. Intercepting UID boundaries. <span class="c-warn">W/AppMonitor</span>: Filter applied.
+          </div>
+        </div>
       </div>
-    </section>
 
-    <!-- Features Monolith -->
-    <section class="monolith">
-      <div class="stack-trace">
-        
-        <!-- Frame 1 -->
-        <div class="trace-frame info">
-          <div class="trace-header">
-            <span class="trace-level level-i">I</span>
-            <span class="trace-method">com.hereliesaz.logkitty.OverlayService</span>
-          </div>
-          <div class="trace-body">
-            <span class="highlight">Always-On Context:</span> Injects a 4-detent bottom sheet (Hidden, Peek, Half, Full) natively over the Android system. Scroll the buffer or peek at the last 4 lines without minimizing your target app.
+      <!-- BACK FACE (Crash Reporter) -->
+      <div class="face back">
+        <div class="term-box anim-down speed-1">
+          <div class="term-content">
+<span class="c-err">FATAL EXCEPTION: main
+Process: com.target.app, PID: 10254
+java.lang.NullPointerException: Attempt to invoke virtual method
+  at com.target.app.MainActivity.onResume(MainActivity.kt:45)
+  at android.app.Instrumentation.callActivityOnResume(Instrumentation.java)</span>
+<span class="c-info">I/CrashReporter: Hooked UncaughtExceptionHandler.</span>
+<span class="c-dim">D/CrashReporter: Serializing local stack traces to internal storage...</span>
+<span class="c-info">I/CrashReporter: Autonomously dispatching GitHub Issue upon recovery.</span>
+...
+<span class="c-err">FATAL EXCEPTION: main
+Process: com.target.app, PID: 10254
+java.lang.NullPointerException: Attempt to invoke virtual method</span>
           </div>
         </div>
-
-        <!-- Frame 2 -->
-        <div class="trace-frame warn">
-          <div class="trace-header">
-            <span class="trace-level level-w">W</span>
-            <span class="trace-method">com.hereliesaz.logkitty.AppMonitor</span>
-          </div>
-          <div class="trace-body">
-            <span class="highlight">Target Isolation:</span> Intercepts UID boundaries to filter noise. Pin a dedicated tab to isolate logs strictly for the current foreground application.
-          </div>
-        </div>
-
-        <!-- Frame 3 -->
-        <div class="trace-frame info">
-          <div class="trace-header">
-            <span class="trace-level level-i">I</span>
-            <span class="trace-method">com.hereliesaz.logkitty.feature.GitHub</span>
-          </div>
-          <div class="trace-body">
-            <span class="highlight">Dynamic Play Delivery:</span> Mounts the `:feature:github` module on-demand. Trigger and monitor remote GitHub Actions workflows directly from the floating overlay.
+        <div class="term-box anim-up speed-4">
+          <div class="term-content">
+<span class="c-dim">uid: 1000 system_server
+uid: 1001 radio
+uid: 10254 com.target.app
+uid: 10255 com.other.app</span>
+<span class="c-info">Pinning dedicated tab to isolate logs strictly for current foreground application.</span>
+<span class="c-dim">uid: 1000 system_server
+uid: 1001 radio
+uid: 10254 com.target.app</span>
           </div>
         </div>
-
-        <!-- Frame 4 -->
-        <div class="trace-frame error">
-          <div class="trace-header">
-            <span class="trace-level level-e">E</span>
-            <span class="trace-method">com.hereliesaz.logkitty.utils.CrashReporter</span>
-          </div>
-          <div class="trace-body">
-            <span class="highlight">Fatal Handler:</span> Hooks the default UncaughtExceptionHandler. Serializes local stack traces to internal storage and autonomously dispatches GitHub Issues upon recovery.
-          </div>
-        </div>
-
-        <!-- Frame 5 -->
-        <div class="trace-frame info">
-          <div class="trace-header">
-            <span class="trace-level level-v">V</span>
-            <span class="trace-method">com.hereliesaz.logkitty.FilterEngine</span>
-          </div>
-          <div class="trace-body">
-            <span class="highlight">Local Buffer Resilience:</span> Multi-select log levels, tag-based regex highlights, and a Prohibited list to aggressively suppress syslog noise. Extensible color schemes (Material, Pidcat, Solarized).
+        <div class="term-box anim-down speed-2">
+          <div class="term-content">
+<span class="c-warn">W/FilterEngine: Prohibited list aggressive suppression active.
+W/FilterEngine: Dropping 1042 lines of syslog noise.
+W/FilterEngine: Local buffer resilience stabilized.</span>
+<span class="c-dim">regex: ^\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}
+color_scheme: [Material, Pidcat, Solarized]</span>
+...
+<span class="c-warn">W/FilterEngine: Prohibited list aggressive suppression active.
+W/FilterEngine: Dropping 1042 lines of syslog noise.</span>
           </div>
         </div>
-
       </div>
-    </section>
 
+      <!-- LEFT FACE (GitHub Module) -->
+      <div class="face left">
+        <div class="term-box anim-right speed-3">
+          <div class="term-content">
+<span class="c-info">I/FeatureDelivery: Requesting dynamic module :feature:github</span>
+<span class="c-info">I/FeatureDelivery: Downloading... 100%</span>
+<span class="c-info">I/FeatureDelivery: Module mounted successfully.</span>
+<span class="c-dim">Triggering remote GitHub Actions workflow...</span>
+          </div>
+        </div>
+        <div class="term-box anim-up speed-2">
+          <div class="term-content">
+<span class="c-err">E/Auth: Token provider requires scope [repo, workflow]
+E/Auth: Device flow initiated.</span>
+<span class="c-info">I/GitHub: Watching run id: 8472910</span>
+<span class="c-info">I/GitHub: Status: queued -> in_progress -> completed</span>
+<span class="c-warn">W/GitHub: Polling API rate limits...</span>
+...
+<span class="c-err">E/Auth: Token provider requires scope [repo, workflow]
+E/Auth: Device flow initiated.</span>
+          </div>
+        </div>
+        <div class="term-box anim-left speed-4">
+          <div class="term-content">
+<span class="c-dim">{"action":"workflow_dispatch","ref":"main"}</span> <span class="c-info">I/HTTP: 204 No Content</span> <span class="c-dim">{"action":"workflow_dispatch","ref":"main"}</span> <span class="c-info">I/HTTP: 204 No Content</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT FACE (Color & Themes) -->
+      <div class="face right">
+        <div class="term-box anim-down speed-2">
+          <div class="term-content">
+<span class="c-dim">Loading ColorSchemeEditorScreen.kt...
+Applying theme: MONOCHROME</span>
+<span class="c-warn">W/Theme: Override detected. Switching to PIDCAT.</span>
+<span class="c-err">E/Theme: Failed to parse custom JSON palette.</span>
+<span class="c-info">I/Theme: Reverting to SYSTEM DEFAULT.</span>
+...
+<span class="c-dim">Loading ColorSchemeEditorScreen.kt...
+Applying theme: MONOCHROME</span>
+<span class="c-warn">W/Theme: Override detected. Switching to PIDCAT.</span>
+          </div>
+        </div>
+        <div class="term-box anim-up speed-3">
+          <div class="term-content">
+01-24 12:00 <span class="c-info">I/LogcatReader</span>: ProcessBuilder("logcat", "-v", "threadtime")
+01-24 12:00 <span class="c-dim">D/LogcatReader</span>: InputStream ready.
+01-24 12:00 <span class="c-info">I/LogcatReader</span>: Buffer size: 5000 lines
+01-24 12:00 <span class="c-err">E/LogcatReader</span>: Stream died. Retrying...
+...
+01-24 12:00 <span class="c-info">I/LogcatReader</span>: ProcessBuilder("logcat", "-v", "threadtime")
+01-24 12:00 <span class="c-dim">D/LogcatReader</span>: InputStream ready.
+          </div>
+        </div>
+        <div class="term-box anim-left speed-1" style="grid-column: span 2;">
+          <div class="term-content">
+<span class="c-warn">W/DataStore</span>: KEY_TEXT_SIZE=14, KEY_BUFFER_SIZE=5000, KEY_SHOW_TIMESTAMP=true <span class="c-warn">W/DataStore</span>: KEY_TEXT_SIZE=14, KEY_BUFFER_SIZE=5000
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP FACE -->
+      <div class="face top">
+        <div class="term-box anim-left speed-2" style="grid-column: span 2;">
+          <div class="term-content">
+<span class="c-info">I/Privacy</span>: 100% Local Processing. <span class="c-err">E/Network</span>: Cloud Sync Disabled. <span class="c-info">I/Privacy</span>: 100% Local Processing. <span class="c-err">E/Network</span>: Cloud Sync Disabled.
+          </div>
+        </div>
+        <div class="term-box anim-down speed-3">
+          <div class="term-content">
+> adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
+> adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
+> adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
+          </div>
+        </div>
+        <div class="term-box anim-up speed-1">
+          <div class="term-content">
+<span class="c-dim">0x00000 48 65 72 65 4C 69 65 73
+0x00008 41 7A 20 2D 20 4C 6F 67
+0x00010 4B 69 74 74 79 00 00 00
+0x00018 FF FF FF FF FF FF FF FF
+0x00000 48 65 72 65 4C 69 65 73</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM FACE -->
+      <div class="face bottom">
+        <div class="term-box anim-right speed-2" style="grid-column: span 2;">
+          <div class="term-content">
+<span class="c-warn">W/Root</span>: Warning: No root access detected. Using standard ADB permissions. <span class="c-warn">W/Root</span>: Warning: No root access detected. Using standard ADB permissions.
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <script>
-    const canvas = document.getElementById('matrix-canvas');
-    const ctx = canvas.getContext('2d');
+    const cube = document.getElementById('cube');
     
-    let width = canvas.width = window.innerWidth;
-    let height = canvas.height = window.innerHeight;
+    // State
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
     
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-
-    const chars = '0123456789ABCDEF!@#$%^&*()_+-=[]{}|;:,.<>/?~'.split('');
-    const font_size = 14;
-    const columns = Math.floor(width / font_size);
-    const drops = [];
-    for (let x = 0; x < columns; x++) drops[x] = Math.random() * height;
-
-    let mouseX = -1000;
-    let mouseY = -1000;
+    // Rotation state
+    let rotation = { x: -15, y: -25 };
+    // Zoom/Z-translation state
+    let translateZ = 0;
     
-    window.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-    });
-
-    function draw() {
-      // Create a fading trailing effect
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.font = font_size + 'px "JetBrains Mono"';
-      
-      for (let i = 0; i < drops.length; i++) {
-        // Find position
-        const x = i * font_size;
-        const y = drops[i] * font_size;
-
-        // Calculate distance to mouse for "anomaly" effect
-        const dx = mouseX - x;
-        const dy = mouseY - y;
-        const distance = Math.sqrt(dx*dx + dy*dy);
-
-        let char = chars[Math.floor(Math.random() * chars.length)];
-        
-        if (distance < 150) {
-          // The cursor decrypts the noise into Logcat structures
-          const logcatChars = '01-24 12:00:00.000 D/LogKitty: [Decoded]'.split('');
-          char = logcatChars[i % logcatChars.length] || ' ';
-          ctx.fillStyle = 'rgba(244, 240, 230, 0.9)'; // Bright white near cursor
-        } else {
-          // Dim noise
-          ctx.fillStyle = 'rgba(85, 85, 85, 0.3)';
-        }
-
-        ctx.fillText(char, x, y);
-
-        // Reset drop to top randomly
-        if (y > height && Math.random() > 0.975) {
-          drops[i] = 0;
-        }
-        drops[i]++;
+    // Passive movement target
+    let targetRotation = { x: -15, y: -25 };
+    
+    // Apply transform
+    function updateTransform() {
+      // Smooth interpolation for passive movement if not dragging
+      if (!isDragging) {
+        rotation.x += (targetRotation.x - rotation.x) * 0.05;
+        rotation.y += (targetRotation.y - rotation.y) * 0.05;
       }
-      requestAnimationFrame(draw);
+      cube.style.transform = `translateZ(${translateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
+      requestAnimationFrame(updateTransform);
     }
-    draw();
+    updateTransform();
+
+    // Mouse events
+    document.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      previousMousePosition = { x: e.offsetX, y: e.offsetY };
+      document.body.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const deltaMove = {
+          x: e.offsetX - previousMousePosition.x,
+          y: e.offsetY - previousMousePosition.y
+        };
+        
+        // Dragging rotates the cube
+        rotation.y += deltaMove.x * 0.5;
+        rotation.x -= deltaMove.y * 0.5;
+        
+        // Sync target rotation so it doesn't snap back when let go
+        targetRotation.x = rotation.x;
+        targetRotation.y = rotation.y;
+        
+        previousMousePosition = { x: e.offsetX, y: e.offsetY };
+      } else {
+        // Passive movement: map screen position to a slight rotation (-20 to 20 deg offset)
+        const xPercent = (e.clientX / window.innerWidth) - 0.5;
+        const yPercent = (e.clientY / window.innerHeight) - 0.5;
+        
+        // Base rotation is whatever the user left it at, plus a slight parallax
+        // Actually, just let it drift slightly based on mouse
+        targetRotation.x -= yPercent * 2;
+        targetRotation.y += xPercent * 2;
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+      document.body.style.cursor = 'default';
+    });
+    
+    // Touch events for mobile
+    document.addEventListener('touchstart', (e) => {
+      isDragging = true;
+      previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }, {passive: true});
+    
+    document.addEventListener('touchmove', (e) => {
+      if (isDragging) {
+        const deltaMove = {
+          x: e.touches[0].clientX - previousMousePosition.x,
+          y: e.touches[0].clientY - previousMousePosition.y
+        };
+        rotation.y += deltaMove.x * 0.5;
+        rotation.x -= deltaMove.y * 0.5;
+        targetRotation.x = rotation.x;
+        targetRotation.y = rotation.y;
+        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+    }, {passive: true});
+    
+    document.addEventListener('touchend', () => {
+      isDragging = false;
+    });
+
+    // Zoom/Z-translation via scroll wheel
+    document.addEventListener('wheel', (e) => {
+      // Prevent default scrolling
+      e.preventDefault();
+      
+      // Zoom factor
+      const zoomSpeed = 2;
+      translateZ += e.deltaY > 0 ? -zoomSpeed * 10 : zoomSpeed * 10;
+      
+      // Clamp zoom to prevent flipping too far or getting too small
+      if (translateZ > 800) translateZ = 800;
+      if (translateZ < -2000) translateZ = -2000;
+    }, {passive: false});
   </script>
 </body>
 </html>
