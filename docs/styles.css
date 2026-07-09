@@ -25,6 +25,7 @@ body {
   height: 100vh;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none;
 }
 
 /* Base Scene */
