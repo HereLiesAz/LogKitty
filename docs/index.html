@@ -168,7 +168,15 @@ uid: 10254 com.target.app</span>
     let isDragging = false;
     let rotation = { x: -15, y: -25 };
     let targetRotation = { x: -15, y: -25 };
-    const fixedTranslateZ = -300; // Locked zoom
+    
+    // Zoom state
+    let isZoomed = false;
+    let targetZ = -300;
+    let translateZ = -300; 
+    
+    // Drag detection
+    let dragStartX = 0;
+    let dragStartY = 0;
     
     const faceNormals = [
       { el: document.querySelector('.front'), v: {x: 0, y: 0, z: 1} },
@@ -178,6 +186,16 @@ uid: 10254 com.target.app</span>
       { el: document.querySelector('.top'), v: {x: 0, y: -1, z: 0} },
       { el: document.querySelector('.bottom'), v: {x: 0, y: 1, z: 0} }
     ];
+
+    // Face snapping angles
+    const faceAngles = {
+      'front':  { x: 0, y: 0 },
+      'right':  { x: 0, y: -90 },
+      'back':   { x: 0, y: 180 },
+      'left':   { x: 0, y: 90 },
+      'top':    { x: -90, y: 0 },
+      'bottom': { x: 90, y: 0 }
+    };
 
     // Kinetic JS Scroller setup
     const kineticBoxes = Array.from(document.querySelectorAll('.term-box[data-dir]')).map(box => {
@@ -201,15 +219,22 @@ uid: 10254 com.target.app</span>
       return Math.min(Math.max(val, min), max);
     }
 
+    // Normalizes angle to be closest to the current rotation to prevent wild spinning
+    function getClosestAngle(current, target) {
+      const diff = ((target - current + 180) % 360 + 360) % 360 - 180;
+      return current + diff;
+    }
+
     function updateTransform(time) {
       // Clamp target X to prevent unnatural tumbling/gimbal lock
       targetRotation.x = clamp(targetRotation.x, -85, 85);
       
-      // Smooth interpolation for rotation
+      // Smooth interpolation for rotation and zoom
       rotation.x += (targetRotation.x - rotation.x) * 0.1;
       rotation.y += (targetRotation.y - rotation.y) * 0.1;
+      translateZ += (targetZ - translateZ) * 0.1;
       
-      cube.style.transform = `translateZ(${fixedTranslateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
+      cube.style.transform = `translateZ(${translateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
       
       // Depth of Field via DOMMatrix
       const m = new DOMMatrix();
@@ -222,13 +247,22 @@ uid: 10254 com.target.app</span>
         let blur = 0;
         let brightness = 100;
         
+        // Calculate blur based on depth
         if (rotatedZ < 0.2) {
           const depth = Math.abs(rotatedZ - 0.2); 
           blur = depth * 15;
           brightness = Math.max(10, 100 - (depth * 90)); 
         }
         
-        // No global zoom blur since Z is fixed
+        // If we are zoomed in closely, aggressively blur faces that aren't perfectly flat to camera
+        if (isZoomed) {
+          if (rotatedZ < 0.95) {
+            const extraBlur = (0.95 - rotatedZ) * 20;
+            blur += extraBlur;
+            brightness -= extraBlur * 2;
+          }
+        }
+        
         face.el.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
       });
 
@@ -267,9 +301,51 @@ uid: 10254 com.target.app</span>
     }
     requestAnimationFrame(updateTransform);
 
-    // Gestures: 1-Finger Drag (Grab & Spin)
+    // Focus & Zoom Logic
+    function handleTap(e) {
+      // Don't focus if clicking an explicit link
+      if(e.target.closest('a')) return;
+      
+      const clickedFace = e.target.closest('.face');
+      if (!clickedFace) {
+        // Clicked outside the cube? Zoom out.
+        isZoomed = false;
+        targetZ = -300;
+        return;
+      }
+      
+      // If we are already zoomed, clicking toggles zoom out.
+      // If we are not zoomed, or we clicked a DIFFERENT face, zoom in.
+      const faceClasses = Array.from(clickedFace.classList);
+      let targetAngles = null;
+      
+      for (const [fName, angles] of Object.entries(faceAngles)) {
+        if (faceClasses.includes(fName)) {
+          targetAngles = angles;
+          break;
+        }
+      }
+      
+      if (targetAngles) {
+        if (isZoomed) {
+          isZoomed = false;
+          targetZ = -300;
+        } else {
+          isZoomed = true;
+          targetZ = -50; // Zoom in close!
+          
+          // Snap rotation exactly to face
+          targetRotation.x = getClosestAngle(targetRotation.x, targetAngles.x);
+          targetRotation.y = getClosestAngle(targetRotation.y, targetAngles.y);
+        }
+      }
+    }
+
+    // Gestures: 1-Finger Drag & Tap
     document.addEventListener('mousedown', (e) => {
       isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
       document.body.style.cursor = 'grabbing';
     });
 
@@ -277,6 +353,12 @@ uid: 10254 com.target.app</span>
       if (isDragging) {
         targetRotation.y += e.movementX * 0.4;
         targetRotation.x -= e.movementY * 0.4;
+        
+        // If dragged significantly, cancel zoom
+        if (Math.abs(e.clientX - dragStartX) > 10 || Math.abs(e.clientY - dragStartY) > 10) {
+          isZoomed = false;
+          targetZ = -300;
+        }
       } else {
         // Passive ambient parallax
         const xPercent = (e.clientX / window.innerWidth) - 0.5;
@@ -286,38 +368,61 @@ uid: 10254 com.target.app</span>
       }
     });
 
-    document.addEventListener('mouseup', () => {
+    document.addEventListener('mouseup', (e) => {
       isDragging = false;
       document.body.style.cursor = 'default';
+      
+      // Detect if it was a tap/click (very little movement)
+      if (Math.abs(e.clientX - dragStartX) < 10 && Math.abs(e.clientY - dragStartY) < 10) {
+        handleTap(e);
+      }
     });
     
     let lastTouch = null;
     document.addEventListener('touchstart', (e) => {
-      // Ignore if clicking a link so it doesn't interrupt navigation
       if(e.target.closest('a')) return;
       isDragging = true;
-      lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      dragStartX = e.touches[0].clientX;
+      dragStartY = e.touches[0].clientY;
+      lastTouch = { x: dragStartX, y: dragStartY };
     }, {passive: true});
     
     document.addEventListener('touchmove', (e) => {
       if (isDragging && lastTouch) {
-        // 1-finger touch spins the cube just like a drag
         targetRotation.y += (e.touches[0].clientX - lastTouch.x) * 0.5;
         targetRotation.x -= (e.touches[0].clientY - lastTouch.y) * 0.5;
         lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        
+        if (Math.abs(e.touches[0].clientX - dragStartX) > 10 || Math.abs(e.touches[0].clientY - dragStartY) > 10) {
+          isZoomed = false;
+          targetZ = -300;
+        }
       }
     }, {passive: true});
     
-    document.addEventListener('touchend', () => {
+    document.addEventListener('touchend', (e) => {
       isDragging = false;
       lastTouch = null;
+      
+      // Touch end doesn't have clientX, so we rely on the logic inside touchmove that cancels zoom 
+      // if moved. If it wasn't cancelled, we treat it as a tap. But we need the event target.
+      // e.changedTouches contains the lift-off point.
+      if (e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        if (Math.abs(touch.clientX - dragStartX) < 10 && Math.abs(touch.clientY - dragStartY) < 10) {
+           // Emulate tap
+           handleTap({ target: document.elementFromPoint(touch.clientX, touch.clientY) });
+        }
+      }
     });
 
-    // Gestures: 2-Finger Scroll / Trackpad (Fluid Trackball Spin)
+    // Gestures: 2-Finger Scroll / Trackpad
     document.addEventListener('wheel', (e) => {
       e.preventDefault();
-      // Repurposed from zoom to X/Y rotation
-      // e.deltaX/Y represents trackpad swipe distance or scroll wheel
+      // Any scroll action cancels zoom to allow fluid trackball spinning
+      isZoomed = false;
+      targetZ = -300;
+      
       targetRotation.y -= e.deltaX * 0.2;
       targetRotation.x -= e.deltaY * 0.2;
     }, {passive: false});
