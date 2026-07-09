@@ -199,7 +199,9 @@ uid: 10254 com.target.app</span>
 
     // Kinetic JS Scroller setup
     const kineticBoxes = Array.from(document.querySelectorAll('.term-box[data-dir]')).map(box => {
-      const content = box.querySelector('.term-content');
+      const content = box.querySelector('.term-content') || box.firstElementChild;
+      if (!content) return null;
+      
       const clone = content.cloneNode(true);
       box.appendChild(clone);
       
@@ -213,7 +215,7 @@ uid: 10254 com.target.app</span>
         lastJump: 0,
         jumpInterval: Math.random() * 300 + 100 
       };
-    });
+    }).filter(Boolean);
 
     function clamp(val, min, max) {
       return Math.min(Math.max(val, min), max);
