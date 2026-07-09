@@ -5,7 +5,7 @@ title: LogKitty
 description: The always-on logcat overlay for Android.
 
 url: "https://hereliesaz.github.io"
-baseurl: "/LogKitty"
+baseurl: "/logkitty"
 
 # Only the landing page and the user-facing policy/permissions docs are published.
 # The internal development docs are excluded so they don't appear on the public site.
