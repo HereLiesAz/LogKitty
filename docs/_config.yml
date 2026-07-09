@@ -3,7 +3,6 @@
 # source, so this file lives alongside the documents it publishes.
 title: LogKitty
 description: The always-on logcat overlay for Android.
-theme: jekyll-theme-cayman
 
 url: "https://hereliesaz.github.io"
 baseurl: "/LogKitty"
