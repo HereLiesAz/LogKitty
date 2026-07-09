@@ -27,26 +27,7 @@ body {
   -webkit-user-select: none;
 }
 
-.top-nav {
-  position: absolute;
-  top: 0; right: 0;
-  padding: 1.5rem;
-  z-index: 100;
-  display: flex;
-  gap: 2rem;
-  mix-blend-mode: difference;
-}
-.top-nav a {
-  color: var(--text-main);
-  text-decoration: none;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-.top-nav a:hover {
-  color: var(--text-dim);
-}
-
+/* Base Scene */
 #scene {
   width: 100vw;
   height: 100vh;
@@ -54,7 +35,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Slight ambient dark fog */
   background: radial-gradient(circle at center, #111 0%, #000 60%);
 }
 
@@ -66,6 +46,7 @@ body {
   will-change: transform;
 }
 
+/* Faces */
 .face {
   position: absolute;
   width: var(--cube-size);
@@ -73,7 +54,6 @@ body {
   background: transparent; 
   display: grid;
   gap: 15px;
-  /* We will manipulate filter via JS */
   will-change: filter, transform;
 }
 
@@ -84,26 +64,51 @@ body {
 .face.top    { transform: rotateX( 90deg) translateZ(var(--half-size)); }
 .face.bottom { transform: rotateX(-90deg) translateZ(var(--half-size)); }
 
-.face.front { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 2fr; }
-.face.back { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr; }
-.face.left { grid-template-columns: 1fr; grid-template-rows: 2fr 1fr 1fr; }
-.face.right { grid-template-columns: 1fr 2fr; grid-template-rows: 1fr 1fr; }
-.face.top { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-.face.bottom { grid-template-columns: 3fr 1fr; grid-template-rows: 1fr; }
+/* Denser Grids to fill space entirely */
+.face.front { grid-template-columns: 2fr 1fr 1.5fr; grid-template-rows: 1.5fr 2fr; }
+.face.back { grid-template-columns: 1fr 2fr 1fr; grid-template-rows: 2fr 1fr 1fr; }
+.face.left { grid-template-columns: 1.5fr 1fr; grid-template-rows: 1fr 1.5fr 1fr; }
+.face.right { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 2fr; }
+.face.top { grid-template-columns: 1fr 1.5fr; grid-template-rows: 1fr 1fr 1fr; }
+.face.bottom { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; }
 
+/* Terminal Sub-Boxes */
 .term-box {
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+}
+/* Title and Massive Links shouldn't clip content arbitrarily if it fits */
+.term-box.no-clip {
+  overflow: visible;
+  justify-content: center;
 }
 
 .term-content {
   white-space: pre;
-  font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.3;
   will-change: transform;
   letter-spacing: -0.5px;
+}
+
+/* Extreme Scale Variations */
+.text-micro { font-size: 9px; line-height: 1.1; letter-spacing: -0.8px; color: var(--text-dim); }
+.text-norm { font-size: 13px; }
+.text-large { font-size: 24px; font-weight: 700; letter-spacing: -1px; }
+.text-huge { font-size: 48px; font-weight: 800; letter-spacing: -3px; line-height: 0.9; }
+.text-jumbo { font-size: 110px; font-weight: 900; letter-spacing: -8px; line-height: 0.8; }
+
+/* Links embedded in cube */
+a.cube-link {
+  color: var(--text-main);
+  text-decoration: none;
+  display: block;
+}
+a.cube-link:hover {
+  color: var(--text-dim);
+  text-decoration: line-through;
 }
 
 /* Erratic Jump Animations using steps() */
@@ -135,6 +140,7 @@ body {
 .speed-2 .term-content { animation-duration: 16s; }
 .speed-3 .term-content { animation-duration: 24s; }
 .speed-4 .term-content { animation-duration: 32s; }
+.speed-fast .term-content { animation-duration: 4s; }
 
 /* Monochrome text coloring */
 .c-err { color: #ffffff; font-weight: 800; background-color: #333333; padding: 0 4px; }
@@ -143,31 +149,9 @@ body {
 .c-dim { color: #444444; }
 .c-main { color: #ffffff; text-decoration: underline; text-decoration-style: dashed;}
 
-.title-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  color: var(--text-main);
-  animation: none !important; 
-}
-
-.title-box h1 {
-  font-size: 6rem;
-  letter-spacing: -5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #ffffff;
-}
-.title-box p {
-  font-size: 1.2rem;
-  color: var(--text-dim);
-}
-
 @media (max-width: 768px) {
   :root {
     --cube-size: 300px;
     --half-size: 150px;
   }
-  .title-box h1 { font-size: 3rem; }
 }
