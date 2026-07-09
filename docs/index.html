@@ -72,7 +72,7 @@ uid: 10254 com.target.app</span>
           </div>
         </div>
 
-        <div class="term-box" style="bottom: 100px; right: -20px; z-index: 5;" data-dir="right" data-speed="10">
+        <div class="term-box" style="bottom: 100px; right: -20px; z-index: 5;" data-dir="up" data-speed="10">
           <a href="privacy/" class="cube-link text-huge">> PRIVACY</a>
           <a href="permissions/" class="cube-link text-huge">> PERMISSIONS</a>
         </div>
@@ -84,7 +84,7 @@ uid: 10254 com.target.app</span>
 
       <!-- LEFT FACE -->
       <div class="face left">
-        <div class="term-box" style="top: 20px; left: 20px; z-index: 4;" data-dir="left" data-speed="20">
+        <div class="term-box" style="top: 20px; left: 20px; z-index: 4;" data-dir="down" data-speed="20">
           <div class="term-content text-jumbo">PLAY<br/>DELIVERY</div>
         </div>
 
@@ -108,7 +108,7 @@ uid: 10254 com.target.app</span>
           <div class="term-content text-colossal c-bg">THEME</div>
         </div>
 
-        <div class="term-box" style="bottom: 20px; right: 20px; z-index: 4;" data-dir="right" data-speed="5">
+        <div class="term-box" style="bottom: 20px; right: 20px; z-index: 4;" data-dir="up" data-speed="5">
           <div class="term-content text-jumbo">BUFFER<br/>RESIL.</div>
         </div>
 
@@ -128,7 +128,7 @@ uid: 10254 com.target.app</span>
 
       <!-- TOP FACE -->
       <div class="face top">
-        <div class="term-box" style="top: -20px; left: 20px; z-index: 2;" data-dir="left" data-speed="6">
+        <div class="term-box" style="top: -20px; left: 20px; z-index: 2;" data-dir="down" data-speed="6">
           <div class="term-content text-jumbo">100%<br/>LOCAL</div>
         </div>
 
@@ -166,8 +166,8 @@ uid: 10254 com.target.app</span>
     const faces = document.querySelectorAll('.face');
     
     let isDragging = false;
-    let rotation = { x: -15, y: -25 };
-    let targetRotation = { x: -15, y: -25 };
+    let rotation = { x: -15, y: -25, z: 0 };
+    let targetRotation = { x: -15, y: -25, z: 0 };
     
     // Zoom state
     let isZoomed = false;
@@ -234,12 +234,15 @@ uid: 10254 com.target.app</span>
       // Smooth interpolation for rotation and zoom
       rotation.x += (targetRotation.x - rotation.x) * 0.1;
       rotation.y += (targetRotation.y - rotation.y) * 0.1;
+      rotation.z += (targetRotation.z - rotation.z) * 0.1;
       translateZ += (targetZ - translateZ) * 0.1;
       
-      cube.style.transform = `translateZ(${translateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
+      cube.style.transform = `translateZ(${translateZ}px) rotateZ(${rotation.z}deg) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
       
       // Depth of Field via DOMMatrix
+      // CSS applies in reverse visual order locally: Z, then X, then Y
       const m = new DOMMatrix();
+      m.rotateSelf(0, 0, rotation.z);
       m.rotateSelf(rotation.x, 0, 0);
       m.rotateSelf(0, rotation.y, 0);
 
@@ -305,19 +308,15 @@ uid: 10254 com.target.app</span>
 
     // Focus & Zoom Logic
     function handleTap(e) {
-      // Don't focus if clicking an explicit link
       if(e.target.closest('a')) return;
       
       const clickedFace = e.target.closest('.face');
       if (!clickedFace) {
-        // Clicked outside the cube? Zoom out.
         isZoomed = false;
         targetZ = -300;
         return;
       }
       
-      // If we are already zoomed, clicking toggles zoom out.
-      // If we are not zoomed, or we clicked a DIFFERENT face, zoom in.
       const faceClasses = Array.from(clickedFace.classList);
       let targetAngles = null;
       
@@ -336,9 +335,10 @@ uid: 10254 com.target.app</span>
           isZoomed = true;
           targetZ = -50; // Zoom in close!
           
-          // Snap rotation exactly to face
+          // Snap rotation exactly to face, resetting Z-roll to 0 to perfectly align
           targetRotation.x = getClosestAngle(targetRotation.x, targetAngles.x);
           targetRotation.y = getClosestAngle(targetRotation.y, targetAngles.y);
+          targetRotation.z = getClosestAngle(targetRotation.z, 0); 
         }
       }
     }
@@ -356,13 +356,11 @@ uid: 10254 com.target.app</span>
         targetRotation.y += e.movementX * 0.4;
         targetRotation.x -= e.movementY * 0.4;
         
-        // If dragged significantly, cancel zoom
         if (Math.abs(e.clientX - dragStartX) > 10 || Math.abs(e.clientY - dragStartY) > 10) {
           isZoomed = false;
           targetZ = -300;
         }
       } else {
-        // Passive ambient parallax
         const xPercent = (e.clientX / window.innerWidth) - 0.5;
         const yPercent = (e.clientY / window.innerHeight) - 0.5;
         targetRotation.x -= yPercent * 1.5;
@@ -374,7 +372,6 @@ uid: 10254 com.target.app</span>
       isDragging = false;
       document.body.style.cursor = 'default';
       
-      // Detect if it was a tap/click (very little movement)
       if (Math.abs(e.clientX - dragStartX) < 10 && Math.abs(e.clientY - dragStartY) < 10) {
         handleTap(e);
       }
@@ -406,13 +403,9 @@ uid: 10254 com.target.app</span>
       isDragging = false;
       lastTouch = null;
       
-      // Touch end doesn't have clientX, so we rely on the logic inside touchmove that cancels zoom 
-      // if moved. If it wasn't cancelled, we treat it as a tap. But we need the event target.
-      // e.changedTouches contains the lift-off point.
       if (e.changedTouches.length > 0) {
         const touch = e.changedTouches[0];
         if (Math.abs(touch.clientX - dragStartX) < 10 && Math.abs(touch.clientY - dragStartY) < 10) {
-           // Emulate tap
            handleTap({ target: document.elementFromPoint(touch.clientX, touch.clientY) });
         }
       }
@@ -425,8 +418,9 @@ uid: 10254 com.target.app</span>
       isZoomed = false;
       targetZ = -300;
       
-      targetRotation.y -= e.deltaX * 0.2;
-      targetRotation.x -= e.deltaY * 0.2;
+      // Map two-finger scroll to camera Z-axis rotation (steering wheel)
+      targetRotation.z -= e.deltaY * 0.1;
+      targetRotation.z -= e.deltaX * 0.1;
     }, {passive: false});
   </script>
 </body>
