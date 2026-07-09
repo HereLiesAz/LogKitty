@@ -43,15 +43,13 @@ jobs:
 
       - name: Inject Google Services
         env:
-          GOOGLE_SERVICES_API_KEY: ${{ secrets.GOOGLE_SERVICES_API_KEY }}
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
-          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES }}
         run: |
-          if [ -f "app/google-services.json.template" ]; then
-            echo "Template found. Injecting secrets..."
-            sed -e 's/{{\([^}]*\)}}/${\1}/g' app/google-services.json.template | envsubst > app/google-services.json
+          if [ -n "$GOOGLE_SERVICES" ]; then
+            echo "Google Services secret found. Creating google-services.json..."
+            cat <<< "$GOOGLE_SERVICES" > app/google-services.json
           else
-            echo "Warning: google-services.json.template not found. Skipping injection."
+            echo "Warning: GOOGLE_SERVICES secret not found. Skipping injection."
           fi
 
       - name: Set up JDK 21
