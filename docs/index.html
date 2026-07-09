@@ -22,23 +22,12 @@ layout: null
 
         <!-- DENSE BACKGROUND STREAMS -->
         <div class="term-box" style="top: 150px; right: -200px; width: 1000px; z-index: 2;" data-dir="left" data-speed="18">
-          <div class="term-content text-micro c-dim">
-// AzNavRail Complete Guide
-AzHostActivityLayout(navController = navController, modifier = Modifier.fillMaxSize(), currentDestination = currentDestination, initiallyExpanded = false)
-const settings: AzNavRailSettings = { dockingSide: AzDockingSide.LEFT, packRailButtons: false, usePhysicalDocking: false }
-<AzNavRail appName="My App" items={items} expanded={false} settings={settings} onToggleExpand={() => {}} />
-azConfig(packButtons = packRailButtons, dockingSide = AzDockingSide.LEFT, noMenu = noMenu, usePhysicalDocking = usePhysicalDocking)
-azTheme(defaultShape = AzButtonShape.RECTANGLE, activeColor = MaterialTheme.colorScheme.primary)
-azAdvanced(isLoading = isLoading, enableRailDragging = true, helpEnabled = showHelp)
+          <div class="term-content text-micro c-dim" data-doc="TODO.md">
           </div>
         </div>
 
         <div class="term-box text-vertical-up" style="top: 100px; left: 300px; height: 600px; z-index: 2;" data-dir="up" data-speed="28">
-          <div class="term-content text-micro c-dim">
-01-24 12:00:00.111 I/ActivityManager: Start proc com.target.app for activity
-01-24 12:00:00.231 D/NetworkPolicy: updateRulesForDataUsageRestrictionsUL()
-01-24 12:00:00.342 W/ActivityThread: handleWindowVisibility: no activity for token
-01-24 12:00:00.455 I/Choreographer: Skipped 32 frames! The application may be doing too much work on its main thread.
+          <div class="term-content text-micro c-dim" data-doc="file_descriptions.md">
           </div>
         </div>
         
@@ -83,21 +72,12 @@ java.lang.NullPointerException: Attempt to invoke virtual method</span>
       <div class="face back">
         <!-- DENSE BACKGROUND STREAMS -->
         <div class="term-box" style="top: 100px; left: 50px; width: 600px; z-index: 1;" data-dir="right" data-speed="22">
-          <div class="term-content text-micro c-dim">
-azMenuItem(id = "home", text = "Home", route = "home", info = "Navigate to the Home screen", onClick = { })
-azRailItem(id = "color-item", text = "Color", content = Color.Red)
-azRailItem(id = "vector-item", text = "Delete", content = Icons.Default.Delete)
-azRailItem(id = "size_item", text = "Size", content = AzComposableContent { isEnabled -> Box(modifier = Modifier.fillMaxSize()) })
-azRailToggle(id = "pack-rail", isChecked = packRailButtons, toggleOnText = "Packed", toggleOffText = "Unpacked", route = "pack-rail")
-azRailCycler(id = "rail-cycler", options = listOf("A", "B", "C", "D"), selectedOption = "A")
+          <div class="term-content text-micro c-dim" data-doc="AZNAVRAIL_COMPLETE_GUIDE.md">
           </div>
         </div>
 
         <div class="term-box text-vertical" style="top: 0; right: 300px; height: 800px; z-index: 1;" data-dir="down" data-speed="35">
-          <div class="term-content text-micro c-dim">
-0x00A0 1F 8B 08 00 00 00 00 00 00 03 2B 49 2D 2E 51 28
-0x00B0 49 4D 2B 49 55 48 4F 2C 4E 55 00 00 00 00 00 00
-0x00C0 FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF
+          <div class="term-content text-micro c-dim" data-doc="architecture.md">
           </div>
         </div>
 
@@ -137,25 +117,12 @@ uid: 10254 com.target.app</span>
       <div class="face left">
         <!-- DENSE BACKGROUND STREAMS -->
         <div class="term-box" style="top: 200px; left: -100px; width: 800px; z-index: 1;" data-dir="right" data-speed="15">
-          <div class="term-content text-micro c-dim">
-// Hosts are accordion-style items that expand to reveal sub-items.
-azMenuHostItem(id = "menu-host", text = "Menu Host")
-azMenuSubItem(id = "menu-sub-1", hostId = "menu-host", text = "Menu Sub 1")
-azRailHostItem(id = "rail-host", text = "Rail Host")
-azRailSubItem(id = "rail-sub-1", hostId = "rail-host", text = "Rail Sub 1")
-// A sub-item can itself be a host with its own sub-items via azRailSubHostItem
-azRailSubHostItem(id = "rail-subhost", hostId = "rail-host", text = "Rail Sub Host")
+          <div class="term-content text-micro c-dim" data-doc="data_layer.md">
           </div>
         </div>
 
         <div class="term-box text-vertical-up" style="top: 50px; left: 250px; height: 700px; z-index: 1;" data-dir="up" data-speed="40">
-          <div class="term-content text-micro c-dim">
-E/AndroidRuntime: FATAL EXCEPTION: main
-Process: com.hereliesaz.logkitty, PID: 12345
-java.lang.RuntimeException: Unable to start service
-    at android.app.ActivityThread.handleCreateService(ActivityThread.java:4204)
-    at android.app.ActivityThread.access$1500(ActivityThread.java:237)
-    at android.app.ActivityThread$H.handleMessage(ActivityThread.java:1932)
+          <div class="term-content text-micro c-dim" data-doc="error_handling.md">
           </div>
         </div>
 
@@ -195,23 +162,12 @@ java.lang.RuntimeException: Unable to start service
       <div class="face right">
         <!-- DENSE BACKGROUND STREAMS -->
         <div class="term-box text-vertical" style="top: 0; right: 150px; height: 800px; z-index: 1;" data-dir="down" data-speed="32">
-          <div class="term-content text-micro c-dim">
-azNestedRail(id = "nested-rail", text = "Vertical Nested", alignment = AzNestedRailAlignment.VERTICAL, keepNestedRailOpen = true)
-azRailItem(id = "nested-1", text = "Nested Item 1", route = "nested-1")
-azNestedRail(id = "nested-horizontal", text = "Horizontal Nested", alignment = AzNestedRailAlignment.HORIZONTAL)
-background(weight = 0) { Box(Modifier.fillMaxSize().background(Color(0xFFEEEEEE))) }
-background(weight = 10) { Box(...) }
-azRailRelocItem(id = "tools_reloc", hostId = "toolbar", text = "Drag Me", nestedRailAlignment = AzNestedRailAlignment.HORIZONTAL)
+          <div class="term-content text-micro c-dim" data-doc="testing.md">
           </div>
         </div>
 
         <div class="term-box" style="top: 400px; left: 0px; width: 900px; z-index: 1;" data-dir="left" data-speed="20">
-          <div class="term-content text-micro c-dim">
-AzTextBox(hint = "Search", historyContext = "search_history", onSubmit = {})
-AzForm(formName = "loginForm", onSubmit = { formData -> }) { entry(entryName = "username", hint = "Username", initialValue = "AzRailFan") }
-AzRoller(options = listOf("Cherry", "Bell", "Bar"), selectedOption = "Cherry", onOptionSelected = { it -> })
-AzButton(text = "Button", onClick = {}, shape = AzButtonShape.SQUARE)
-AzToggle(isChecked = true, onToggle = {}, toggleOnText = "On", toggleOffText = "Off")
+          <div class="term-content text-micro c-dim" data-doc="blueprint.md">
           </div>
         </div>
 
@@ -248,22 +204,12 @@ AzToggle(isChecked = true, onToggle = {}, toggleOnText = "On", toggleOffText = "
       <div class="face top">
         <!-- DENSE BACKGROUND STREAMS -->
         <div class="term-box" style="top: 50px; left: -50px; width: 700px; z-index: 1;" data-dir="right" data-speed="25">
-          <div class="term-content text-micro c-dim">
-// 9. Tutorial Framework
-// The tutorial framework scripts interactive, multi-scene walkthroughs over a dimmed overlay.
-val myTutorial = azTutorial { onComplete { }, onSkip { } }
-scene(id = "gate", content = { }) { branch(varName = "userLevel", mapOf("advanced" to "scene-advanced", "basic" to "scene-basic")) }
-card(title = "Pick a path", text = "Tap the item", highlight = AzHighlight.Item("nav-menu"), advanceCondition = AzAdvanceCondition.TapTarget)
-card(title = "Checklist", checklistItems = listOf("I read the docs", "I set up my account"))
+          <div class="term-content text-micro c-dim" data-doc="performance.md">
           </div>
         </div>
 
         <div class="term-box text-vertical" style="top: -100px; right: 50px; height: 800px; z-index: 1;" data-dir="down" data-speed="42">
-          <div class="term-content text-micro c-dim">
-import { AzTutorialProvider, useAzTutorialController, AzTutorial } from '@HereLiesAz/aznavrail-react';
-const myTutorial: AzTutorial = { onComplete: () => console.log('done'), scenes: [ { id: 'gate', content: () => null, cards: [] } ] };
-function Root() { return ( <AzTutorialProvider tutorials={{ 'tut-1': myTutorial }}> <App /> </AzTutorialProvider> ); }
-controller.fireEvent('menu_opened');
+          <div class="term-content text-micro c-dim" data-doc="manifest.md">
           </div>
         </div>
 
@@ -291,24 +237,12 @@ controller.fireEvent('menu_opened');
       <div class="face bottom">
         <!-- DENSE BACKGROUND STREAMS -->
         <div class="term-box" style="top: 150px; left: -100px; width: 800px; z-index: 1;" data-dir="left" data-speed="14">
-          <div class="term-content text-micro c-dim">
-// 10. Bottom Sheets
-// AzNavRail ships a four-detent bottom-sheet shell ported from LogKitty.
-// HIDDEN: 14dp swipe strip, PEEK: 56dp ticker, HALF: 50% of parent, FULL: 90% of parent
-val sheetController = rememberAzSheetController(initial = AzSheetDetent.PEEK)
-azBottomSheet(controller = sheetController, scrimColor = Color.Black.copy(alpha = 0.5f)) {
-    // sheet content
-}
+          <div class="term-content text-micro c-dim" data-doc="workflow.md">
           </div>
         </div>
 
         <div class="term-box text-vertical-up" style="top: 0; left: 250px; height: 800px; z-index: 1;" data-dir="up" data-speed="38">
-          <div class="term-content text-micro c-dim">
-D/AzBottomSheet: Settling to detent HALF
-D/AzBottomSheet: Drag release velocity 1200px/s, snapping to FULL
-I/AzNavRail: Docking side evaluated: LEFT
-D/OverlayService: Adding View to WindowManager with TYPE_ACCESSIBILITY_OVERLAY
-V/InputReader: touch dispatching
+          <div class="term-content text-micro c-dim" data-doc="conduct.md">
           </div>
         </div>
 
@@ -551,6 +485,26 @@ V/InputReader: touch dispatching
       if (Math.abs(e.clientX - dragStartX) < 10 && Math.abs(e.clientY - dragStartY) < 10) {
         handleTap(e);
       }
+    });
+
+    // Dynamic Documentation Fetcher
+    document.addEventListener("DOMContentLoaded", () => {
+      const docContainers = document.querySelectorAll('[data-doc]');
+      docContainers.forEach(container => {
+        const file = container.getAttribute('data-doc');
+        fetch(file)
+          .then(response => {
+            if (!response.ok) throw new Error("File not found");
+            return response.text();
+          })
+          .then(text => {
+            container.innerText = text;
+          })
+          .catch(err => {
+            console.error("Failed to load doc: " + file, err);
+            container.innerHTML = `<span class="c-err">Failed to fetch ${file}</span>`;
+          });
+      });
     });
     
     let lastTouch = null;
