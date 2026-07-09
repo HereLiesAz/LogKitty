@@ -398,7 +398,7 @@ uid: 10254 com.target.app</span>
     document.addEventListener('mousemove', (e) => {
       if (isDragging) {
         targetRotation.y += e.movementX * 0.4;
-        targetRotation.x -= e.movementY * 0.4;
+        targetRotation.x += e.movementY * 0.4; // Reversed Y for natural pitch
         
         if (Math.abs(e.clientX - dragStartX) > 10 || Math.abs(e.clientY - dragStartY) > 10) {
           isZoomed = false;
@@ -407,7 +407,7 @@ uid: 10254 com.target.app</span>
       } else {
         const xPercent = (e.clientX / window.innerWidth) - 0.5;
         const yPercent = (e.clientY / window.innerHeight) - 0.5;
-        targetRotation.x -= yPercent * 1.5;
+        targetRotation.x += yPercent * 1.5; // Reversed Y
         targetRotation.y += xPercent * 1.5;
       }
     });
@@ -433,7 +433,7 @@ uid: 10254 com.target.app</span>
     document.addEventListener('touchmove', (e) => {
       if (isDragging && lastTouch) {
         targetRotation.y += (e.touches[0].clientX - lastTouch.x) * 0.5;
-        targetRotation.x -= (e.touches[0].clientY - lastTouch.y) * 0.5;
+        targetRotation.x += (e.touches[0].clientY - lastTouch.y) * 0.5; // Reversed Y
         lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         
         if (Math.abs(e.touches[0].clientX - dragStartX) > 10 || Math.abs(e.touches[0].clientY - dragStartY) > 10) {
