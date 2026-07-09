@@ -192,27 +192,70 @@ Applying theme: MONOCHROME</span>
 
   <script>
     const cube = document.getElementById('cube');
+    const faces = document.querySelectorAll('.face');
     
     // State
     let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
-    
-    // Rotation state
     let rotation = { x: -15, y: -25 };
-    // Zoom/Z-translation state
-    let translateZ = 0;
-    
-    // Passive movement target
     let targetRotation = { x: -15, y: -25 };
+    let translateZ = -200; // Start slightly zoomed out
     
-    // Apply transform
+    // Face normal vectors for depth calculation
+    const faceNormals = [
+      { el: document.querySelector('.front'), v: {x: 0, y: 0, z: 1} },
+      { el: document.querySelector('.back'), v: {x: 0, y: 0, z: -1} },
+      { el: document.querySelector('.right'), v: {x: 1, y: 0, z: 0} },
+      { el: document.querySelector('.left'), v: {x: -1, y: 0, z: 0} },
+      { el: document.querySelector('.top'), v: {x: 0, y: -1, z: 0} }, // rotateX(90) -> points up (-y)
+      { el: document.querySelector('.bottom'), v: {x: 0, y: 1, z: 0} }
+    ];
+
+    function rotateVector(v, ax, ay) {
+      const rx = ax * Math.PI / 180;
+      const ry = ay * Math.PI / 180;
+      
+      // Rotate around X
+      let y1 = v.y * Math.cos(rx) - v.z * Math.sin(rx);
+      let z1 = v.y * Math.sin(rx) + v.z * Math.cos(rx);
+      
+      // Rotate around Y
+      let x2 = v.x * Math.cos(ry) + z1 * Math.sin(ry);
+      let z2 = -v.x * Math.sin(ry) + z1 * Math.cos(ry);
+      
+      return { x: x2, y: y1, z: z2 };
+    }
+
     function updateTransform() {
-      // Smooth interpolation for passive movement if not dragging
-      if (!isDragging) {
-        rotation.x += (targetRotation.x - rotation.x) * 0.05;
-        rotation.y += (targetRotation.y - rotation.y) * 0.05;
-      }
+      // Smooth interpolation
+      rotation.x += (targetRotation.x - rotation.x) * 0.1;
+      rotation.y += (targetRotation.y - rotation.y) * 0.1;
+      
       cube.style.transform = `translateZ(${translateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
+      
+      // Calculate Depth of Field (Aperture Blur & Darkening)
+      faceNormals.forEach(face => {
+        // Find the Z position of the face normal after rotation
+        const rotated = rotateVector(face.v, rotation.x, rotation.y);
+        
+        // rotated.z ranges from 1 (front) to -1 (back)
+        let blur = 0;
+        let brightness = 100;
+        
+        if (rotated.z < 0.2) {
+          // As face turns away and goes to the back, blur and darken it
+          // Map z from 0.2 down to -1 to a blur of 0 to 12px
+          const depth = Math.abs(rotated.z - 0.2); // 0 to 1.2
+          blur = depth * 15;
+          brightness = Math.max(10, 100 - (depth * 90)); // Darkens down to 10%
+        }
+        
+        // Also apply global Z blur (if zoomed way out, blur everything slightly)
+        const globalZBlur = translateZ < -1000 ? Math.abs(translateZ + 1000) * 0.005 : 0;
+        blur += globalZBlur;
+
+        face.el.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
+      });
+
       requestAnimationFrame(updateTransform);
     }
     updateTransform();
@@ -220,35 +263,24 @@ Applying theme: MONOCHROME</span>
     // Mouse events
     document.addEventListener('mousedown', (e) => {
       isDragging = true;
-      previousMousePosition = { x: e.offsetX, y: e.offsetY };
       document.body.style.cursor = 'grabbing';
     });
 
     document.addEventListener('mousemove', (e) => {
       if (isDragging) {
-        const deltaMove = {
-          x: e.offsetX - previousMousePosition.x,
-          y: e.offsetY - previousMousePosition.y
-        };
+        // Safely use movementX/Y to avoid erratic jumps from offsetX/Y bounding box changes
+        const deltaX = e.movementX;
+        const deltaY = e.movementY;
         
-        // Dragging rotates the cube
-        rotation.y += deltaMove.x * 0.5;
-        rotation.x -= deltaMove.y * 0.5;
-        
-        // Sync target rotation so it doesn't snap back when let go
-        targetRotation.x = rotation.x;
-        targetRotation.y = rotation.y;
-        
-        previousMousePosition = { x: e.offsetX, y: e.offsetY };
+        targetRotation.y += deltaX * 0.5;
+        targetRotation.x -= deltaY * 0.5;
       } else {
-        // Passive movement: map screen position to a slight rotation (-20 to 20 deg offset)
+        // Passive movement: map screen position to a slight rotation
         const xPercent = (e.clientX / window.innerWidth) - 0.5;
         const yPercent = (e.clientY / window.innerHeight) - 0.5;
         
-        // Base rotation is whatever the user left it at, plus a slight parallax
-        // Actually, just let it drift slightly based on mouse
-        targetRotation.x -= yPercent * 2;
-        targetRotation.y += xPercent * 2;
+        targetRotation.x -= yPercent * 1.5;
+        targetRotation.y += xPercent * 1.5;
       }
     });
 
@@ -258,41 +290,37 @@ Applying theme: MONOCHROME</span>
     });
     
     // Touch events for mobile
+    let lastTouch = null;
     document.addEventListener('touchstart', (e) => {
       isDragging = true;
-      previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }, {passive: true});
     
     document.addEventListener('touchmove', (e) => {
-      if (isDragging) {
-        const deltaMove = {
-          x: e.touches[0].clientX - previousMousePosition.x,
-          y: e.touches[0].clientY - previousMousePosition.y
-        };
-        rotation.y += deltaMove.x * 0.5;
-        rotation.x -= deltaMove.y * 0.5;
-        targetRotation.x = rotation.x;
-        targetRotation.y = rotation.y;
-        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      if (isDragging && lastTouch) {
+        const deltaX = e.touches[0].clientX - lastTouch.x;
+        const deltaY = e.touches[0].clientY - lastTouch.y;
+        
+        targetRotation.y += deltaX * 0.6;
+        targetRotation.x -= deltaY * 0.6;
+        
+        lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       }
     }, {passive: true});
     
     document.addEventListener('touchend', () => {
       isDragging = false;
+      lastTouch = null;
     });
 
-    // Zoom/Z-translation via scroll wheel
+    // Zoom via scroll wheel
     document.addEventListener('wheel', (e) => {
-      // Prevent default scrolling
       e.preventDefault();
+      const zoomSpeed = 3;
+      translateZ += e.deltaY > 0 ? -zoomSpeed * 15 : zoomSpeed * 15;
       
-      // Zoom factor
-      const zoomSpeed = 2;
-      translateZ += e.deltaY > 0 ? -zoomSpeed * 10 : zoomSpeed * 10;
-      
-      // Clamp zoom to prevent flipping too far or getting too small
       if (translateZ > 800) translateZ = 800;
-      if (translateZ < -2000) translateZ = -2000;
+      if (translateZ < -3000) translateZ = -3000;
     }, {passive: false});
   </script>
 </body>

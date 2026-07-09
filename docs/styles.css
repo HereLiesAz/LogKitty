@@ -2,14 +2,12 @@
 
 :root {
   --bg: #000000;
-  --text-main: #f4f0e6;
-  --text-dim: #555555;
-  --accent-err: #ff3333;
-  --accent-warn: #ffcc00;
-  --accent-info: #00e5ff;
+  --text-main: #ffffff;
+  --text-dim: #777777;
+  --text-dark: #333333;
   --font-mono: 'JetBrains Mono', monospace;
-  --cube-size: 600px;
-  --half-size: 300px; /* half of cube-size */
+  --cube-size: 800px;
+  --half-size: 400px; 
 }
 
 * {
@@ -25,12 +23,10 @@ body {
   overflow: hidden;
   width: 100vw;
   height: 100vh;
-  /* Disable text selection while dragging */
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* Minimal Nav (Kept for accessibility, mixed-blend to hide in chaos) */
 .top-nav {
   position: absolute;
   top: 0; right: 0;
@@ -48,17 +44,18 @@ body {
   letter-spacing: 2px;
 }
 .top-nav a:hover {
-  color: var(--accent-info);
+  color: var(--text-dim);
 }
 
-/* 3D Scene */
 #scene {
   width: 100vw;
   height: 100vh;
-  perspective: 1200px;
+  perspective: 1000px;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Slight ambient dark fog */
+  background: radial-gradient(circle at center, #111 0%, #000 60%);
 }
 
 #cube {
@@ -66,23 +63,20 @@ body {
   height: var(--cube-size);
   position: relative;
   transform-style: preserve-3d;
-  /* Initial state, overridden by JS */
-  transform: translateZ(0) rotateX(0deg) rotateY(0deg);
   will-change: transform;
 }
 
-/* Faces */
 .face {
   position: absolute;
   width: var(--cube-size);
   height: var(--cube-size);
-  background: transparent; /* No solid background, walls made of text */
-  /* Remove border to let text form the boundaries */
+  background: transparent; 
   display: grid;
-  gap: 10px;
+  gap: 15px;
+  /* We will manipulate filter via JS */
+  will-change: filter, transform;
 }
 
-/* Face positions */
 .face.front  { transform: rotateY(  0deg) translateZ(var(--half-size)); }
 .face.right  { transform: rotateY( 90deg) translateZ(var(--half-size)); }
 .face.back   { transform: rotateY(180deg) translateZ(var(--half-size)); }
@@ -90,7 +84,6 @@ body {
 .face.top    { transform: rotateX( 90deg) translateZ(var(--half-size)); }
 .face.bottom { transform: rotateX(-90deg) translateZ(var(--half-size)); }
 
-/* Grid Layouts per face (irregular) */
 .face.front { grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 2fr; }
 .face.back { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr; }
 .face.left { grid-template-columns: 1fr; grid-template-rows: 2fr 1fr 1fr; }
@@ -98,7 +91,6 @@ body {
 .face.top { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
 .face.bottom { grid-template-columns: 3fr 1fr; grid-template-rows: 1fr; }
 
-/* Terminal Sub-Boxes */
 .term-box {
   position: relative;
   overflow: hidden;
@@ -108,12 +100,13 @@ body {
 
 .term-content {
   white-space: pre;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.5;
   will-change: transform;
+  letter-spacing: -0.5px;
 }
 
-/* Scroll Animations */
+/* Erratic Jump Animations using steps() */
 @keyframes scroll-up {
   0%   { transform: translateY(100%); }
   100% { transform: translateY(-100%); }
@@ -131,39 +124,40 @@ body {
   100% { transform: translateX(100%); }
 }
 
-/* Animation Classes */
-.anim-up .term-content { animation: scroll-up linear infinite; }
-.anim-down .term-content { animation: scroll-down linear infinite; }
-.anim-left .term-content { display: inline-block; animation: scroll-left linear infinite; }
-.anim-right .term-content { display: inline-block; animation: scroll-right linear infinite; }
+/* Step counts create the erratic jumping */
+.anim-up .term-content { animation: scroll-up steps(40, end) infinite; }
+.anim-down .term-content { animation: scroll-down steps(30, end) infinite; }
+.anim-left .term-content { display: inline-block; animation: scroll-left steps(50, end) infinite; }
+.anim-right .term-content { display: inline-block; animation: scroll-right steps(25, end) infinite; }
 
 /* Speeds */
-.speed-1 .term-content { animation-duration: 15s; }
-.speed-2 .term-content { animation-duration: 25s; }
-.speed-3 .term-content { animation-duration: 35s; }
-.speed-4 .term-content { animation-duration: 45s; }
+.speed-1 .term-content { animation-duration: 8s; }
+.speed-2 .term-content { animation-duration: 16s; }
+.speed-3 .term-content { animation-duration: 24s; }
+.speed-4 .term-content { animation-duration: 32s; }
 
-/* Text Coloring */
-.c-err { color: var(--accent-err); font-weight: bold; }
-.c-warn { color: var(--accent-warn); font-weight: bold; }
-.c-info { color: var(--accent-info); }
-.c-dim { color: var(--text-dim); }
+/* Monochrome text coloring */
+.c-err { color: #ffffff; font-weight: 800; background-color: #333333; padding: 0 4px; }
+.c-warn { color: #cccccc; font-weight: 700; }
+.c-info { color: #999999; }
+.c-dim { color: #444444; }
+.c-main { color: #ffffff; text-decoration: underline; text-decoration-style: dashed;}
 
-/* Title Box Specifics */
 .title-box {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   color: var(--text-main);
-  animation: none !important; /* static */
+  animation: none !important; 
 }
 
 .title-box h1 {
-  font-size: 5rem;
-  letter-spacing: -3px;
+  font-size: 6rem;
+  letter-spacing: -5px;
   font-weight: 800;
   text-transform: uppercase;
+  color: #ffffff;
 }
 .title-box p {
   font-size: 1.2rem;
