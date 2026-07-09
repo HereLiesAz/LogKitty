@@ -15,154 +15,146 @@ layout: null
     <div id="cube">
       
       <!-- FRONT FACE -->
-      <!-- Grid: 3 cols (2 1 1.5), 2 rows (1.5 2) -->
       <div class="face front">
-        <div class="term-box anim-up speed-2">
+        <!-- Massive background bleed -->
+        <div class="term-box" style="top: -20px; left: -20px; z-index: 1;">
+          <div class="term-content text-colossal c-bg">LOG<br/>KIT</div>
+        </div>
+        
+        <!-- Fast sideways vertical stream -->
+        <div class="term-box text-vertical" style="top: 0; right: 50px; height: 800px; z-index: 3;" data-dir="down" data-speed="25">
           <div class="term-content text-norm">
 01-24 12:00:00.000 <span class="c-info">I/OverlayService</span>: Injecting 4-detent bottom sheet
 01-24 12:00:00.005 <span class="c-dim">D/OverlayService</span>: Calculating heights: HIDDEN, PEEK, HALF, FULL
 01-24 12:00:00.012 <span class="c-info">I/OverlayService</span>: Always-On Context established.
+<span class="c-err">FATAL EXCEPTION: main
+java.lang.NullPointerException: Attempt to invoke virtual method</span>
           </div>
         </div>
-        <div class="term-box no-clip" style="grid-column: span 2;">
-          <a href="https://github.com/HereLiesAz/LogKitty" class="cube-link text-jumbo" title="View LogKitty Source Code">LOG<br/>KITTY</a>
+
+        <!-- Huge Interactive Link scrolling left -->
+        <div class="term-box" style="bottom: 150px; left: -50px; z-index: 4;" data-dir="left" data-speed="8">
+          <a href="https://github.com/HereLiesAz/LogKitty" class="cube-link text-jumbo" title="View Source">LOGKITTY_</a>
         </div>
-        <div class="term-box anim-left speed-3" style="grid-column: span 2;">
-          <div class="term-content text-huge">
-<span class="c-dim">/TARGET_UID_ISOLATION</span>
+
+        <!-- Dense horizontal micro stream overlapping everything -->
+        <div class="term-box" style="top: 100px; left: 20px; width: 600px; z-index: 5;" data-dir="up" data-speed="40">
+          <div class="term-content text-micro">
+<span class="c-info">I/CrashReporter: Hooked UncaughtExceptionHandler.</span>
+0x00000 48 65 72 65 4C 69 65 73
+0x00008 41 7A 20 2D 20 4C 6F 67
+0x00010 4B 69 74 74 79 00 00 00
+0x00018 FF FF FF FF FF FF FF FF
+<span class="c-err">E/AppMonitor: Target Isolation Active. Intercepting UID boundaries.</span>
           </div>
         </div>
-        <div class="term-box no-clip" style="display: flex; gap: 10px; justify-content: flex-end; align-items: flex-end;">
-          <a href="https://play.google.com/store/apps/details?id=com.hereliesaz.logkitty" class="cube-link text-large">> [PLAY_STORE]</a>
+
+        <!-- Play Store Link -->
+        <div class="term-box" style="top: 350px; left: 80px; z-index: 6;">
+          <a href="https://play.google.com/store/apps/details?id=com.hereliesaz.logkitty" class="cube-link text-huge">> [PLAY_STORE]</a>
         </div>
       </div>
 
       <!-- BACK FACE -->
-      <!-- Grid: 3 cols (1 2 1), 3 rows (2 1 1) -->
       <div class="face back">
-        <div class="term-box no-clip" style="grid-row: span 2;">
-          <a href="privacy/" class="cube-link text-large">> PRIVACY</a>
-          <a href="permissions/" class="cube-link text-large">> PERMISSIONS</a>
+        <div class="term-box text-vertical-up" style="bottom: 0; left: 40px; height: 800px; z-index: 2;" data-dir="up" data-speed="15">
+          <div class="term-content text-large">
+<span class="c-err">CRASH_REPORTER CRASH_REPORTER CRASH_REPORTER</span>
+          </div>
         </div>
-        <div class="term-box anim-up speed-4" style="grid-column: span 2;">
+
+        <div class="term-box" style="top: 80px; right: 20px; width: 700px; z-index: 3;" data-dir="down" data-speed="30">
           <div class="term-content text-norm">
-<span class="c-info">Pinning dedicated tab to isolate logs strictly for current foreground application.</span>
 <span class="c-dim">uid: 1000 system_server
 uid: 1001 radio
 uid: 10254 com.target.app</span>
+<span class="c-info">Pinning dedicated tab to isolate logs strictly for current foreground application.</span>
           </div>
         </div>
-        <div class="term-box anim-left speed-2" style="grid-column: span 2; grid-row: 2;">
-          <div class="term-content text-huge">
-<span class="c-err">CRASH_REPORTER</span>
-          </div>
+
+        <div class="term-box" style="bottom: 100px; right: -20px; z-index: 5;" data-dir="right" data-speed="10">
+          <a href="privacy/" class="cube-link text-huge">> PRIVACY</a>
+          <a href="permissions/" class="cube-link text-huge">> PERMISSIONS</a>
         </div>
-        <div class="term-box no-clip" style="grid-column: span 3; grid-row: 3;">
-          <a href="https://github.com/HereLiesAz/LogKitty" class="cube-link text-large" style="text-align: right;">> [VIEW_SOURCE]</a>
+
+        <div class="term-box" style="top: -40px; left: 100px; z-index: 1;">
+          <div class="term-content text-colossal c-bg">ISOLATE</div>
         </div>
       </div>
 
       <!-- LEFT FACE -->
-      <!-- Grid: 2 cols (1.5 1), 3 rows (1 1.5 1) -->
       <div class="face left">
-        <div class="term-box anim-down speed-2" style="grid-column: span 2;">
-          <div class="term-content text-norm">
+        <div class="term-box" style="top: 20px; left: 20px; z-index: 4;" data-dir="left" data-speed="20">
+          <div class="term-content text-jumbo">PLAY<br/>DELIVERY</div>
+        </div>
+
+        <div class="term-box text-vertical" style="top: -50px; right: 100px; height: 900px; z-index: 2;" data-dir="down" data-speed="45">
+          <div class="term-content text-micro">
 <span class="c-info">I/FeatureDelivery: Requesting dynamic module :feature:github</span>
 <span class="c-info">I/FeatureDelivery: Downloading... 100%</span>
-<span class="c-info">I/FeatureDelivery: Module mounted successfully.</span>
-<span class="c-dim">Triggering remote GitHub Actions workflow...</span>
+<span class="c-dim">Triggering remote GitHub Actions workflow... {"action":"workflow_dispatch","ref":"main"}</span>
+<span class="c-err">E/Auth: Token provider requires scope [repo, workflow]</span>
           </div>
         </div>
-        <div class="term-box anim-up speed-3">
-          <div class="term-content text-micro">
-<span class="c-err">E/Auth: Token provider requires scope [repo, workflow]
-E/Auth: Device flow initiated.</span>
-<span class="c-info">I/GitHub: Watching run id: 8472910</span>
-<span class="c-info">I/GitHub: Status: queued -> in_progress -> completed</span>
-          </div>
-        </div>
-        <div class="term-box anim-left speed-1">
-          <div class="term-content text-huge">
-<span class="c-main">PLAY<br/>DELIVERY</span>
-          </div>
-        </div>
-        <div class="term-box no-clip" style="grid-column: span 2; padding-top: 20px;">
+
+        <div class="term-box" style="bottom: 200px; left: 50px; z-index: 5;">
           <a href="https://github.com/HereLiesAz/LogKitty/releases" class="cube-link text-large">> [LATEST_RELEASE]</a>
         </div>
       </div>
 
       <!-- RIGHT FACE -->
-      <!-- Grid: 3 cols (1 1 1), 2 rows (1 2) -->
       <div class="face right">
-        <div class="term-box anim-down speed-4" style="grid-column: span 2;">
-          <div class="term-content text-large">
-<span class="c-dim">Applying theme: MONOCHROME</span>
-<span class="c-warn">W/Theme: Override detected. Switching to PIDCAT.</span>
-          </div>
+        <div class="term-box text-vertical-up" style="top: 0; left: 0; height: 800px; z-index: 1;" data-dir="up" data-speed="12">
+          <div class="term-content text-colossal c-bg">THEME</div>
         </div>
-        <div class="term-box no-clip">
-          <a href="https://github.com/HereLiesAz/LogKitty/releases" class="cube-link text-large">> DOWNLOAD<br/>> v1.0.0</a>
+
+        <div class="term-box" style="bottom: 20px; right: 20px; z-index: 4;" data-dir="right" data-speed="5">
+          <div class="term-content text-jumbo">BUFFER<br/>RESIL.</div>
         </div>
-        <div class="term-box anim-up speed-2">
-          <div class="term-content text-micro">
+
+        <div class="term-box" style="top: 150px; left: 120px; width: 600px; z-index: 3;" data-dir="up" data-speed="35">
+          <div class="term-content text-norm">
 01-24 12:00 <span class="c-info">I/LogcatReader</span>: ProcessBuilder("logcat", "-v", "threadtime")
 01-24 12:00 <span class="c-dim">D/LogcatReader</span>: InputStream ready.
 01-24 12:00 <span class="c-info">I/LogcatReader</span>: Buffer size: 5000 lines
-01-24 12:00 <span class="c-err">E/LogcatReader</span>: Stream died. Retrying...
+<span class="c-warn">W/Theme: Override detected. Switching to PIDCAT.</span>
           </div>
         </div>
-        <div class="term-box anim-left speed-3" style="grid-column: span 2;">
-          <div class="term-content text-huge">
-<span class="c-warn">BUFFER<br/>RESILIENCE</span>
-          </div>
+
+        <div class="term-box" style="top: 300px; right: -50px; z-index: 5;">
+          <a href="https://github.com/HereLiesAz/LogKitty/releases" class="cube-link text-huge">> DOWNLOAD_</a>
         </div>
       </div>
 
       <!-- TOP FACE -->
-      <!-- Grid: 2 cols (1 1.5), 3 rows (1 1 1) -->
       <div class="face top">
-        <div class="term-box anim-right speed-1" style="grid-column: span 2;">
-          <div class="term-content text-huge">
-<span class="c-info">100% LOCAL</span>
-          </div>
+        <div class="term-box" style="top: -20px; left: 20px; z-index: 2;" data-dir="left" data-speed="6">
+          <div class="term-content text-jumbo">100%<br/>LOCAL</div>
         </div>
-        <div class="term-box anim-down speed-2">
-          <div class="term-content text-norm">
-> adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
-> adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
-          </div>
-        </div>
-        <div class="term-box anim-up speed-fast">
+
+        <div class="term-box text-vertical" style="top: 100px; right: 200px; height: 600px; z-index: 4;" data-dir="up" data-speed="50">
           <div class="term-content text-micro">
-<span class="c-dim">0x00000 48 65 72 65 4C 69 65 73
-0x00008 41 7A 20 2D 20 4C 6F 67
-0x00010 4B 69 74 74 79 00 00 00
-0x00018 FF FF FF FF FF FF FF FF
-0x00000 48 65 72 65 4C 69 65 73</span>
-          </div>
-        </div>
-        <div class="term-box anim-left speed-3" style="grid-column: span 2;">
-          <div class="term-content text-large">
+> adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
+> adb shell pm grant com.hereliesaz.logkitty android.permission.READ_LOGS
 <span class="c-err">E/Network: Cloud Sync Disabled.</span>
           </div>
         </div>
       </div>
 
       <!-- BOTTOM FACE -->
-      <!-- Grid: 2 cols (2 1), 2 rows (1 1) -->
       <div class="face bottom">
-        <div class="term-box anim-up speed-2" style="grid-column: span 2;">
-          <div class="term-content text-huge">
-<span class="c-warn">NO ROOT REQ</span>
-          </div>
+        <div class="term-box text-vertical-up" style="top: 0; left: 50px; height: 800px; z-index: 3;" data-dir="down" data-speed="8">
+          <div class="term-content text-huge c-warn">NO_ROOT_REQ</div>
         </div>
-        <div class="term-box anim-down speed-4">
+
+        <div class="term-box" style="bottom: 100px; right: 50px; z-index: 4;" data-dir="right" data-speed="15">
           <div class="term-content text-large">
 <span class="c-dim">Warning: No root access detected. Using standard ADB permissions.</span>
           </div>
         </div>
-        <div class="term-box no-clip">
-          <a href="https://github.com/HereLiesAz/LogKitty" class="cube-link text-large">> /GITHUB</a>
+
+        <div class="term-box" style="top: 200px; left: 200px; z-index: 5;">
+          <a href="https://github.com/HereLiesAz/LogKitty" class="cube-link text-jumbo">> /GITHUB</a>
         </div>
       </div>
 
@@ -173,73 +165,111 @@ E/Auth: Device flow initiated.</span>
     const cube = document.getElementById('cube');
     const faces = document.querySelectorAll('.face');
     
-    // State
     let isDragging = false;
     let rotation = { x: -15, y: -25 };
     let targetRotation = { x: -15, y: -25 };
-    let translateZ = -200; // Start slightly zoomed out
+    let translateZ = -200; 
     
-    // Face normal vectors for depth calculation
     const faceNormals = [
       { el: document.querySelector('.front'), v: {x: 0, y: 0, z: 1} },
       { el: document.querySelector('.back'), v: {x: 0, y: 0, z: -1} },
       { el: document.querySelector('.right'), v: {x: 1, y: 0, z: 0} },
       { el: document.querySelector('.left'), v: {x: -1, y: 0, z: 0} },
-      { el: document.querySelector('.top'), v: {x: 0, y: -1, z: 0} }, // rotateX(90) -> points up (-y)
+      { el: document.querySelector('.top'), v: {x: 0, y: -1, z: 0} },
       { el: document.querySelector('.bottom'), v: {x: 0, y: 1, z: 0} }
     ];
 
-    function rotateVector(v, ax, ay) {
-      const rx = ax * Math.PI / 180;
-      const ry = ay * Math.PI / 180;
+    // Kinetic JS Scroller setup
+    const kineticBoxes = Array.from(document.querySelectorAll('.term-box[data-dir]')).map(box => {
+      const content = box.querySelector('.term-content');
+      // Clone content to allow infinite scrolling seamlessly
+      const clone = content.cloneNode(true);
+      box.appendChild(clone);
       
-      // Rotate around X
-      let y1 = v.y * Math.cos(rx) - v.z * Math.sin(rx);
-      let z1 = v.y * Math.sin(rx) + v.z * Math.cos(rx);
-      
-      // Rotate around Y
-      let x2 = v.x * Math.cos(ry) + z1 * Math.sin(ry);
-      let z2 = -v.x * Math.sin(ry) + z1 * Math.cos(ry);
-      
-      return { x: x2, y: y1, z: z2 };
-    }
+      return {
+        el: box,
+        content1: content,
+        content2: clone,
+        dir: box.getAttribute('data-dir'),
+        speed: parseInt(box.getAttribute('data-speed')) || 10,
+        pos: 0,
+        lastJump: 0,
+        jumpInterval: Math.random() * 300 + 100 // random jump intervals
+      };
+    });
 
-    function updateTransform() {
-      // Smooth interpolation
+    function updateTransform(time) {
+      // Smooth interpolation for rotation
       rotation.x += (targetRotation.x - rotation.x) * 0.1;
       rotation.y += (targetRotation.y - rotation.y) * 0.1;
       
       cube.style.transform = `translateZ(${translateZ}px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`;
       
-      // Calculate Depth of Field (Aperture Blur & Darkening)
+      // Calculate Depth of Field perfectly using DOMMatrix
+      // CSS applies rotateY then rotateX locally, or M = Rx * Ry. 
+      const m = new DOMMatrix();
+      m.rotateSelf(rotation.x, 0, 0);
+      m.rotateSelf(0, rotation.y, 0);
+
       faceNormals.forEach(face => {
-        // Find the Z position of the face normal after rotation
-        const rotated = rotateVector(face.v, rotation.x, rotation.y);
+        // Transform the normal vector exactly as the browser transforms the cube
+        const rotatedZ = face.v.x * m.m13 + face.v.y * m.m23 + face.v.z * m.m33;
         
-        // rotated.z ranges from 1 (front) to -1 (back)
         let blur = 0;
         let brightness = 100;
         
-        if (rotated.z < 0.2) {
-          // As face turns away and goes to the back, blur and darken it
-          // Map z from 0.2 down to -1 to a blur of 0 to 12px
-          const depth = Math.abs(rotated.z - 0.2); // 0 to 1.2
+        if (rotatedZ < 0.2) {
+          const depth = Math.abs(rotatedZ - 0.2); 
           blur = depth * 15;
-          brightness = Math.max(10, 100 - (depth * 90)); // Darkens down to 10%
+          brightness = Math.max(10, 100 - (depth * 90)); 
         }
         
-        // Also apply global Z blur (if zoomed way out, blur everything slightly)
         const globalZBlur = translateZ < -1000 ? Math.abs(translateZ + 1000) * 0.005 : 0;
         blur += globalZBlur;
 
         face.el.style.filter = `blur(${blur}px) brightness(${brightness}%)`;
       });
 
+      // Kinetic Scroller Loop
+      kineticBoxes.forEach(kb => {
+        if (time - kb.lastJump > kb.jumpInterval) {
+          // Calculate an erratic jump distance (simulating logs bursting)
+          const burst = Math.random() > 0.8 ? kb.speed * 4 : kb.speed;
+          kb.pos += burst;
+          
+          // Reset interval erratically
+          kb.jumpInterval = Math.random() * 200 + 50;
+          kb.lastJump = time;
+          
+          // Apply translations based on direction
+          // Assume content is about 1000px wide/tall for wrapping
+          if (kb.pos > 1000) kb.pos = 0;
+          
+          let t1, t2;
+          if (kb.dir === 'up') {
+            t1 = `translate3d(0, -${kb.pos}px, 0)`;
+            t2 = `translate3d(0, -${kb.pos - 1000}px, 0)`;
+          } else if (kb.dir === 'down') {
+            t1 = `translate3d(0, ${kb.pos}px, 0)`;
+            t2 = `translate3d(0, ${kb.pos - 1000}px, 0)`;
+          } else if (kb.dir === 'left') {
+            t1 = `translate3d(-${kb.pos}px, 0, 0)`;
+            t2 = `translate3d(-${kb.pos - 1000}px, 0, 0)`;
+          } else if (kb.dir === 'right') {
+            t1 = `translate3d(${kb.pos}px, 0, 0)`;
+            t2 = `translate3d(${kb.pos - 1000}px, 0, 0)`;
+          }
+          
+          kb.content1.style.transform = t1;
+          kb.content2.style.transform = t2;
+        }
+      });
+
       requestAnimationFrame(updateTransform);
     }
-    updateTransform();
+    requestAnimationFrame(updateTransform);
 
-    // Mouse events
+    // Mouse & Drag Events
     document.addEventListener('mousedown', (e) => {
       isDragging = true;
       document.body.style.cursor = 'grabbing';
@@ -247,17 +277,11 @@ E/Auth: Device flow initiated.</span>
 
     document.addEventListener('mousemove', (e) => {
       if (isDragging) {
-        // Safely use movementX/Y to avoid erratic jumps from offsetX/Y bounding box changes
-        const deltaX = e.movementX;
-        const deltaY = e.movementY;
-        
-        targetRotation.y += deltaX * 0.5;
-        targetRotation.x -= deltaY * 0.5;
+        targetRotation.y += e.movementX * 0.5;
+        targetRotation.x -= e.movementY * 0.5;
       } else {
-        // Passive movement: map screen position to a slight rotation
         const xPercent = (e.clientX / window.innerWidth) - 0.5;
         const yPercent = (e.clientY / window.innerHeight) - 0.5;
-        
         targetRotation.x -= yPercent * 1.5;
         targetRotation.y += xPercent * 1.5;
       }
@@ -268,7 +292,6 @@ E/Auth: Device flow initiated.</span>
       document.body.style.cursor = 'default';
     });
     
-    // Touch events for mobile
     let lastTouch = null;
     document.addEventListener('touchstart', (e) => {
       isDragging = true;
@@ -277,12 +300,8 @@ E/Auth: Device flow initiated.</span>
     
     document.addEventListener('touchmove', (e) => {
       if (isDragging && lastTouch) {
-        const deltaX = e.touches[0].clientX - lastTouch.x;
-        const deltaY = e.touches[0].clientY - lastTouch.y;
-        
-        targetRotation.y += deltaX * 0.6;
-        targetRotation.x -= deltaY * 0.6;
-        
+        targetRotation.y += (e.touches[0].clientX - lastTouch.x) * 0.6;
+        targetRotation.x -= (e.touches[0].clientY - lastTouch.y) * 0.6;
         lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       }
     }, {passive: true});
@@ -292,12 +311,10 @@ E/Auth: Device flow initiated.</span>
       lastTouch = null;
     });
 
-    // Zoom via scroll wheel
     document.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomSpeed = 3;
       translateZ += e.deltaY > 0 ? -zoomSpeed * 15 : zoomSpeed * 15;
-      
       if (translateZ > 800) translateZ = 800;
       if (translateZ < -3000) translateZ = -3000;
     }, {passive: false});
