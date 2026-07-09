@@ -45,3 +45,7 @@
 *   `ComposeLifecycleHelper.kt`: Critical utility for bridging the gap between an Android Service and Jetpack Compose's Lifecycle-aware components.
 *   `UserPreferences.kt`: Manages persistence of user settings (DataStore/SharedPreferences) and export/import functionality.
 *   `CrashReporter.kt`: A custom `UncaughtExceptionHandler` that captures crashes and attempts to report them (e.g., to GitHub Issues).
+
+### billing/
+*   `AdsState.kt`: Global state holder for "Ad-Free" status flags (`isAdFree`, `isAdFreePermanently`).
+*   `BillingManager.kt`: Initializes Google Play Billing, handles one-time "Ad-Free" purchases, and manages product price state.

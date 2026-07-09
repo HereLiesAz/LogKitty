@@ -1,5 +1,12 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0.1 v0.8 — Monetization & Deployment (DONE)
+- [x] Integrate Google Play Billing Library.
+- [x] Add global `AdsState` to manage permanent vs session Ad-Free status.
+- [x] Build `AdFreeDialog` and integrate it into `SettingsScreen`.
+- [x] Suppress banner ad requests when Ad-Free status is active.
+- [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).
+
 ## 0. v0.6 — Overhaul (DONE)
 - [x] Replaced dokar3 bottom-sheet with a custom 4-detent overlay (HIDDEN / PEEK / HALF / FULL).
 - [x] Window size now mirrors the active detent, so taps outside the sheet always reach the underlying app.

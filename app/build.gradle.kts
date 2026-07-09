@@ -325,6 +325,9 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
 
+    // Billing
+    implementation("com.android.billingclient:billing-ktx:6.2.1")
+
     // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

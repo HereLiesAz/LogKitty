@@ -48,6 +48,8 @@ import com.hereliesaz.logkitty.feature.rememberFeatureInstall
  */
 @Composable
 fun AdBannerSlot(modifier: Modifier = Modifier, showTopDivider: Boolean = false) {
+    if (com.hereliesaz.logkitty.billing.AdsState.isAdFree.value) return
+    
     val context = LocalContext.current
     val handle = rememberFeatureInstall(FeatureModules.ADS)
     LaunchedEffect(Unit) { handle.install() }

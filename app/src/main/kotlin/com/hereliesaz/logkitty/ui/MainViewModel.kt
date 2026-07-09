@@ -75,6 +75,7 @@ class MainViewModel(
 
     // Repositories
     private val userPreferences = UserPreferences(application)
+    val billingManager = com.hereliesaz.logkitty.billing.BillingManager(application)
     // Secure, backup-excluded store for the GitHub PAT (kept out of UserPreferences/backups).
     private val githubCredentials = com.hereliesaz.logkitty.utils.GitHubCredentials(application)
 

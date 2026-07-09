@@ -16,6 +16,7 @@
          launchable apps (enough for the app picker) without the permission; root mode lists the rest
          via `pm list packages`. -->
     <!-- AD_ID moved to the on-demand :feature:ads module. -->
+    <uses-permission android:name="com.android.vending.BILLING" />
 
     <queries>
         <intent>
