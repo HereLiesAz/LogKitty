@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LogKitty | Android Developer Tool</title>
+  <meta name="description" content="The always-on logcat overlay for Android." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/LogKitty/styles.css" />
+</head>
+<body>
+  <!-- Decorative background elements for parallax -->
+  <div class="bg-orb orb-1" data-speed="0.15"></div>
+  <div class="bg-orb orb-2" data-speed="-0.1"></div>
+  <div class="bg-grid"></div>
+
+  <nav class="navbar parallax" data-speed="0">
+    <div class="logo">LogKitty</div>
+    <div class="nav-links">
+      <a href="https://github.com/HereLiesAz/LogKitty">GitHub</a>
+      <a href="/LogKitty/privacy/">Privacy</a>
+      <a href="/LogKitty/permissions/">Permissions</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-content">
+      <h1 class="parallax" data-speed="0.4">The always-on <span class="highlight">logcat</span> overlay.</h1>
+      <p class="parallax" data-speed="0.3">
+        LogKitty puts your system logs right where you need them: floating above your target app, in real time. Reads and displays logs entirely on your device.
+      </p>
+      <div class="actions parallax" data-speed="0.2">
+        <a href="https://github.com/HereLiesAz/LogKitty/releases" class="btn btn-primary">Download APK</a>
+        <a href="https://github.com/HereLiesAz/LogKitty" class="btn btn-secondary">View Source</a>
+      </div>
+    </div>
+    <div class="hero-image-container parallax" data-speed="0.5">
+      <img src="/LogKitty/assets/hero.png" alt="LogKitty UI" class="hero-image" />
+    </div>
+  </header>
+
+  <main class="features">
+    <div class="feature-card parallax" data-speed="0.1">
+      <div class="feature-icon">⚡</div>
+      <h3>Real-time Context</h3>
+      <p>Pin logs to specific apps. Automatically filter noise to see only what matters while interacting with the UI.</p>
+    </div>
+    <div class="feature-card parallax" data-speed="0.2">
+      <div class="feature-icon">🔒</div>
+      <h3>On-Device Privacy</h3>
+      <p>Everything runs locally. No cloud sync, no tracking. Your logs never leave your phone unless you export them.</p>
+    </div>
+    <div class="feature-card parallax" data-speed="0.3">
+      <div class="feature-icon">🎨</div>
+      <h3>Fully Customizable</h3>
+      <p>Configure detents, color schemes, and tag-based highlights to match your exact debugging workflow.</p>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2026 HereLiesAz. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Parallax scrolling logic
+    document.addEventListener("DOMContentLoaded", () => {
+      const parallaxElements = document.querySelectorAll(".parallax, .bg-orb");
+      
+      let ticking = false;
+
+      window.addEventListener("scroll", () => {
+        if (!ticking) {
+          window.requestAnimationFrame(() => {
+            const scrollY = window.scrollY;
+            
+            parallaxElements.forEach((el) => {
+              const speed = parseFloat(el.getAttribute("data-speed"));
+              const yPos = -(scrollY * speed);
+              
+              // Apply smooth transform
+              el.style.transform = `translate3d(0, ${yPos}px, 0)`;
+            });
+            
+            ticking = false;
+          });
+          ticking = true;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
