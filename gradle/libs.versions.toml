@@ -1,7 +1,7 @@
 [versions]
-agp = "9.2.1"
+agp = "9.3.0"
 aetherTransportFile = "2.0.14"
-aznavrail = "10.1"
+aznavrail = "11.0"
 playServicesAds = "25.3.0"
 userMessagingPlatform = "4.0.0"
 coreKtx = "1.19.0"
