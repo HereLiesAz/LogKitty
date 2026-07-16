@@ -134,7 +134,9 @@ private fun SettingsMainScreen(
 
     val overlayOpacity by viewModel.overlayOpacity.collectAsState()
     val backgroundColorInt by viewModel.backgroundColor.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     val isContextMode by viewModel.isContextModeEnabled.collectAsState()
+    val isHardContextMode by viewModel.isHardContextMode.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
@@ -286,6 +288,29 @@ private fun SettingsMainScreen(
             }
 
             SettingsCard(stringResource(R.string.settings_section_display)) {
+                var themeExpanded by remember { mutableStateOf(false) }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Theme", style = MaterialTheme.typography.bodyLarge)
+                    Box {
+                        OutlinedButton(onClick = { themeExpanded = true }) { Text(themeMode) }
+                        DropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
+                            listOf("SYSTEM", "DARK", "LIGHT").forEach { mode ->
+                                DropdownMenuItem(
+                                    text = { Text(mode) },
+                                    onClick = {
+                                        viewModel.setThemeMode(mode)
+                                        themeExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -506,6 +531,23 @@ private fun SettingsMainScreen(
                             } else viewModel.toggleContextMode()
                         }
                     )
+                }
+
+                if (isContextMode) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                            Text("Hard Filter Mode", style = MaterialTheme.typography.bodyLarge)
+                            Text("If enabled, only logs from the foreground app are shown. If disabled (Soft mode), all logs are shown but foreground app logs are highlighted.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isHardContextMode,
+                            onCheckedChange = { viewModel.setHardContextMode(it) }
+                        )
+                    }
                 }
 
                 Row(

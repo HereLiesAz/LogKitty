@@ -21,6 +21,8 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class ExportedPreferences(
     val contextMode: Boolean,
+    val isHardContextMode: Boolean = true,
+    val themeMode: String = "SYSTEM",
     val customFilter: String,
     val overlayOpacity: Float,
     val backgroundColor: Int,
@@ -63,6 +65,15 @@ class UserPreferences(context: Context) {
     // Controls if we filter logs based on the foreground app.
     private val _isContextModeEnabled = MutableStateFlow(prefs.getBoolean(KEY_CONTEXT_MODE, false))
     val isContextModeEnabled: StateFlow<Boolean> = _isContextModeEnabled.asStateFlow()
+
+    // Controls if Context Mode is Hard (filters out other apps) or Soft (just highlights foreground app)
+    private val _isHardContextMode = MutableStateFlow(prefs.getBoolean(KEY_IS_HARD_CONTEXT_MODE, true))
+    val isHardContextMode: StateFlow<Boolean> = _isHardContextMode.asStateFlow()
+
+    // --- Preference: Theme Mode ---
+    // "SYSTEM", "DARK", or "LIGHT"
+    private val _themeMode = MutableStateFlow(prefs.getString(KEY_THEME_MODE, "SYSTEM") ?: "SYSTEM")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
     // --- Preference: Custom Text Filter ---
     // The text entered in the search bar.
@@ -168,6 +179,16 @@ class UserPreferences(context: Context) {
     fun setContextModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_CONTEXT_MODE, enabled).apply()
         _isContextModeEnabled.value = enabled
+    }
+
+    fun setHardContextMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_HARD_CONTEXT_MODE, enabled).apply()
+        _isHardContextMode.value = enabled
+    }
+
+    fun setThemeMode(mode: String) {
+        prefs.edit().putString(KEY_THEME_MODE, mode).apply()
+        _themeMode.value = mode
     }
 
     fun setRootEnabled(enabled: Boolean) {
@@ -385,6 +406,8 @@ class UserPreferences(context: Context) {
         val colorMap = _logColors.value.mapKeys { it.key.name }.mapValues { it.value.toArgb() }
         val exported = ExportedPreferences(
             contextMode = _isContextModeEnabled.value,
+            isHardContextMode = _isHardContextMode.value,
+            themeMode = _themeMode.value,
             customFilter = _customFilter.value,
             overlayOpacity = _overlayOpacity.value,
             backgroundColor = _backgroundColor.value,
@@ -420,6 +443,8 @@ class UserPreferences(context: Context) {
             val imported = parser.decodeFromString<ExportedPreferences>(jsonString)
 
             setContextModeEnabled(imported.contextMode)
+            setHardContextMode(imported.isHardContextMode)
+            setThemeMode(imported.themeMode)
             setCustomFilter(imported.customFilter)
             setOverlayOpacity(imported.overlayOpacity)
             setBackgroundColor(imported.backgroundColor)
@@ -478,6 +503,8 @@ class UserPreferences(context: Context) {
     companion object {
         private const val PREFS_NAME = "logkitty_user_prefs"
         private const val KEY_CONTEXT_MODE = "context_mode"
+        private const val KEY_IS_HARD_CONTEXT_MODE = "is_hard_context_mode"
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_CUSTOM_FILTER = "custom_filter"
         private const val KEY_OVERLAY_OPACITY = "overlay_opacity"
         private const val KEY_BACKGROUND_COLOR = "background_color"

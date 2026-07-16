@@ -130,6 +130,14 @@ class MainViewModel(
     private val _currentForegroundApp = MutableStateFlow<String?>(null)
     val currentForegroundApp: StateFlow<String?> = _currentForegroundApp
 
+    // Target UIDs and Packages to filter the logcat stream
+    private val targetApps = combine(monitoredApps, _currentForegroundApp) { monitored, fg ->
+        val pkgs = monitored.toMutableSet()
+        if (fg != null) pkgs.add(fg)
+        val uids = pkgs.mapNotNull { uidFor(it) }.toSet()
+        Pair(uids, pkgs.toSet())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, Pair(emptySet<Int>(), emptySet<String>()))
+
     // Whether log capture is paused (frozen). Runtime-only: the logcat stream keeps running but new
     // lines are dropped while paused so the view holds still. Toggled from the sheet's play/pause
     // control and the notification's Start/Stop action.
@@ -141,6 +149,8 @@ class MainViewModel(
 
     // Preference Flows (Directly exposed from UserPreferences)
     val isContextModeEnabled: StateFlow<Boolean> = userPreferences.isContextModeEnabled
+    val isHardContextMode: StateFlow<Boolean> = userPreferences.isHardContextMode
+    val themeMode: StateFlow<String> = userPreferences.themeMode
     val customFilter: StateFlow<String> = userPreferences.customFilter
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
     val backgroundColor: StateFlow<Int> = userPreferences.backgroundColor
@@ -203,7 +213,10 @@ class MainViewModel(
         val userFilter: String,
         val prohibited: Set<String>,
         val levels: Set<String>,
-        val marks: Map<String, Long>
+        val marks: Map<String, Long>,
+        val isContextMode: Boolean,
+        val isHardContextMode: Boolean,
+        val currentFgApp: String?
     )
 
     /**
@@ -211,8 +224,20 @@ class MainViewModel(
      * Each entry preserves its global id so the UI can stably select / copy / prohibit it.
      */
     val filteredIndexedLog: StateFlow<List<IndexedLogLine>> = run {
-        val inputs = combine(_selectedTab, customFilter, prohibitedTags, activeLogLevels, _tabClearMarks) {
-            tab, userFilter, prohibited, levels, marks -> FilterInputs(tab, userFilter, prohibited, levels, marks)
+        val inputs = combine(
+            _selectedTab, customFilter, prohibitedTags, activeLogLevels, _tabClearMarks,
+            isContextModeEnabled, isHardContextMode, _currentForegroundApp
+        ) { args -> 
+            FilterInputs(
+                tab = args[0] as LogTab,
+                userFilter = args[1] as String,
+                prohibited = args[2] as Set<String>,
+                levels = args[3] as Set<String>,
+                marks = args[4] as Map<String, Long>,
+                isContextMode = args[5] as Boolean,
+                isHardContextMode = args[6] as Boolean,
+                currentFgApp = args[7] as String?
+            )
         }
         combine(stateDelegate.systemLog, inputs) { logs, input ->
             val clearMark = input.marks[input.tab.id] ?: 0L
@@ -225,6 +250,16 @@ class MainViewModel(
                 // Hide by *tag* match (not arbitrary substring) — see [LogTagFilter.isProhibited].
                 result = result.filter { line -> !LogTagFilter.isProhibited(line.text, input.prohibited) }
             }
+
+            // Apply Context Mode (if enabled)
+            if (input.isContextMode && input.isHardContextMode && !input.currentFgApp.isNullOrBlank()) {
+                val targetUid = uidFor(input.currentFgApp)
+                result = result.filter { line ->
+                    if (targetUid != null && line.uid != null) line.uid == targetUid
+                    else line.text.contains(input.currentFgApp, ignoreCase = true)
+                }
+            }
+
             when (input.tab.type) {
                 TabType.SYSTEM -> { }
                 TabType.ERRORS -> result = result.filter {
@@ -258,8 +293,25 @@ class MainViewModel(
             if (input.userFilter.isNotBlank()) {
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }
             }
+
+            // Evidence-Based Visibility: the main view only shows significant events.
+            result = result.filter { isSignificantEvent(it) }
+
             result
         }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    }
+
+    private fun isSignificantEvent(line: IndexedLogLine): Boolean {
+        val level = LogLevel.fromLine(line.text)
+        if (level == LogLevel.ERROR || level == LogLevel.WARNING || level == LogLevel.ASSERT) return true
+        val textLower = line.text.lowercase()
+        // Network calls
+        if (textLower.contains("retrofit") || textLower.contains("okhttp") || 
+            textLower.contains("socket") || textLower.contains("http") || textLower.contains("network")) return true
+        // Lifecycle events
+        if (textLower.contains("oncreate") || textLower.contains("onresume") || 
+            textLower.contains("activitymanager") || textLower.contains("onstart")) return true
+        return false
     }
 
     /**
@@ -351,6 +403,13 @@ class MainViewModel(
         viewModelScope.launch {
             userPreferences.activeSourceFilters.collect { syncSourceTabs(it) }
         }
+
+        // Push target apps to StateDelegate
+        viewModelScope.launch {
+            targetApps.collect { (uids, pkgs) ->
+                stateDelegate.setTargetApps(uids, pkgs)
+            }
+        }
     }
 
     /**
@@ -417,25 +476,17 @@ class MainViewModel(
         // cache so the hot filter path never touches PackageManager on the main thread.
         val labels = packages.associateWith { pkg -> appLabel(pkg).also { uidFor(pkg) } }
         _tabs.update { current ->
-            val kept = current.filterNot { it.pinned && (it.type == TabType.APP || it.type == TabType.APP_STATS) && it.filterValue !in packages }
+            val kept = current.filterNot { it.pinned && it.type == TabType.APP && it.filterValue !in packages }
             val result = kept.toMutableList()
             packages.forEach { pkg ->
                 val title = labels[pkg] ?: pkg
                 val logsId = "app_logs_$pkg"
-                val statsId = "app_stats_$pkg"
                 
                 val logsIdx = result.indexOfFirst { it.id == logsId }
                 if (logsIdx < 0) {
-                    result.add(LogTab(logsId, "$title Logs", TabType.APP, pkg, pinned = true))
+                    result.add(LogTab(logsId, title, TabType.APP, pkg, pinned = true))
                 } else if (!result[logsIdx].pinned) {
-                    result[logsIdx] = result[logsIdx].copy(pinned = true, title = "$title Logs")
-                }
-                
-                val statsIdx = result.indexOfFirst { it.id == statsId }
-                if (statsIdx < 0) {
-                    result.add(LogTab(statsId, "$title Stats", TabType.APP_STATS, pkg, pinned = true))
-                } else if (!result[statsIdx].pinned) {
-                    result[statsIdx] = result[statsIdx].copy(pinned = true, title = "$title Stats")
+                    result[logsIdx] = result[logsIdx].copy(pinned = true, title = title)
                 }
             }
             result
@@ -471,13 +522,11 @@ class MainViewModel(
     private fun addAppTab(pkg: String) {
         _tabs.update { currentTabs ->
             val logsId = "app_logs_$pkg"
-            val statsId = "app_stats_$pkg"
             if (currentTabs.any { it.id == logsId }) {
                 currentTabs // Tab already exists (transient or pinned)
             } else {
                 currentTabs + listOf(
-                    LogTab(logsId, "$pkg Logs", TabType.APP, pkg),
-                    LogTab(statsId, "$pkg Stats", TabType.APP_STATS, pkg)
+                    LogTab(logsId, pkg, TabType.APP, pkg)
                 )
             }
         }
@@ -500,20 +549,19 @@ class MainViewModel(
     }
 
     fun closeTab(tab: LogTab) {
-        if (tab.type == TabType.APP || tab.type == TabType.APP_STATS) {
+        if (tab.type == TabType.APP) {
             val pkg = tab.filterValue
             if (pkg != null) {
                 if (tab.pinned) {
                     userPreferences.removeMonitoredApp(pkg)
                 } else {
                     val logsId = "app_logs_$pkg"
-                    val statsId = "app_stats_$pkg"
-                    _tabs.update { current -> current.filterNot { it.id == logsId || it.id == statsId } }
-                    if (_selectedTab.value.id == logsId || _selectedTab.value.id == statsId) {
+                    _tabs.update { current -> current.filterNot { it.id == logsId } }
+                    if (_selectedTab.value.id == logsId) {
                         _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
                     }
                 }
-                _tabClearMarks.update { it - "app_logs_$pkg" - "app_stats_$pkg" }
+                _tabClearMarks.update { it - "app_logs_$pkg" }
             }
         }
     }
@@ -546,6 +594,14 @@ class MainViewModel(
 
     fun toggleContextMode() {
         userPreferences.setContextModeEnabled(!isContextModeEnabled.value)
+    }
+
+    fun setHardContextMode(enabled: Boolean) {
+        userPreferences.setHardContextMode(enabled)
+    }
+
+    fun setThemeMode(mode: String) {
+        userPreferences.setThemeMode(mode)
     }
 
     fun setCustomFilter(filter: String) {

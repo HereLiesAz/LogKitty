@@ -1,8 +1,10 @@
 package com.hereliesaz.logkitty
 
 import android.app.ActivityManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -19,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -60,7 +63,15 @@ class MainActivity : ComponentActivity() {
     // UI State for Permission Status
     private var isOverlayGranted by mutableStateOf(false)
     private var isReadLogsGranted by mutableStateOf(false)
+    private var isUsageGranted by mutableStateOf(false)
     private var isServiceRunning by mutableStateOf(false)
+
+    // BroadcastReceiver to monitor Service Death
+    private val serviceStoppedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            isServiceRunning = false
+        }
+    }
 
     // UI State for Navigation
     private var showSettings by mutableStateOf(false)
@@ -99,6 +110,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Register receiver for service death
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(serviceStoppedReceiver, IntentFilter("com.hereliesaz.logkitty.ACTION_SERVICE_STOPPED"), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(serviceStoppedReceiver, IntentFilter("com.hereliesaz.logkitty.ACTION_SERVICE_STOPPED"))
+        }
 
         // Initial Checks
         checkPermissions()
@@ -164,6 +182,7 @@ class MainActivity : ComponentActivity() {
                                             isOverlayGranted = isOverlayGranted,
                                             isReadLogsGranted = isReadLogsGranted,
                                             isRootEnabled = isRootEnabled,
+                                            isUsageGranted = isUsageGranted,
                                             isServiceRunning = isServiceRunning,
                                             updateReadyToInstall = updateReadyToInstall,
                                             onCompleteUpdate = { appUpdateManager.completeUpdate() },
@@ -209,7 +228,16 @@ class MainActivity : ComponentActivity() {
         // Check for READ_LOGS. Note: This is a "Signature|Privileged|Development" permission.
         // Normal apps cannot get it via a prompt; it must be granted via ADB.
         isReadLogsGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED
+        
+        isUsageGranted = hasUsageStatsAccess(this)
     }
+
+    private fun hasUsageStatsAccess(context: Context): Boolean = try {
+        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as android.app.AppOpsManager
+        @Suppress("DEPRECATION")
+        val mode = appOps.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), context.packageName)
+        mode == android.app.AppOpsManager.MODE_ALLOWED
+    } catch (e: Exception) { false }
     
     /**
      * Checks if the [LogKittyOverlayService] is currently running.
@@ -317,6 +345,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         appUpdateManager.unregisterListener(installStateListener)
+        unregisterReceiver(serviceStoppedReceiver)
     }
 }
 
@@ -328,6 +357,7 @@ fun MainScreenContent(
     isOverlayGranted: Boolean,
     isReadLogsGranted: Boolean,
     isRootEnabled: Boolean,
+    isUsageGranted: Boolean,
     isServiceRunning: Boolean,
     updateReadyToInstall: Boolean,
     onCompleteUpdate: () -> Unit,
@@ -338,10 +368,10 @@ fun MainScreenContent(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
 
     // Condition to allow starting the service: Overlay MUST be granted.
-    // Read Logs OR Root is required for functionality, but we might allow start even if missing (to show empty logs).
-    // Here we strictly require at least one method of reading logs.
+    // Read Logs OR Root is required for functionality.
     val canStart = isOverlayGranted && (isReadLogsGranted || isRootEnabled)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -399,7 +429,22 @@ fun MainScreenContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Step 3: Start Button
+            // Step 3: Usage Access
+            if (!isUsageGranted && !isRootEnabled) {
+                PermissionCard(
+                    title = "Usage Access",
+                    description = "Required for Context Mode to automatically detect the foreground app.",
+                    buttonText = "Grant Usage Access",
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Step 4: Start Button
             if (canStart) {
                 Text(stringResource(R.string.main_ready_to_purr), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.tertiary)
                 Spacer(modifier = Modifier.height(16.dp))

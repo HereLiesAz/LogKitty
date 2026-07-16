@@ -5,15 +5,17 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +40,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -54,9 +57,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
@@ -65,8 +70,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -128,6 +135,8 @@ fun LogBottomSheet(
     val clipboardManager = LocalClipboardManager.current
 
     val indexedLog by viewModel.filteredIndexedLog.collectAsState()
+    val allLogs by viewModel.stateDelegate.systemLog.collectAsState()
+    val currentForegroundApp by viewModel.currentForegroundApp.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
     val fontFamilyName by viewModel.fontFamily.collectAsState()
     val showTimestamp by viewModel.showTimestamp.collectAsState()
@@ -175,7 +184,20 @@ fun LogBottomSheet(
     )
 
     val glowModifier = if (attentionColor != null) {
-        Modifier.background(attentionColor!!.copy(alpha = glowAlpha))
+        Modifier.drawBehind {
+            val blurRadius = 40f
+            val paint = androidx.compose.ui.graphics.Paint().apply {
+                this.color = attentionColor!!.copy(alpha = glowAlpha)
+                this.asFrameworkPaint().maskFilter = android.graphics.BlurMaskFilter(
+                    blurRadius, android.graphics.BlurMaskFilter.Blur.OUTER
+                )
+            }
+            drawIntoCanvas { canvas ->
+                canvas.drawRect(
+                    0f, 0f, size.width, size.height, paint
+                )
+            }
+        }
     } else Modifier
 
     androidx.compose.runtime.LaunchedEffect(controller.detent) {
@@ -231,6 +253,8 @@ fun LogBottomSheet(
             tabs = tabs,
             selectedTab = selectedTab,
             indexedLog = indexedLog,
+            allLogs = allLogs,
+            currentForegroundApp = currentForegroundApp,
             logColors = logColors,
             tagColoringEnabled = tagColoringEnabled,
             fontFamily = currentFontFamily,
@@ -239,6 +263,7 @@ fun LogBottomSheet(
             isLogReversed = isLogReversed,
             isPaused = isPaused,
             useRoot = isRootEnabled,
+            isMultiSelectMode = isMultiSelectMode,
             selectedLineIds = selectedLineIds,
             selectedLines = selectedLines,
             onTapLine = { id ->
@@ -369,6 +394,8 @@ private fun ExpandedView(
     tabs: List<LogTab>,
     selectedTab: LogTab,
     indexedLog: List<IndexedLogLine>,
+    allLogs: List<IndexedLogLine>,
+    currentForegroundApp: String?,
     logColors: Map<LogLevel, Color>,
     tagColoringEnabled: Boolean,
     fontFamily: androidx.compose.ui.text.font.FontFamily?,
@@ -377,6 +404,7 @@ private fun ExpandedView(
     isLogReversed: Boolean,
     isPaused: Boolean,
     useRoot: Boolean,
+    isMultiSelectMode: Boolean,
     selectedLineIds: Set<Long>,
     selectedLines: List<IndexedLogLine>,
     onTapLine: (Long) -> Unit,
@@ -400,10 +428,24 @@ private fun ExpandedView(
 ) {
     val selectedIdx = remember(tabs, selectedTab) { tabs.indexOf(selectedTab).coerceAtLeast(0) }
     val tabListState = rememberLazyListState()
+    var currentDiagnosis by remember { mutableStateOf<com.hereliesaz.logkitty.ui.diagnosis.IssueDiagnosis?>(null) }
+    
     LaunchedEffect(selectedIdx) {
         if (tabs.isNotEmpty()) {
             tabListState.animateScrollToItem(selectedIdx)
         }
+    }
+
+    val diagnosis = currentDiagnosis
+    if (diagnosis != null) {
+        com.hereliesaz.logkitty.ui.diagnosis.DiagnosisScreen(
+            diagnosis = diagnosis,
+            onBack = { currentDiagnosis = null },
+            logColors = logColors,
+            fontFamily = fontFamily,
+            fontSize = fontSize
+        )
+        return
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -414,6 +456,25 @@ private fun ExpandedView(
                     .weight(1f)
                     .fillMaxHeight()
             ) {
+            // Drag handle and Tracking badge
+            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .width(32.dp)
+                        .height(4.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(Color.Gray.copy(alpha = 0.5f))
+                )
+                if (currentForegroundApp != null) {
+                    Text(
+                        text = "Tracking: $currentForegroundApp",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp)
+                    )
+                }
+            }
+
             // Tabs Row
             LazyRow(
                 state = tabListState,
@@ -430,17 +491,34 @@ private fun ExpandedView(
                     val isHero = distance == 0
                     val isMedium = distance == 1
 
-                    val width = when {
+                    val targetWidth = when {
                         isHero -> 150.dp
                         isMedium -> 110.dp
                         else -> 80.dp
                     }
+                    val width by androidx.compose.animation.core.animateDpAsState(
+                        targetValue = targetWidth,
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                        ),
+                        label = "tabWidth"
+                    )
 
-                    val fSize = when {
-                        isHero -> 15.sp
-                        isMedium -> 12.sp
-                        else -> 10.sp
+                    val targetFSize = when {
+                        isHero -> 15f
+                        isMedium -> 12f
+                        else -> 10f
                     }
+                    val fSizeFloat by androidx.compose.animation.core.animateFloatAsState(
+                        targetValue = targetFSize,
+                        animationSpec = androidx.compose.animation.core.spring(
+                            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioLowBouncy,
+                            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                        ),
+                        label = "tabFontSize"
+                    )
+                    val fSize = fSizeFloat.sp
 
                     val bgColor = when {
                         isHero -> MaterialTheme.colorScheme.secondaryContainer
@@ -531,8 +609,41 @@ private fun ExpandedView(
                 }
             }
 
+            var searchQuery by remember { mutableStateOf("") }
+            // Local Buffer Search
+            AnimatedVisibility(visible = selectedTab.type == TabType.SYSTEM || selectedTab.type == TabType.APP) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text(stringResource(R.string.cd_search_google), style = MaterialTheme.typography.bodySmall) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .height(50.dp),
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f)
+                    )
+                )
+            }
+
+            val displayLogs = remember(indexedLog, searchQuery) {
+                if (searchQuery.isBlank()) indexedLog else indexedLog.filter { it.text.contains(searchQuery, ignoreCase = true) }
+            }
+
             // Log / stats content area
             val listState = rememberLazyListState()
+            val coroutineScope = rememberCoroutineScope()
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -549,38 +660,131 @@ private fun ExpandedView(
                         fontSize = fontSize,
                         modifier = Modifier.fillMaxSize(),
                     )
-                } else if (selectedTab.type == TabType.APP_STATS) {
-                    StatsFeatureSlot(
-                        packageName = selectedTab.filterValue ?: "",
-                        label = selectedTab.title.substringBefore(" Stats"),
-                        useRoot = useRoot,
-                        fontFamily = fontFamily,
-                        fontSize = fontSize,
-                        modifier = Modifier.fillMaxSize(),
+                } else if (selectedTab.type == TabType.APP) {
+                    ResizableSplitPane(
+                        leftContent = {
+                            val listState = rememberLazyListState()
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                // Sub-tabs here
+                                LogListSubTabs(logColors = logColors) // To be implemented fully
+
+                                if (displayLogs.isEmpty()) {
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Text(stringResource(R.string.sheet_no_logs), color = Color.Gray)
+                                    }
+                                } else {
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        LazyColumn(
+                                            state = listState,
+                                            reverseLayout = isLogReversed,
+                                            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            items(displayLogs, key = { it.id }) { line ->
+                                                LogRow(
+                                                    line = line,
+                                                    isSelected = line.id in selectedLineIds,
+                                                    showTimestamp = showTimestamp,
+                                                    fontFamily = fontFamily,
+                                                    fontSize = fontSize,
+                                                    colors = logColors,
+                                                    tagColoringEnabled = tagColoringEnabled,
+                                                    onClick = {
+                                                        if (isMultiSelectMode) {
+                                                            onTapLine(line.id)
+                                                        } else {
+                                                            currentDiagnosis = com.hereliesaz.logkitty.ui.diagnosis.DiagnosisEngine.diagnose(line, allLogs)
+                                                        }
+                                                    },
+                                                    onLongClick = { onLongPressLine(line.id) }
+                                                )
+                                            }
+                                        }
+                                        // Snap to bottom FAB
+                                        Box(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+                                            androidx.compose.animation.AnimatedVisibility(
+                                                visible = listState.firstVisibleItemIndex > 10,
+                                                enter = fadeIn(),
+                                                exit = fadeOut()
+                                            ) {
+                                                FloatingActionButton(
+                                                    onClick = {
+                                                        coroutineScope.launch {
+                                                            listState.scrollToItem(0) // reverseLayout = true, so index 0 is bottom
+                                                        }
+                                                    },
+                                                    containerColor = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(40.dp)
+                                                ) {
+                                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to bottom")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        rightContent = {
+                            StatsFeatureSlot(
+                                packageName = selectedTab.filterValue ?: "",
+                                label = selectedTab.title,
+                                useRoot = useRoot,
+                                fontFamily = fontFamily,
+                                fontSize = fontSize,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     )
-                } else if (indexedLog.isEmpty()) {
+                } else if (displayLogs.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.sheet_no_logs), color = Color.Gray)
                     }
                 } else {
-                    LazyColumn(
-                        state = listState,
-                        reverseLayout = isLogReversed,
-                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(indexedLog, key = { it.id }) { line ->
-                            LogRow(
-                                line = line,
-                                isSelected = line.id in selectedLineIds,
-                                showTimestamp = showTimestamp,
-                                fontFamily = fontFamily,
-                                fontSize = fontSize,
-                                colors = logColors,
-                                tagColoringEnabled = tagColoringEnabled,
-                                onClick = { onTapLine(line.id) },
-                                onLongClick = { onLongPressLine(line.id) }
-                            )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = listState,
+                            reverseLayout = isLogReversed,
+                            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(displayLogs, key = { it.id }) { line ->
+                                LogRow(
+                                    line = line,
+                                    isSelected = line.id in selectedLineIds,
+                                    showTimestamp = showTimestamp,
+                                    fontFamily = fontFamily,
+                                    fontSize = fontSize,
+                                    colors = logColors,
+                                    tagColoringEnabled = tagColoringEnabled,
+                                    onClick = {
+                                        if (isMultiSelectMode) {
+                                            onTapLine(line.id)
+                                        } else {
+                                            currentDiagnosis = com.hereliesaz.logkitty.ui.diagnosis.DiagnosisEngine.diagnose(line, allLogs)
+                                        }
+                                    },
+                                    onLongClick = { onLongPressLine(line.id) }
+                                )
+                            }
+                        }
+                        Box(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = listState.firstVisibleItemIndex > 10,
+                                enter = fadeIn(),
+                                exit = fadeOut()
+                            ) {
+                                FloatingActionButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            listState.scrollToItem(0) // reverseLayout = true, so index 0 is bottom
+                                        }
+                                    },
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Scroll to bottom")
+                                }
+                            }
                         }
                     }
                 }
@@ -687,46 +891,7 @@ private fun LogRow(
     }
 }
 
-/**
- * Compact two-segment pill that flips an app tab between its Logs and developer-Stats views.
- * Shown only when an app-specific tab is selected.
- */
-@Composable
-private fun LogsStatsToggle(statsActive: Boolean, onToggle: () -> Unit) {
-    val activeBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-    Row(
-        modifier = Modifier
-            .padding(end = 4.dp)
-            .clip(RoundedCornerShape(50))
-            .background(Color.White.copy(alpha = 0.08f))
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) { onToggle() }
-            .padding(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Segment(stringResource(R.string.stats_toggle_logs), active = !statsActive, activeBg = activeBg)
-        Segment(stringResource(R.string.stats_toggle_stats), active = statsActive, activeBg = activeBg)
-    }
-}
 
-@Composable
-private fun Segment(label: String, active: Boolean, activeBg: Color) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(if (active) activeBg else Color.Transparent)
-            .padding(horizontal = 10.dp, vertical = 3.dp)
-    ) {
-        Text(
-            label,
-            fontSize = 11.sp,
-            color = if (active) Color.White else Color.White.copy(alpha = 0.6f),
-            maxLines = 1,
-        )
-    }
-}
 
 /**
  * Modifier that fires [onLeft] / [onRight] exactly once per gesture when the *accumulated*
@@ -754,4 +919,50 @@ private fun Modifier.pointerInputHorizontalDrag(
             }
         }
     )
+}
+
+@Composable
+fun LogListSubTabs(logColors: Map<LogLevel, Color>) {
+    val subTabs = listOf("All Logs", "Crashes", "Errors", "Warnings", "Network", "Memory", "ANRs")
+    var selectedSubTab by remember { mutableStateOf(subTabs.first()) }
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White.copy(alpha = 0.05f))
+            .padding(vertical = 4.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        items(subTabs.size) { index ->
+            val tab = subTabs[index]
+            val isSelected = selectedSubTab == tab
+            
+            val baseColor = when (tab) {
+                "Crashes", "Errors" -> logColors[LogLevel.ERROR] ?: Color.Red
+                "Warnings" -> logColors[LogLevel.WARNING] ?: Color.Yellow
+                "Network" -> logColors[LogLevel.INFO] ?: Color.Cyan
+                "Memory" -> logColors[LogLevel.ASSERT] ?: Color.Magenta
+                "ANRs" -> logColors[LogLevel.ERROR]?.copy(alpha=0.7f) ?: Color(0xFFFFA500)
+                else -> MaterialTheme.colorScheme.primary
+            }
+
+            val bgColor = if (isSelected) baseColor else Color.White.copy(alpha = 0.1f)
+            val textColor = if (isSelected) Color.Black else Color.White
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(bgColor)
+                    .clickable { selectedSubTab = tab }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = tab,
+                    color = textColor,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
 }

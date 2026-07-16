@@ -110,6 +110,14 @@ class StateDelegate(
     // from the single batch-processing coroutine below, so no synchronization is needed.
     private var lastSeenUid: Int? = null
 
+    private val targetUids = MutableStateFlow<Set<Int>>(emptySet())
+    private val targetPkgs = MutableStateFlow<Set<String>>(emptySet())
+
+    fun setTargetApps(uids: Set<Int>, pkgs: Set<String>) {
+        targetUids.value = uids
+        targetPkgs.value = pkgs
+    }
+
     init {
         if (bufferSizeFlow != null) {
             scope.launch(dispatcher) {
@@ -153,7 +161,19 @@ class StateDelegate(
                                 // inherit the preceding entry's UID so it isn't dropped from the app tab.
                                 parsed.uid ?: lastSeenUid
                             }
-                            systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), parsed.text, uid))
+                            if (isJunk(parsed.text)) return@forEach
+
+                            val uids = targetUids.value
+                            val pkgs = targetPkgs.value
+                            
+                            val isTarget = if (uids.isNotEmpty() || pkgs.isNotEmpty()) {
+                                if (uid != null && uids.contains(uid)) true
+                                else pkgs.any { pkg -> parsed.text.contains(pkg, ignoreCase = true) }
+                            } else true // If no targets specified, keep all (or should we drop? Let's keep all for safety if no targets)
+
+                            if (isTarget) {
+                                systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), parsed.text, uid))
+                            }
                         }
                     }
                 }
@@ -163,6 +183,15 @@ class StateDelegate(
             _systemLog.appendCapped(systemLines)
             _newLinesChannel.trySend(systemLines)
         }
+    }
+
+    private fun isJunk(text: String): Boolean {
+        // Basic junk filtering for common spammy tags
+        if (text.contains("SurfaceFlinger:") && text.contains("composite")) return true
+        if (text.contains("BatteryStatsService:") && text.contains("update")) return true
+        if (text.contains("NetworkStats:") && text.contains("performPoll")) return true
+        if (text.contains("Choreographer:") && text.contains("skipped")) return true
+        return false
     }
 
     private val _newLinesChannel = kotlinx.coroutines.channels.Channel<List<IndexedLogLine>>(kotlinx.coroutines.channels.Channel.BUFFERED)
