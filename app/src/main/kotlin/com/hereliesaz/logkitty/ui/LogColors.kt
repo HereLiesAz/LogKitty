@@ -92,6 +92,14 @@ enum class LogColorScheme(val displayNameRes: Int, val palette: Map<LogLevel, Co
         LogLevel.ERROR to Color(0xFFDC322F),
         LogLevel.ASSERT to Color(0xFFD33682),
     )),
+    LOGCAT_ANALYZER(R.string.scheme_logcat_analyzer, mapOf(
+        LogLevel.VERBOSE to Color(0xFFEEEEEE),
+        LogLevel.DEBUG to Color(0xFF29B6F6),
+        LogLevel.INFO to Color(0xFF9CCC65),
+        LogLevel.WARNING to Color(0xFFFFEE58),
+        LogLevel.ERROR to Color(0xFFEF5350),
+        LogLevel.ASSERT to Color(0xFFAB47BC),
+    )),
     CUSTOM(R.string.scheme_custom, MATERIAL.palette);
 
     fun colorFor(level: LogLevel): Color = palette[level] ?: Color.White

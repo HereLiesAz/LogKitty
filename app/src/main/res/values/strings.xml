@@ -175,10 +175,12 @@
     <string name="scheme_pidcat">Pidcat</string>
     <string name="scheme_monochrome">Monochrome</string>
     <string name="scheme_solarized">Solarized Dark</string>
+    <string name="scheme_logcat_analyzer">LogCat Analyzer</string>
     <string name="scheme_custom">Custom</string>
 
     <!-- Font names -->
     <string name="font_system">System Default</string>
+    <string name="font_google_sans_flex">Google Sans Flex</string>
     <string name="font_roboto_mono">Roboto Mono</string>
     <string name="font_source_code_pro">Source Code Pro</string>
     <string name="font_jetbrains_mono">JetBrains Mono</string>

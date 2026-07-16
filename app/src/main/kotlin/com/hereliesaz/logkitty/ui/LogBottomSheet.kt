@@ -43,6 +43,9 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -141,32 +144,73 @@ fun LogBottomSheet(
     val statsActive = selectedTab.type == TabType.APP && selectedTab.id in statsModeTabs
     // The Stats view's content (and its polling) lives entirely in the on-demand :feature:stats
     // module via StatsFeatureSlot, which only collects while it's on screen — so there's nothing to
+    // module via StatsFeatureSlot, which only collects while it's on screen — so there's nothing to
     // start/stop from here.
+
+    val attentionColor by viewModel.attentionColor.collectAsState()
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "glow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.1f,
+        targetValue = 0.5f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "glowAlpha"
+    )
+
+    val glowModifier = if (attentionColor != null) {
+        Modifier.background(attentionColor!!.copy(alpha = glowAlpha))
+    } else Modifier
+
+    androidx.compose.runtime.LaunchedEffect(controller.detent) {
+        if (controller.detent == AzSheetDetent.HALF || controller.detent == AzSheetDetent.FULL) {
+            viewModel.setAttentionColor(null)
+        }
+    }
 
     when (controller.detent) {
         AzSheetDetent.HIDDEN -> PeekStrip(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(glowModifier),
             // One line: the latest entry, sitting just above the nav bar.
             lines = if (indexedLog.isEmpty()) listOf(stringResource(R.string.sheet_ready))
                     else indexedLog.takeLast(1).map { it.text },
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
-            onTap = { controller.stepUp() },
-            onSwipeLeft = { viewModel.selectNextTab() },
-            onSwipeRight = { viewModel.selectPreviousTab() },
+            onTap = {
+                viewModel.setAttentionColor(null)
+                controller.stepUp()
+            },
+            onSwipeLeft = {
+                viewModel.setAttentionColor(null)
+                viewModel.selectNextTab()
+            },
+            onSwipeRight = {
+                viewModel.setAttentionColor(null)
+                viewModel.selectPreviousTab()
+            },
         )
         AzSheetDetent.PEEK -> PeekStrip(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(glowModifier),
             // The last three entries, oldest-to-newest, pinned above the nav bar.
             lines = if (indexedLog.isEmpty()) listOf(stringResource(R.string.sheet_ready))
                     else indexedLog.takeLast(3).map { it.text },
             showTimestamp = showTimestamp,
             fontFamily = currentFontFamily,
             fontSize = fontSize,
-            onTap = { controller.stepUp() },
-            onSwipeLeft = { viewModel.selectNextTab() },
-            onSwipeRight = { viewModel.selectPreviousTab() },
+            onTap = {
+                viewModel.setAttentionColor(null)
+                controller.stepUp()
+            },
+            onSwipeLeft = {
+                viewModel.setAttentionColor(null)
+                viewModel.selectNextTab()
+            },
+            onSwipeRight = {
+                viewModel.setAttentionColor(null)
+                viewModel.selectPreviousTab()
+            },
         )
         AzSheetDetent.HALF, AzSheetDetent.FULL -> ExpandedView(
             tabs = tabs,
@@ -310,6 +354,7 @@ private fun PeekStrip(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExpandedView(
     tabs: List<LogTab>,
@@ -359,42 +404,47 @@ private fun ExpandedView(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ScrollableTabRow(
-                    selectedTabIndex = tabs.indexOf(selectedTab).coerceAtLeast(0),
-                    edgePadding = 8.dp,
-                    containerColor = Color.Transparent,
-                    divider = {},
-                    modifier = Modifier.weight(1f),
-                    indicator = { tabPositions ->
-                        if (tabs.isNotEmpty()) {
-                            val idx = tabs.indexOf(selectedTab).coerceAtLeast(0)
-                            TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(tabPositions[idx]))
-                        }
-                    }
-                ) {
-                    tabs.forEach { tab ->
-                        val isSelected = selectedTab == tab
-                        Tab(
-                            selected = isSelected,
-                            onClick = { onTabSelected(tab) },
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(tab.title, maxLines = 1)
-                                    if (isSelected && tab.type == TabType.APP) {
-                                        IconButton(
-                                            onClick = { onCloseAppTab(tab) },
-                                            modifier = Modifier.size(18.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Close,
-                                                contentDescription = stringResource(R.string.cd_close_tab),
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
+                val carouselState = rememberCarouselState { tabs.size }
+                
+                HorizontalMultiBrowseCarousel(
+                    state = carouselState,
+                    preferredItemWidth = 140.dp,
+                    itemSpacing = 8.dp,
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 6.dp)
+                ) { i ->
+                    val tab = tabs[i]
+                    val isSelected = selectedTab == tab
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onTabSelected(tab) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = tab.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            if (isSelected && tab.type == TabType.APP) {
+                                IconButton(
+                                    onClick = { onCloseAppTab(tab) },
+                                    modifier = Modifier.size(20.dp).padding(start = 4.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.cd_close_tab),
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
                                 }
                             }
-                        )
+                        }
                     }
                 }
 

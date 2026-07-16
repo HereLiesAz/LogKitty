@@ -40,7 +40,9 @@ data class ExportedPreferences(
     // GitHub repo config is non-secret and safe to back up. The PAT is NOT here — it lives in the
     // separate, backup-excluded GitHubCredentials store and is never exported.
     val githubOwner: String = "",
-    val githubRepo: String = ""
+    val githubRepo: String = "",
+    val autoDeleteDurationDays: Int = 7,
+    val maxTotalLogSizeMegabytes: Int = 500
 )
 
 /**
@@ -81,7 +83,7 @@ class UserPreferences(context: Context) {
     val fontSize: StateFlow<Int> = _fontSize.asStateFlow()
 
     // --- Preference: Font Family ---
-    private val _fontFamily = MutableStateFlow(prefs.getString(KEY_FONT_FAMILY, CodingFont.SYSTEM.name) ?: CodingFont.SYSTEM.name)
+    private val _fontFamily = MutableStateFlow(prefs.getString(KEY_FONT_FAMILY, CodingFont.GOOGLE_SANS_FLEX.name) ?: CodingFont.GOOGLE_SANS_FLEX.name)
     val fontFamily: StateFlow<String> = _fontFamily.asStateFlow()
 
     // --- Preference: Root Mode ---
@@ -144,6 +146,16 @@ class UserPreferences(context: Context) {
     val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
     private val _githubRepo = MutableStateFlow(prefs.getString(KEY_GITHUB_REPO, "") ?: "")
     val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
+
+    // --- Preference: Auto Delete Duration ---
+    // Number of days to keep session log files before auto-deleting (0 = never delete).
+    private val _autoDeleteDurationDays = MutableStateFlow(prefs.getInt(KEY_AUTO_DELETE_DURATION_DAYS, 7))
+    val autoDeleteDurationDays: StateFlow<Int> = _autoDeleteDurationDays.asStateFlow()
+
+    // --- Preference: Max Total Log Size ---
+    // Maximum total size of saved log files in Megabytes (0 = unlimited).
+    private val _maxTotalLogSizeMegabytes = MutableStateFlow(prefs.getInt(KEY_MAX_TOTAL_LOG_SIZE_MB, 500))
+    val maxTotalLogSizeMegabytes: StateFlow<Int> = _maxTotalLogSizeMegabytes.asStateFlow()
 
     // --- Preference: Log Colors ---
     // Map of LogLevel to ARGB Color Integer. Reflects the active scheme until the user customizes.
@@ -324,6 +336,16 @@ class UserPreferences(context: Context) {
         _githubRepo.value = repo
     }
 
+    fun setAutoDeleteDurationDays(days: Int) {
+        prefs.edit().putInt(KEY_AUTO_DELETE_DURATION_DAYS, days).apply()
+        _autoDeleteDurationDays.value = days
+    }
+
+    fun setMaxTotalLogSizeMegabytes(mb: Int) {
+        prefs.edit().putInt(KEY_MAX_TOTAL_LOG_SIZE_MB, mb).apply()
+        _maxTotalLogSizeMegabytes.value = mb
+    }
+
     // --- Helpers ---
 
     private fun loadProhibitedTags(): Set<String> {
@@ -380,7 +402,9 @@ class UserPreferences(context: Context) {
             monitoredApps = _monitoredApps.value.toList(),
             activeSourceFilters = _activeSourceFilters.value.toList(),
             githubOwner = _githubOwner.value,
-            githubRepo = _githubRepo.value
+            githubRepo = _githubRepo.value,
+            autoDeleteDurationDays = _autoDeleteDurationDays.value,
+            maxTotalLogSizeMegabytes = _maxTotalLogSizeMegabytes.value
         )
         return try {
             Json { prettyPrint = true }.encodeToString(exported)
@@ -425,6 +449,8 @@ class UserPreferences(context: Context) {
 
             setGithubOwner(imported.githubOwner)
             setGithubRepo(imported.githubRepo)
+            setAutoDeleteDurationDays(imported.autoDeleteDurationDays)
+            setMaxTotalLogSizeMegabytes(imported.maxTotalLogSizeMegabytes)
 
             val scheme = try { LogColorScheme.valueOf(imported.colorScheme) } catch (e: Exception) { LogColorScheme.MATERIAL }
 
@@ -469,5 +495,7 @@ class UserPreferences(context: Context) {
         private const val KEY_ACTIVE_SOURCE_FILTERS = "active_source_filters"
         private const val KEY_GITHUB_OWNER = "github_owner"
         private const val KEY_GITHUB_REPO = "github_repo"
+        private const val KEY_AUTO_DELETE_DURATION_DAYS = "auto_delete_duration_days"
+        private const val KEY_MAX_TOTAL_LOG_SIZE_MB = "max_total_log_size_mb"
     }
 }

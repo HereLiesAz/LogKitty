@@ -270,6 +270,39 @@ class LogKittyOverlayService : Service() {
                 }
         }
 
+        // Listen for finished session files and notify the user.
+        serviceScope.launch {
+            viewModel.sessionFinishedEvent.collect { file ->
+                try {
+                    // Set attention glow on the bottom sheet
+                    viewModel.setAttentionColor(androidx.compose.ui.graphics.Color.Red)
+
+                    val intent = Intent(applicationContext, com.hereliesaz.logkitty.MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    }
+                    val pendingIntent = android.app.PendingIntent.getActivity(
+                        applicationContext,
+                        0,
+                        intent,
+                        android.app.PendingIntent.FLAG_IMMUTABLE
+                    )
+
+                    val notification = androidx.core.app.NotificationCompat.Builder(applicationContext, "logkitty_channel")
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle("Session Log Saved")
+                        .setContentText("Log saved for ${file.name}. Tap to view or share.")
+                        .setContentIntent(pendingIntent)
+                        .setAutoCancel(true)
+                        .build()
+
+                    val notificationManager = applicationContext.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    notificationManager.notify(file.name.hashCode(), notification)
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "Failed to handle session finish", e)
+                }
+            }
+        }
+
         // While on the launcher, disable the overlay so the system swipe-up-for-app-drawer
         // gesture is untouched. Re-enable when any other foreground app comes up.
         serviceScope.launch {

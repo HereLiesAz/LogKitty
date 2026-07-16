@@ -23,6 +23,7 @@ val provider = GoogleFont.Provider(
  */
 enum class CodingFont(val fontName: String, val displayNameRes: Int) {
     SYSTEM("System", R.string.font_system),
+    GOOGLE_SANS_FLEX("Google Sans Flex", R.string.font_google_sans_flex),
     ROBOTO_MONO("Roboto Mono", R.string.font_roboto_mono),
     SOURCE_CODE_PRO("Source Code Pro", R.string.font_source_code_pro),
     JETBRAINS_MONO("JetBrains Mono", R.string.font_jetbrains_mono),
@@ -37,10 +38,10 @@ enum class CodingFont(val fontName: String, val displayNameRes: Int) {
  * Falls back to System Monospace if "System" is selected or if loading fails.
  */
 fun getGoogleFontFamily(fontName: String): FontFamily {
-    return if (fontName == "System") {
-        FontFamily.Monospace
-    } else {
-        FontFamily(
+    return when (fontName) {
+        "System" -> FontFamily.Monospace
+        "Google Sans Flex" -> FontFamily(androidx.compose.ui.text.font.Font(R.font.google_sans_flex))
+        else -> FontFamily(
             Font(googleFont = GoogleFont(fontName), fontProvider = provider)
         )
     }
@@ -48,9 +49,13 @@ fun getGoogleFontFamily(fontName: String): FontFamily {
 
 // Default Typography styles.
 // Note: The LogBottomSheet uses explicit font sizes from Settings, bypassing some of this.
+val GoogleSansFlex = FontFamily(
+    androidx.compose.ui.text.font.Font(R.font.google_sans_flex)
+)
+
 val Typography = Typography(
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = GoogleSansFlex,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,

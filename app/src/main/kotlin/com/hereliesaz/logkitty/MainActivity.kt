@@ -41,6 +41,7 @@ import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
 import com.hereliesaz.logkitty.ui.AdBannerSlot
 import com.hereliesaz.logkitty.ui.GitHubScreen
+import com.hereliesaz.logkitty.ui.AnalyzerDashboardScreen
 import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
 
@@ -156,19 +157,30 @@ class MainActivity : ComponentActivity() {
                                 else -> {
                                     // Show the Main Dashboard / Permission Wizard.
                                     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
+                                    val canStart = isOverlayGranted && (isReadLogsGranted || isRootEnabled)
 
-                                    MainScreenContent(
-                                        isOverlayGranted = isOverlayGranted,
-                                        isReadLogsGranted = isReadLogsGranted,
-                                        isRootEnabled = isRootEnabled,
-                                        isServiceRunning = isServiceRunning,
-                                        updateReadyToInstall = updateReadyToInstall,
-                                        onCompleteUpdate = { appUpdateManager.completeUpdate() },
-                                        onGrantOverlay = { requestOverlayPermission() },
-                                        onToggleService = { toggleOverlayService() },
-                                        onOpenSettings = { showSettings = true },
-                                        onOpenGitHub = { showGitHub = true }
-                                    )
+                                    if (!canStart || updateReadyToInstall) {
+                                        MainScreenContent(
+                                            isOverlayGranted = isOverlayGranted,
+                                            isReadLogsGranted = isReadLogsGranted,
+                                            isRootEnabled = isRootEnabled,
+                                            isServiceRunning = isServiceRunning,
+                                            updateReadyToInstall = updateReadyToInstall,
+                                            onCompleteUpdate = { appUpdateManager.completeUpdate() },
+                                            onGrantOverlay = { requestOverlayPermission() },
+                                            onToggleService = { toggleOverlayService() },
+                                            onOpenSettings = { showSettings = true },
+                                            onOpenGitHub = { showGitHub = true }
+                                        )
+                                    } else {
+                                        AnalyzerDashboardScreen(
+                                            isServiceRunning = isServiceRunning,
+                                            onToggleService = { toggleOverlayService() },
+                                            onOpenSettings = { showSettings = true },
+                                            onOpenGitHub = { showGitHub = true },
+                                            viewModel = viewModel
+                                        )
+                                    }
                                 }
                             }
                         }

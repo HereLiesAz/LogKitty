@@ -20,6 +20,11 @@ import com.hereliesaz.logkitty.utils.LogSources
 import com.hereliesaz.logkitty.utils.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
@@ -256,6 +261,14 @@ class MainViewModel(
         .map { list -> list.map { it.text } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private var activeSessionPackage: String? = null
+    private var activeSessionUid: Int? = null
+    private val _sessionFinishedChannel = kotlinx.coroutines.channels.Channel<java.io.File>(kotlinx.coroutines.channels.Channel.BUFFERED)
+    val sessionFinishedEvent = _sessionFinishedChannel.receiveAsFlow()
+
+    private val _attentionColor = MutableStateFlow<androidx.compose.ui.graphics.Color?>(null)
+    val attentionColor = _attentionColor.asStateFlow()
+
     // --- Accessibility Receiver ---
     // Listens for foreground-app broadcasts from ForegroundAppMonitor (Context Mode).
     private val receiver = object : BroadcastReceiver() {
@@ -268,8 +281,37 @@ class MainViewModel(
                 if (!pkg.isNullOrBlank()) {
                     addAppTab(pkg)
                 }
+
+                // Session Management
+                val oldPkg = activeSessionPackage
+                if (oldPkg != pkg) {
+                    // Close old session if it was monitored
+                    if (oldPkg != null && userPreferences.monitoredApps.value.contains(oldPkg)) {
+                        viewModelScope.launch(Dispatchers.IO) {
+                            val file = com.hereliesaz.logkitty.data.SessionLogFileWriter.closeSession(oldPkg)
+                            if (file != null) {
+                                _sessionFinishedChannel.trySend(file)
+                            }
+                        }
+                    }
+
+                    // Open new session if it is monitored
+                    if (pkg != null && userPreferences.monitoredApps.value.contains(pkg)) {
+                        viewModelScope.launch(Dispatchers.IO) {
+                            com.hereliesaz.logkitty.data.SessionLogFileWriter.openSession(getApplication(), pkg)
+                            activeSessionUid = uidFor(pkg)
+                        }
+                    } else {
+                        activeSessionUid = null
+                    }
+                    activeSessionPackage = pkg
+                }
             }
         }
+    }
+
+    fun setAttentionColor(color: androidx.compose.ui.graphics.Color?) {
+        _attentionColor.value = color
     }
 
     private var logJob: Job? = null
@@ -277,6 +319,20 @@ class MainViewModel(
     private var receiverRegistered = false
 
     init {
+        // Session log writing
+        viewModelScope.launch(Dispatchers.IO) {
+            stateDelegate.newLinesEvent.collect { newLines ->
+                val pkg = activeSessionPackage
+                val targetUid = activeSessionUid
+                if (pkg != null && targetUid != null) {
+                    val relevantLogs = newLines.filter { it.uid == targetUid || it.text.contains(pkg, ignoreCase = true) }
+                    for (line in relevantLogs) {
+                        com.hereliesaz.logkitty.data.SessionLogFileWriter.appendLog(pkg, line.text)
+                    }
+                }
+            }
+        }
+
         // Keep pinned, app-specific tabs in sync with the user's "Monitor specific apps" choices.
         // Collected on IO because syncMonitoredTabs resolves app labels/UIDs via PackageManager.
         viewModelScope.launch(Dispatchers.IO) {
