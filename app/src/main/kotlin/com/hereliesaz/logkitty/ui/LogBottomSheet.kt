@@ -4,6 +4,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -15,6 +20,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,9 +66,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -224,13 +238,7 @@ fun LogBottomSheet(
             showTimestamp = showTimestamp,
             isLogReversed = isLogReversed,
             isPaused = isPaused,
-            showStatsToggle = selectedTab.type == TabType.APP,
-            statsActive = statsActive,
             useRoot = isRootEnabled,
-            onToggleStats = {
-                statsModeTabs = if (selectedTab.id in statsModeTabs) statsModeTabs - selectedTab.id
-                                else statsModeTabs + selectedTab.id
-            },
             selectedLineIds = selectedLineIds,
             selectedLines = selectedLines,
             onTapLine = { id ->
@@ -340,10 +348,10 @@ private fun PeekStrip(
                         // Trim the leading above the first line and below the last so the text
                         // block hugs the bottom edge tightly.
                         style = MaterialTheme.typography.bodySmall.copy(
-                            lineHeightStyle = LineHeightStyle(
-                                alignment = LineHeightStyle.Alignment.Proportional,
-                                trim = LineHeightStyle.Trim.Both
-                            )
+                             lineHeightStyle = LineHeightStyle(
+                                 alignment = LineHeightStyle.Alignment.Proportional,
+                                 trim = LineHeightStyle.Trim.Both
+                             )
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -368,10 +376,7 @@ private fun ExpandedView(
     showTimestamp: Boolean,
     isLogReversed: Boolean,
     isPaused: Boolean,
-    showStatsToggle: Boolean,
-    statsActive: Boolean,
     useRoot: Boolean,
-    onToggleStats: () -> Unit,
     selectedLineIds: Set<Long>,
     selectedLines: List<IndexedLogLine>,
     onTapLine: (Long) -> Unit,
@@ -393,35 +398,69 @@ private fun ExpandedView(
     githubRepo: String,
     githubTokenProvider: () -> String?,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    val selectedIdx = remember(tabs, selectedTab) { tabs.indexOf(selectedTab).coerceAtLeast(0) }
+    val tabListState = rememberLazyListState()
+    LaunchedEffect(selectedIdx) {
+        if (tabs.isNotEmpty()) {
+            tabListState.animateScrollToItem(selectedIdx)
+        }
+    }
 
-        // --- Header zone: tabs + icons (horizontal drag = tab swap; host handles vertical) ---
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerInputHorizontalDrag(threshold = 48f, onLeft = onSwipeLeft, onRight = onSwipeRight)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.weight(1f)) {
+            // --- Left Column: Header (Tabs) + Content (Logs/Github/Stats) ---
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+            ) {
+            // Tabs Row
+            LazyRow(
+                state = tabListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInputHorizontalDrag(threshold = 48f, onLeft = onSwipeLeft, onRight = onSwipeRight)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val carouselState = rememberCarouselState { tabs.size }
-                
-                HorizontalMultiBrowseCarousel(
-                    state = carouselState,
-                    preferredItemWidth = 140.dp,
-                    itemSpacing = 8.dp,
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 6.dp)
-                ) { i ->
-                    val tab = tabs[i]
+                itemsIndexed(tabs, key = { _, t -> t.id }) { i, tab ->
                     val isSelected = selectedTab == tab
+                    val distance = kotlin.math.abs(i - selectedIdx)
+                    val isHero = distance == 0
+                    val isMedium = distance == 1
+
+                    val width = when {
+                        isHero -> 150.dp
+                        isMedium -> 110.dp
+                        else -> 80.dp
+                    }
+
+                    val fSize = when {
+                        isHero -> 15.sp
+                        isMedium -> 12.sp
+                        else -> 10.sp
+                    }
+
+                    val bgColor = when {
+                        isHero -> MaterialTheme.colorScheme.secondaryContainer
+                        isMedium -> MaterialTheme.colorScheme.surfaceVariant
+                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    }
+
+                    val textColor = when {
+                        isHero -> MaterialTheme.colorScheme.onSecondaryContainer
+                        isMedium -> MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    }
+
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                            .width(width)
+                            .clip(RectangleShape)
+                            .background(bgColor)
                             .clickable { onTabSelected(tab) }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 8.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -429,154 +468,161 @@ private fun ExpandedView(
                                 text = tab.title,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                color = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelLarge
+                                color = textColor,
+                                fontSize = fSize,
+                                fontWeight = if (isHero) FontWeight.Bold else FontWeight.Normal
                             )
-                            if (isSelected && tab.type == TabType.APP) {
+                            if (isSelected && (tab.type == TabType.APP || tab.type == TabType.APP_STATS)) {
                                 IconButton(
                                     onClick = { onCloseAppTab(tab) },
-                                    modifier = Modifier.size(20.dp).padding(start = 4.dp)
+                                    modifier = Modifier.size(18.dp).padding(start = 2.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
                                         contentDescription = stringResource(R.string.cd_close_tab),
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        modifier = Modifier.size(12.dp),
+                                        tint = textColor
                                     )
                                 }
                             }
                         }
                     }
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (showStatsToggle) {
-                        LogsStatsToggle(statsActive = statsActive, onToggle = onToggleStats)
-                    }
-                    IconButton(onClick = onSaveClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Save, stringResource(R.string.cd_save), tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Settings, stringResource(R.string.settings), tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    IconButton(onClick = onTogglePause, modifier = Modifier.size(36.dp)) {
-                        Icon(
-                            if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                            contentDescription = if (isPaused) stringResource(R.string.cd_resume_logging) else stringResource(R.string.cd_pause_logging),
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    IconButton(onClick = onClearClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.DeleteSweep, stringResource(R.string.cd_clear_logs), tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    IconButton(onClick = onCloseClick, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Close, stringResource(R.string.cd_close), tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
             }
 
             HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-        }
 
-        // --- Selection action bar (Copy / Search / Prohibit) — logs only ---
-        AnimatedVisibility(visible = !statsActive && selectedLineIds.isNotEmpty(), enter = fadeIn(), exit = fadeOut()) {
-            val count = selectedLines.size
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White.copy(alpha = 0.06f))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
+            // Selection action bar (Copy / Search / Prohibit) — logs only
+            AnimatedVisibility(
+                visible = selectedTab.type != TabType.APP_STATS && selectedLineIds.isNotEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
-                Text(
-                    text = if (count <= 1) stringResource(R.string.sheet_selected_entry) else stringResource(R.string.sheet_count_selected, count),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.75f),
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = onCopySelected, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.ContentCopy, stringResource(R.string.cd_copy_selected), tint = MaterialTheme.colorScheme.onSurface)
-                }
-                if (count == 1) {
-                    val only = selectedLines.first()
-                    IconButton(onClick = { onSearchLine(only) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Search, stringResource(R.string.cd_search_google), tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                    IconButton(onClick = { onProhibitLine(only) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Block, stringResource(R.string.cd_prohibit_tag), tint = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-                IconButton(onClick = onClearSelection, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Close, stringResource(R.string.cd_deselect), tint = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-        }
-
-        // --- Log area (horizontal = tab swap; host handles vertical) ---
-        val listState = rememberLazyListState()
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .pointerInputHorizontalDrag(threshold = 64f, onLeft = onSwipeLeft, onRight = onSwipeRight)
-        ) {
-            if (selectedTab.type == TabType.GITHUB) {
-                // The GitHub tab's body is the on-demand :feature:github panel, not the log stream.
-                GitHubFeatureSlot(
-                    owner = githubOwner,
-                    repo = githubRepo,
-                    tokenProvider = githubTokenProvider,
-                    onConfigure = onSettingsClick,
-                    fontFamily = fontFamily,
-                    fontSize = fontSize,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else if (statsActive) {
-                StatsFeatureSlot(
-                    packageName = selectedTab.filterValue,
-                    label = selectedTab.title,
-                    useRoot = useRoot,
-                    fontFamily = fontFamily,
-                    fontSize = fontSize,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else if (indexedLog.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.sheet_no_logs), color = Color.Gray)
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    reverseLayout = isLogReversed,
-                    // No nav-bar bottom inset — the log is allowed to draw behind the system
-                    // navigation bar so as many lines as possible are visible.
-                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
-                    modifier = Modifier.fillMaxSize()
+                val count = selectedLines.size
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.06f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    items(indexedLog, key = { it.id }) { line ->
-                        LogRow(
-                            line = line,
-                            isSelected = line.id in selectedLineIds,
-                            showTimestamp = showTimestamp,
-                            fontFamily = fontFamily,
-                            fontSize = fontSize,
-                            colors = logColors,
-                            tagColoringEnabled = tagColoringEnabled,
-                            onClick = { onTapLine(line.id) },
-                            onLongClick = { onLongPressLine(line.id) }
-                        )
+                    Text(
+                        text = if (count <= 1) stringResource(R.string.sheet_selected_entry) else stringResource(R.string.sheet_count_selected, count),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onCopySelected, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.ContentCopy, stringResource(R.string.cd_copy_selected), tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                    if (count == 1) {
+                        val only = selectedLines.first()
+                        IconButton(onClick = { onSearchLine(only) }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Search, stringResource(R.string.cd_search_google), tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                        IconButton(onClick = { onProhibitLine(only) }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Block, stringResource(R.string.cd_prohibit_tag), tint = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    IconButton(onClick = onClearSelection, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Close, stringResource(R.string.cd_deselect), tint = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+
+            // Log / stats content area
+            val listState = rememberLazyListState()
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .pointerInputHorizontalDrag(threshold = 64f, onLeft = onSwipeLeft, onRight = onSwipeRight)
+            ) {
+                if (selectedTab.type == TabType.GITHUB) {
+                    GitHubFeatureSlot(
+                        owner = githubOwner,
+                        repo = githubRepo,
+                        tokenProvider = githubTokenProvider,
+                        onConfigure = onSettingsClick,
+                        fontFamily = fontFamily,
+                        fontSize = fontSize,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else if (selectedTab.type == TabType.APP_STATS) {
+                    StatsFeatureSlot(
+                        packageName = selectedTab.filterValue ?: "",
+                        label = selectedTab.title.substringBefore(" Stats"),
+                        useRoot = useRoot,
+                        fontFamily = fontFamily,
+                        fontSize = fontSize,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else if (indexedLog.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.sheet_no_logs), color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        reverseLayout = isLogReversed,
+                        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(indexedLog, key = { it.id }) { line ->
+                            LogRow(
+                                line = line,
+                                isSelected = line.id in selectedLineIds,
+                                showTimestamp = showTimestamp,
+                                fontFamily = fontFamily,
+                                fontSize = fontSize,
+                                colors = logColors,
+                                tagColoringEnabled = tagColoringEnabled,
+                                onClick = { onTapLine(line.id) },
+                                onLongClick = { onLongPressLine(line.id) }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // --- Banner ad, pinned to the bottom of the expanded sheet (HALF / FULL only). ---
-        // Takes no space (and shows no divider) until the on-demand :feature:ads module is installed
-        // and the ad loads, so it never leaves an empty gap below the log. Shown on every tab,
-        // including GitHub, so the banner stays consistently anchored at the bottom.
-        AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
+        // --- Right Column: Scrollable vertical action buttons ---
+        Column(
+            modifier = Modifier
+                .width(56.dp)
+                .fillMaxHeight()
+                .background(Color.White.copy(alpha = 0.02f))
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            IconButton(onClick = onSaveClick, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Save, stringResource(R.string.cd_save), tint = MaterialTheme.colorScheme.onSurface)
+            }
+            IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Settings, stringResource(R.string.settings), tint = MaterialTheme.colorScheme.onSurface)
+            }
+            IconButton(onClick = onTogglePause, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    contentDescription = if (isPaused) stringResource(R.string.cd_resume_logging) else stringResource(R.string.cd_pause_logging),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            IconButton(onClick = onClearClick, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.DeleteSweep, stringResource(R.string.cd_clear_logs), tint = MaterialTheme.colorScheme.onSurface)
+            }
+            IconButton(onClick = onCloseClick, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Close, stringResource(R.string.cd_close), tint = MaterialTheme.colorScheme.onSurface)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
     }
+    // --- Banner ad, pinned to the bottom of the expanded sheet (HALF / FULL only). ---
+    AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
+}
 }
 
 @Composable

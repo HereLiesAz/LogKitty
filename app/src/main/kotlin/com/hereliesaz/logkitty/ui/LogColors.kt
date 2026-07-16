@@ -11,12 +11,12 @@ import com.hereliesaz.logkitty.utils.LogTagFilter
  * by [LogColorScheme] which can return either a per-level palette or a tag-aware palette.
  */
 enum class LogLevel(val letter: String, val defaultColor: Color) {
-    VERBOSE("V", Color(0xFFBDBDBD)),
-    DEBUG("D", Color(0xFF2196F3)),
-    INFO("I", Color(0xFF4CAF50)),
-    WARNING("W", Color(0xFFFF9800)),
-    ERROR("E", Color(0xFFF44336)),
-    ASSERT("A", Color(0xFF9C27B0));
+    VERBOSE("V", Color(0xFFEEEEEE)),
+    DEBUG("D", Color(0xFF29B6F6)),
+    INFO("I", Color(0xFF9CCC65)),
+    WARNING("W", Color(0xFFFFEE58)),
+    ERROR("E", Color(0xFFEF5350)),
+    ASSERT("A", Color(0xFFAB47BC));
 
     companion object {
         private val tagWithLetterRegex = Regex("""\s([VDIWEA])/([^\s:]+)""")
@@ -100,7 +100,7 @@ enum class LogColorScheme(val displayNameRes: Int, val palette: Map<LogLevel, Co
         LogLevel.ERROR to Color(0xFFEF5350),
         LogLevel.ASSERT to Color(0xFFAB47BC),
     )),
-    CUSTOM(R.string.scheme_custom, MATERIAL.palette);
+    CUSTOM(R.string.scheme_custom, LOGCAT_ANALYZER.palette);
 
     fun colorFor(level: LogLevel): Color = palette[level] ?: Color.White
 }

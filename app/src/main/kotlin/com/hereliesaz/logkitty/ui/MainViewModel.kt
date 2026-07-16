@@ -55,6 +55,7 @@ enum class TabType {
     SYSTEM,
     ERRORS,
     APP,
+    APP_STATS,
     SOURCE,
     GITHUB
 }
@@ -244,6 +245,7 @@ class MainViewModel(
                         }
                     }
                 }
+                TabType.APP_STATS -> result = emptyList()
                 TabType.SOURCE -> {
                     val key = input.tab.filterValue
                     if (!key.isNullOrBlank()) {
@@ -415,15 +417,25 @@ class MainViewModel(
         // cache so the hot filter path never touches PackageManager on the main thread.
         val labels = packages.associateWith { pkg -> appLabel(pkg).also { uidFor(pkg) } }
         _tabs.update { current ->
-            val kept = current.filterNot { it.pinned && it.filterValue !in packages }
+            val kept = current.filterNot { it.pinned && (it.type == TabType.APP || it.type == TabType.APP_STATS) && it.filterValue !in packages }
             val result = kept.toMutableList()
             packages.forEach { pkg ->
                 val title = labels[pkg] ?: pkg
-                val existingIdx = result.indexOfFirst { it.filterValue == pkg }
-                if (existingIdx < 0) {
-                    result.add(LogTab("app_$pkg", title, TabType.APP, pkg, pinned = true))
-                } else if (!result[existingIdx].pinned) {
-                    result[existingIdx] = result[existingIdx].copy(pinned = true, title = title)
+                val logsId = "app_logs_$pkg"
+                val statsId = "app_stats_$pkg"
+                
+                val logsIdx = result.indexOfFirst { it.id == logsId }
+                if (logsIdx < 0) {
+                    result.add(LogTab(logsId, "$title Logs", TabType.APP, pkg, pinned = true))
+                } else if (!result[logsIdx].pinned) {
+                    result[logsIdx] = result[logsIdx].copy(pinned = true, title = "$title Logs")
+                }
+                
+                val statsIdx = result.indexOfFirst { it.id == statsId }
+                if (statsIdx < 0) {
+                    result.add(LogTab(statsId, "$title Stats", TabType.APP_STATS, pkg, pinned = true))
+                } else if (!result[statsIdx].pinned) {
+                    result[statsIdx] = result[statsIdx].copy(pinned = true, title = "$title Stats")
                 }
             }
             result
@@ -458,10 +470,15 @@ class MainViewModel(
      */
     private fun addAppTab(pkg: String) {
         _tabs.update { currentTabs ->
-            if (currentTabs.any { it.filterValue == pkg }) {
+            val logsId = "app_logs_$pkg"
+            val statsId = "app_stats_$pkg"
+            if (currentTabs.any { it.id == logsId }) {
                 currentTabs // Tab already exists (transient or pinned)
             } else {
-                currentTabs + LogTab("app_$pkg", pkg, TabType.APP, pkg)
+                currentTabs + listOf(
+                    LogTab(logsId, "$pkg Logs", TabType.APP, pkg),
+                    LogTab(statsId, "$pkg Stats", TabType.APP_STATS, pkg)
+                )
             }
         }
     }
@@ -483,17 +500,21 @@ class MainViewModel(
     }
 
     fun closeTab(tab: LogTab) {
-        if (tab.type == TabType.APP) {
-            if (tab.pinned) {
-                // Unpinning a monitored app removes its tab via the monitoredApps flow.
-                tab.filterValue?.let { userPreferences.removeMonitoredApp(it) }
-            } else {
-                _tabs.update { it - tab }
-                if (_selectedTab.value == tab) {
-                    _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
+        if (tab.type == TabType.APP || tab.type == TabType.APP_STATS) {
+            val pkg = tab.filterValue
+            if (pkg != null) {
+                if (tab.pinned) {
+                    userPreferences.removeMonitoredApp(pkg)
+                } else {
+                    val logsId = "app_logs_$pkg"
+                    val statsId = "app_stats_$pkg"
+                    _tabs.update { current -> current.filterNot { it.id == logsId || it.id == statsId } }
+                    if (_selectedTab.value.id == logsId || _selectedTab.value.id == statsId) {
+                        _selectedTab.value = _tabs.value.firstOrNull() ?: systemTab
+                    }
                 }
+                _tabClearMarks.update { it - "app_logs_$pkg" - "app_stats_$pkg" }
             }
-            _tabClearMarks.update { it - tab.id }
         }
     }
 

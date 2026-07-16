@@ -33,7 +33,7 @@ data class ExportedPreferences(
     val showTimestamp: Boolean,
     val bufferSize: Int,
     val activeLogLevels: Set<String>,
-    val colorScheme: String = LogColorScheme.MATERIAL.name,
+    val colorScheme: String = LogColorScheme.LOGCAT_ANALYZER.name,
     val tagColoringEnabled: Boolean = true,
     val monitoredApps: List<String> = emptyList(),
     val activeSourceFilters: List<String> = emptyList(),
@@ -370,9 +370,9 @@ class UserPreferences(context: Context) {
     }
 
     private fun loadColorScheme(): LogColorScheme {
-        val name = prefs.getString(KEY_COLOR_SCHEME, LogColorScheme.MATERIAL.name)
-            ?: LogColorScheme.MATERIAL.name
-        return try { LogColorScheme.valueOf(name) } catch (e: Exception) { LogColorScheme.MATERIAL }
+        val name = prefs.getString(KEY_COLOR_SCHEME, LogColorScheme.LOGCAT_ANALYZER.name)
+            ?: LogColorScheme.LOGCAT_ANALYZER.name
+        return try { LogColorScheme.valueOf(name) } catch (e: Exception) { LogColorScheme.LOGCAT_ANALYZER }
     }
 
     private fun getKeyForColor(level: LogLevel) = "color_${level.name}"
