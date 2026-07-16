@@ -67,12 +67,14 @@
     <string name="settings_categories">Categories</string>
     <string name="settings_section_filters">Filters</string>
     <string name="settings_prohibited_tags">Prohibited Tags (%1$d)</string>
-    <string name="settings_section_backup">Backup</string>
-    <string name="settings_export_preferences">Export Preferences</string>
-    <string name="settings_import_preferences">Import Preferences</string>
-    <string name="settings_copy_preferences_json">Copy Preferences JSON</string>
-    <string name="settings_clear_log">Clear Log</string>
-    <string name="settings_reset_colors">Reset Colors</string>
+    <string name="settings_auto_delete_days">Auto-delete logs after (days)</string>
+    <string name="settings_auto_delete_desc">0 means never delete</string>
+    <string name="settings_days">%1$d days</string>
+    <string name="settings_never">Never</string>
+    <string name="settings_max_log_size">Max total log size (MB)</string>
+    <string name="settings_max_log_size_desc">Oldest logs deleted first (0 = unlimited)</string>
+    <string name="settings_mb">%1$d MB</string>
+    <string name="settings_unlimited">Unlimited</string>
     <string name="settings_footer_about">About</string>
     <string name="settings_footer_feedback">Feedback</string>
     <string name="settings_footer_handle">\@HereLiesAz</string>
@@ -89,7 +91,12 @@
     <string name="toast_logs_saved">Logs saved successfully</string>
     <string name="toast_save_logs_failed">Failed to save logs: %1$s</string>
 
-    <!-- Prohibited logs screen -->
+    <string name="settings_export_preferences">Export Preferences</string>
+    <string name="settings_import_preferences">Import Preferences</string>
+    <string name="settings_copy_preferences_json">Copy JSON</string>
+    <string name="settings_clear_log">Clear Log</string>
+    <string name="settings_reset_colors">Reset Colors</string>
+
     <string name="prohibited_title">Prohibited Logs</string>
     <string name="prohibited_empty">No prohibited logs.</string>
 

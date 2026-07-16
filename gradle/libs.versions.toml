@@ -33,7 +33,18 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-localbroadcastmanager = { module = "androidx.localbroadcastmanager:localbroadcastmanager", version.ref = "localbroadcastmanager" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
-aznavrail = { module = "com.github.HereLiesAz:AzNavRail", version.ref = "aznavrail" }
+# AzNavRail — use the CLASSIC ANDROID LIBRARY (`aznavrail`), never the Compose-Multiplatform build.
+# The AzNavRail release publishes several artifacts side by side; `aznavrail` (type aar) is the
+# normal Android library and the ONLY one that carries the DSL this app uses (AzNavHostKt —
+# AzHostActivityLayout, azConfig, azTheme, azAdvanced, AzNavHostScope, …).
+#
+# Do NOT depend on the root aggregator `com.github.HereLiesAz:AzNavRail`: it is a bare Maven POM
+# (no Gradle Module Metadata) that flat-lists every platform artifact, including the wasm-only
+# `aznavrail-cmp-wasm-js` klib — Gradle then can't pick a variant and the build dies with
+# "No matching variant ... platform.type 'wasm'". Do NOT use `aznavrail-cmp-android` either: that
+# is the Compose-Multiplatform Android target and it is MISSING AzNavHostKt. `aznavrail` is the
+# normal Android library and resolves cleanly (androidJvm module metadata; brings coil-compose).
+aznavrail = { group = "com.github.HereLiesAz.AzNavRail", name = "aznavrail", version.ref = "aznavrail" }
 play-services-ads = { module = "com.google.android.gms:play-services-ads", version.ref = "playServicesAds" }
 user-messaging-platform = { module = "com.google.android.ump:user-messaging-platform", version.ref = "userMessagingPlatform" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

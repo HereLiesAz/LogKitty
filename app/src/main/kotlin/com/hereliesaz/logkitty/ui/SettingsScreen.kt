@@ -147,9 +147,9 @@ private fun SettingsMainScreen(
     val prohibitedCount by viewModel.prohibitedTags.collectAsState()
     val monitoredApps by viewModel.monitoredApps.collectAsState()
     val activeSourceFilters by viewModel.activeSourceFilters.collectAsState()
-    val githubOwner by viewModel.githubOwner.collectAsState()
-    val githubRepo by viewModel.githubRepo.collectAsState()
-    val hasGithubToken by viewModel.hasGithubToken.collectAsState()
+    val githubOwner by viewModel.githubOwner.collectAsState(initial = "")
+    val githubRepo by viewModel.githubRepo.collectAsState(initial = "")
+    val hasGithubToken by viewModel.hasGithubToken.collectAsState(initial = false)
     val autoDeleteDurationDays by viewModel.autoDeleteDurationDays.collectAsState()
     val maxTotalLogSizeMegabytes by viewModel.maxTotalLogSizeMegabytes.collectAsState()
 
@@ -712,8 +712,8 @@ private fun SettingsMainScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Auto-delete logs after (days)", style = MaterialTheme.typography.bodyLarge)
-                        Text("0 means never delete", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_auto_delete_days), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_auto_delete_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     var daysExpanded by remember { mutableStateOf(false) }
                     Box {
@@ -721,7 +721,7 @@ private fun SettingsMainScreen(
                         DropdownMenu(expanded = daysExpanded, onDismissRequest = { daysExpanded = false }) {
                             listOf(0, 1, 3, 7, 14, 30).forEach { days ->
                                 DropdownMenuItem(
-                                    text = { Text(if (days == 0) "Never" else "$days days") },
+                                    text = { Text(if (days == 0) stringResource(R.string.settings_never) else stringResource(R.string.settings_days, days)) },
                                     onClick = {
                                         viewModel.setAutoDeleteDurationDays(days)
                                         daysExpanded = false
@@ -738,8 +738,8 @@ private fun SettingsMainScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Max total log size (MB)", style = MaterialTheme.typography.bodyLarge)
-                        Text("Oldest logs deleted first (0 = unlimited)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_max_log_size), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_max_log_size_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     var sizeExpanded by remember { mutableStateOf(false) }
                     Box {
@@ -747,7 +747,7 @@ private fun SettingsMainScreen(
                         DropdownMenu(expanded = sizeExpanded, onDismissRequest = { sizeExpanded = false }) {
                             listOf(0, 50, 100, 250, 500, 1000).forEach { mb ->
                                 DropdownMenuItem(
-                                    text = { Text(if (mb == 0) "Unlimited" else "$mb MB") },
+                                    text = { Text(if (mb == 0) stringResource(R.string.settings_unlimited) else stringResource(R.string.settings_mb, mb)) },
                                     onClick = {
                                         viewModel.setMaxTotalLogSizeMegabytes(mb)
                                         sizeExpanded = false

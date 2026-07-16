@@ -154,6 +154,8 @@ class MainViewModel(
     val activeLogLevels: StateFlow<Set<String>> = userPreferences.activeLogLevels
     val colorScheme: StateFlow<LogColorScheme> = userPreferences.colorScheme
     val tagColoringEnabled: StateFlow<Boolean> = userPreferences.tagColoringEnabled
+    val autoDeleteDurationDays: StateFlow<Int> = userPreferences.autoDeleteDurationDays
+    val maxTotalLogSizeMegabytes: StateFlow<Int> = userPreferences.maxTotalLogSizeMegabytes
 
     // GitHub Actions config. Repo coordinates are non-secret (UserPreferences); the PAT lives in the
     // backup-excluded secure store. Only a boolean is exposed reactively — the decrypted secret is
@@ -168,6 +170,10 @@ class MainViewModel(
     fun setGithubToken(token: String?) {
         viewModelScope.launch(Dispatchers.IO) { githubCredentials.setToken(token) }
     }
+
+    fun setAutoDeleteDurationDays(days: Int) = userPreferences.setAutoDeleteDurationDays(days)
+    fun setMaxTotalLogSizeMegabytes(mb: Int) = userPreferences.setMaxTotalLogSizeMegabytes(mb)
+
 
     /** Decrypts the PAT on demand. Call off the main thread (it touches the Keystore). */
     fun readGithubToken(): String? = githubCredentials.readToken()
