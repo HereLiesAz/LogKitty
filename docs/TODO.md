@@ -225,19 +225,19 @@
 ## 6. Testing Baseline
 **Goal:** Prove it works before running it.
 
-- [ ] **Test Log Parsing Regex**
-    - [ ] Create test file `app/src/test/kotlin/com/hereliesaz/logkitty/RegexTest.kt`.
-    - [ ] Define a test case function `testStandardLogFormat()`.
-    - [ ] Create a sample string: `"01-24 12:00:00.000 100 100 D TagName: Message"`.
-    - [ ] Write assertion: Verify the Regex extracts "TagName" correctly.
-    - [ ] Define a test case function `testFallbackLogFormat()`.
-    - [ ] Create a sample string: `"System.err: java.lang.Exception"`.
-    - [ ] Write assertion: Verify the fallback logic extracts "System.err".
+- [x] **Test Log Parsing Regex**
+    - [x] Create test file `app/src/test/kotlin/com/hereliesaz/logkitty/RegexTest.kt`.
+    - [x] Define a test case function `testStandardLogFormat()`.
+    - [x] Create a sample string: `"01-24 12:00:00.000 100 100 D TagName: Message"`.
+    - [x] Write assertion: Verify the Regex extracts "TagName" correctly.
+    - [x] Define a test case function `testFallbackLogFormat()`.
+    - [x] Create a sample string: `"System.err: java.lang.Exception"`.
+    - [x] Write assertion: Verify the fallback logic extracts "System.err".
 
-- [ ] **Test Buffer Limit**
-    - [ ] Create test file `app/src/test/kotlin/com/hereliesaz/logkitty/StateDelegateTest.kt`.
-    - [ ] Initialize `StateDelegate` with a mocked scope.
-    - [ ] Set `MAX_LOG_SIZE` to 10 (via reflection or setter if available).
-    - [ ] Run a loop to add 15 log items.
-    - [ ] Assert `delegate.systemLog.value.size` equals 10.
-    - [ ] Assert `delegate.systemLog.value.first()` equals the 6th item added (FIFO validation).
+- [x] **Test Buffer Limit**
+    - [x] Create test file `app/src/test/kotlin/com/hereliesaz/logkitty/StateDelegateTest.kt`.
+    - [x] Initialize `StateDelegate` with a mocked scope.
+    - [x] Set `MAX_LOG_SIZE` to 10 (via reflection or setter if available).
+    - [x] Run a loop to add 15 log items.
+    - [x] Assert `delegate.systemLog.value.size` equals 10.
+    - [x] Assert `delegate.systemLog.value.first()` equals the 6th item added (FIFO validation).
