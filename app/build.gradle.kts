@@ -277,6 +277,7 @@ dependencies {
     // Shared interfaces/constants for dynamic feature modules. `api` so feature modules, which
     // depend on :app, can compile against :core types (provided by the base at runtime).
     api(project(":core"))
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Play Feature Delivery: install/observe on-demand modules at runtime via SplitInstallManager.
     implementation(libs.play.feature.delivery)
@@ -303,7 +304,8 @@ dependencies {
     implementation(libs.dokar3.sheets.m3)
     implementation(libs.aznavrail)
 
-
+    // WorkManager: used for log cleanup and background tasks.
+    implementation("androidx.work:work-runtime:2.9.1")
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)

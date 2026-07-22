@@ -15,7 +15,7 @@ cases where data leaves it.
 The short version: **LogKitty has no account system, no analytics, and no
 servers of its own. Your logs are read and shown locally and are never uploaded
 by the app.** The only data that can leave your device comes from third‑party
-components (ads and downloadable fonts) and from optional features you trigger
+components (downloadable fonts) and from optional features you trigger
 yourself, all described below.
 
 ## Who is responsible
@@ -55,7 +55,7 @@ server (there is no LogKitty server).
 | `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the log capture running with a persistent notification. |
 | `POST_NOTIFICATIONS` | Show the persistent silent control notification. |
 | `PACKAGE_USAGE_STATS` | Detect the foreground app for context filtering; read per‑app network usage in the Developer Stats module. |
-| `INTERNET` | Required by the components below (fonts, ads, GitHub Actions, optional crash reporting). |
+| `INTERNET` | Required by the components below (fonts, GitHub Actions, optional crash reporting). |
 
 
 You can review the live grant status of these permissions in
@@ -66,25 +66,6 @@ You can review the live grant status of these permissions in
 LogKitty itself does not upload your logs. Data leaves the device only in these
 cases:
 
-### Advertising (Google AdMob)
-
-The app displays a banner ad at the bottom of the Settings screen using the
-**Google Mobile Ads (AdMob) SDK**. The ads SDK may collect information such as a
-device advertising identifier and technical device/usage data to serve and
-measure ads. This processing is governed by Google's policies, not LogKitty:
-
-- Google Privacy Policy: https://policies.google.com/privacy
-- How Google uses information from apps that use its services:
-  https://policies.google.com/technologies/partner-sites
-
-Where consent is legally required (e.g. the EEA/UK), the app uses Google's
-**User Messaging Platform (UMP)** to show a consent form before requesting ads,
-and only requests ads once your choice allows it. You can review or change your
-choice at any time via **Settings → Privacy → Manage ad consent**, or opt out of
-ads personalization through your device's Google ad settings.
-
-> Note: development builds use Google's **test** ad unit IDs, which do not serve
-> real ads. Production builds use live AdMob units.
 
 ### Fonts (Google Fonts)
 
@@ -104,7 +85,7 @@ sent only to GitHub to authenticate your own requests.
 
 ### On‑demand feature modules
 
-Ads, Developer Stats, and GitHub Actions ship as optional modules downloaded
+Developer Stats and GitHub Actions ship as optional modules downloaded
 from **Google Play** the first time you use them. Fetching a module is a request
 to Google Play, governed by Google's privacy policy (linked above).
 
@@ -140,7 +121,6 @@ LogKitty is a developer/debugging utility and is not directed at children.
 - Revoke any permission in the Android system settings at any time; the related
   feature will stop working but the rest of the app continues.
 - Uninstalling the app removes all locally stored preferences.
-- Opt out of ads personalization through your device's Google ad settings.
 
 ## Changes to this policy
 

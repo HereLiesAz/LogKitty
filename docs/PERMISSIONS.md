@@ -115,7 +115,5 @@ reduced source-classification accuracy.)*
   **Data safety** form (used for ads via the Google Mobile Ads SDK).
 - **Usage access (`PACKAGE_USAGE_STATS`):** a special app access the user grants
   in system settings; surfaced and explained in-app under Settings → Permissions.
-- **`app-ads.txt`:** host `app-ads.txt` (in the repo root) at your developer
-  website root so AdMob can verify the authorized seller.
 
 _Last updated: 2026-06-08._

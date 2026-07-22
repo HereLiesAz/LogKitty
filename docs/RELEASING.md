@@ -109,11 +109,9 @@ for the **GitHub** release channel.
 
 ## Data safety & privacy
 
-- The app integrates **AdMob** (`:feature:ads`), which uses the **`AD_ID`** advertising identifier
-  and sends data to Google. The Play **Data safety** form must declare this (data shared with third
-  parties for advertising), and the listing needs a privacy policy. See `docs/PRIVACY_POLICY.md` and
+- See `docs/PRIVACY_POLICY.md` and
   `docs/PERMISSIONS.md`.
-- Because `AD_ID`, `PACKAGE_USAGE_STATS`, and the accessibility capability are deferred into
+- Because `PACKAGE_USAGE_STATS` and the accessibility capability are deferred into
   on-demand modules, they are only requested once the user pulls in the relevant feature — but they
   must still be disclosed where applicable, since the fused/Play app can request them.
 

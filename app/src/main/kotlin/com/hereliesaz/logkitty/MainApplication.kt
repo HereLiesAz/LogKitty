@@ -60,6 +60,6 @@ class MainApplication : Application(), ViewModelStoreOwner {
             ViewModelProvider.AndroidViewModelFactory.getInstance(this),
         )[MainViewModel::class.java]
 
-        // The AdMob SDK is initialized by the :feature:ads module when its banner is shown.
+
     }
 }
