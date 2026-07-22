@@ -42,7 +42,6 @@ import com.google.android.play.core.install.model.UpdateAvailability
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
-import com.hereliesaz.logkitty.ui.AdBannerSlot
 import com.hereliesaz.logkitty.ui.GitHubScreen
 import com.hereliesaz.logkitty.ui.AnalyzerDashboardScreen
 import com.hereliesaz.logkitty.ui.SettingsScreen
@@ -203,7 +202,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
                     }
                 }
             }

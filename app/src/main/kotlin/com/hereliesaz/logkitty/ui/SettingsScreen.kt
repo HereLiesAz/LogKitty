@@ -85,6 +85,7 @@ import com.hereliesaz.logkitty.utils.GitHubDeviceAuth
 import kotlinx.coroutines.Job
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogSources
+import com.hereliesaz.logkitty.utils.findActivity
 
 /**
  * [SettingsScreen] provides a full-screen configuration UI with three navigation targets:
@@ -255,36 +256,6 @@ private fun SettingsMainScreen(
         ) {
             SettingsCard {
                 PermissionsSection(context)
-            }
-
-            var showAdFreeDialog by remember { mutableStateOf(false) }
-            if (showAdFreeDialog) {
-                com.hereliesaz.logkitty.ui.AdFreeDialog(
-                    billingManager = viewModel.billingManager,
-                    onDismiss = { showAdFreeDialog = false }
-                )
-            }
-
-            if (!com.hereliesaz.logkitty.billing.AdsState.isAdFreePermanently.value) {
-                SettingsCard("Premium") {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showAdFreeDialog = true }
-                            .padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Go Ad-Free", style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                "Unlock LogKitty permanently or enjoy a free session.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
             }
 
             SettingsCard(stringResource(R.string.settings_section_display)) {

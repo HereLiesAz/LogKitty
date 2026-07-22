@@ -818,9 +818,10 @@ private fun ExpandedView(
         }
     }
 }
+}
 
 @Composable
-private fun LogRow(
+fun LogRow(
     line: IndexedLogLine,
     isSelected: Boolean,
     showTimestamp: Boolean,

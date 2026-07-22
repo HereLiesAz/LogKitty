@@ -31,3 +31,4 @@ gha-creds-*.json
 *.log
 *.keystore
 /app/release/app-release.aab
+/.artifacts/acb8b43e-a581-4d64-80b7-9619cece1f54/implementation_plan.artifact.md

@@ -12,7 +12,7 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
 
     private val billingClient = BillingClient.newBuilder(context)
         .setListener(this)
-        .enablePendingPurchases()
+        .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .build()
 
     private val _adFreePrice = MutableStateFlow<String?>("Loading...")
@@ -55,11 +55,12 @@ class BillingManager(private val context: Context) : PurchasesUpdatedListener {
                 )
                 .build()
 
-        billingClient.queryProductDetailsAsync(queryProductDetailsParams) { billingResult, productDetailsList ->
+        billingClient.queryProductDetailsAsync(queryProductDetailsParams) { billingResult, productDetailsResult ->
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                if (productDetailsList.isNotEmpty()) {
-                    productDetails = productDetailsList[0]
-                    _adFreePrice.value = productDetails?.oneTimePurchaseOfferDetails?.formattedPrice
+                val details = productDetailsResult.productDetailsList?.firstOrNull()
+                if (details != null) {
+                    productDetails = details
+                    _adFreePrice.value = details.oneTimePurchaseOfferDetails?.formattedPrice
                 } else {
                     _adFreePrice.value = "Not Found"
                 }

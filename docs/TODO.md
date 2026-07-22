@@ -3,7 +3,7 @@
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
 - [x] Integrate Google Play Billing Library.
 - [x] Add global `AdsState` to manage permanent vs session Ad-Free status.
-- [x] Build `AdFreeDialog` and integrate it into `SettingsScreen`.
+- [ ] ~~Build `AdFreeDialog` and integrate it into `SettingsScreen`.~~ (Removed)
 - [x] Suppress banner ad requests when Ad-Free status is active.
 - [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).
 
