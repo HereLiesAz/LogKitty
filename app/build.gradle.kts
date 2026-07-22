@@ -59,7 +59,7 @@ android {
 
     // On-demand feature modules. Delivered individually on Google Play; fused into the universal /
     // standalone APK (see each module's <dist:fusing>) for the sideloaded GitHub build.
-    dynamicFeatures += setOf(":feature:stats", ":feature:ads", ":feature:github")
+    dynamicFeatures += setOf(":feature:stats", ":feature:github")
 
     // The in-app About/Help reader (InfoScreen) displays the project's own docs. They're copied from
     // the canonical README + docs/ into a generated assets directory at build time, so there's a
