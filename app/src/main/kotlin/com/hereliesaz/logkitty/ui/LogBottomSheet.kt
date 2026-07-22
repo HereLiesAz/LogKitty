@@ -8,7 +8,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -54,16 +53,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
-import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -168,17 +162,16 @@ fun LogBottomSheet(
     val statsActive = selectedTab.type == TabType.APP && selectedTab.id in statsModeTabs
     // The Stats view's content (and its polling) lives entirely in the on-demand :feature:stats
     // module via StatsFeatureSlot, which only collects while it's on screen — so there's nothing to
-    // module via StatsFeatureSlot, which only collects while it's on screen — so there's nothing to
     // start/stop from here.
 
     val attentionColor by viewModel.attentionColor.collectAsState()
-    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "glow")
+    val infiniteTransition = rememberInfiniteTransition(label = "glow")
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.1f,
         targetValue = 0.5f,
         animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            animation = androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
         ),
         label = "glowAlpha"
     )
@@ -200,7 +193,7 @@ fun LogBottomSheet(
         }
     } else Modifier
 
-    androidx.compose.runtime.LaunchedEffect(controller.detent) {
+    LaunchedEffect(controller.detent) {
         if (controller.detent == AzSheetDetent.HALF || controller.detent == AzSheetDetent.FULL) {
             viewModel.setAttentionColor(null)
         }
@@ -824,9 +817,6 @@ private fun ExpandedView(
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
-    // --- Banner ad, pinned to the bottom of the expanded sheet (HALF / FULL only). ---
-    AdBannerSlot(modifier = Modifier.fillMaxWidth(), showTopDivider = true)
-}
 }
 
 @Composable
