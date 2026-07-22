@@ -24,5 +24,4 @@ rootProject.name = "LogKitty"
 include(":app")
 include(":core")
 include(":feature:stats")
-include(":feature:ads")
 include(":feature:github")
