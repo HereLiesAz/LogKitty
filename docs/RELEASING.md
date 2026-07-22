@@ -11,7 +11,7 @@ versionCode scheme, the modules, and how to publish via CI.
 | `:app` | base application | always installed | overlay, logcat core, settings, app picker, Context Mode |
 | `:core` | android library | (folded into base) | feature interfaces + reflective loader |
 | `:feature:stats` | dynamic feature | **on-demand** | Developer Stats; defers `PACKAGE_USAGE_STATS` |
-| `:feature:ads` | dynamic feature | **on-demand** | AdMob banner; defers `AD_ID` + the ad SDK |
+
 
 Each dynamic feature declares `<dist:delivery><dist:on-demand/></dist:delivery>` and
 `<dist:fusing dist:include="true"/>`. Fusing means the **universal/standalone APK is a full

@@ -76,7 +76,6 @@ import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.BuildConfig
 import com.hereliesaz.logkitty.R
-import com.hereliesaz.logkitty.core.feature.AdsFeature
 import com.hereliesaz.logkitty.core.feature.FeatureLoader
 import com.hereliesaz.logkitty.core.feature.FeatureModules
 import com.hereliesaz.logkitty.feature.FeatureInstallStatus
@@ -806,27 +805,7 @@ private fun SettingsMainScreen(
                 )
             }
 
-            PrivacyOptionsSlot()
 
-            SettingsCard(stringResource(R.string.settings_section_about)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenInfo() }
-                        .padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.info_title), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            stringResource(R.string.settings_about_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
 
             SettingsFooter(context)
 
@@ -842,46 +821,7 @@ private fun appLabel(context: android.content.Context, pkg: String): String = tr
     pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
 } catch (e: Exception) { pkg }
 
-/**
- * Settings entry that lets the user revisit their ad-consent choices via the UMP privacy-options
- * form (a Google UMP requirement: consent must be changeable later).
- *
- * Rendered only when the `:feature:ads` module is already installed AND UMP reports a privacy-options
- * requirement — so users who never loaded ads, or for whom consent doesn't apply, see nothing (and we
- * never install the module just to show this). The form needs an Activity, which Settings always has
- * (it's hosted by MainActivity); the row is disabled if one can't be resolved.
- */
-@Composable
-private fun PrivacyOptionsSlot() {
-    val handle = rememberFeatureInstall(FeatureModules.ADS)
-    if (handle.status !is FeatureInstallStatus.Installed) return
-    val context = LocalContext.current
-    val feature = remember(context) { FeatureLoader.load<AdsFeature>(FeatureModules.ADS_IMPL, context) } ?: return
-    if (!remember(feature, context) { feature.isPrivacyOptionsRequired(context) }) return
-    val activity = remember(context) { context.findActivity() }
 
-    SettingsCard(stringResource(R.string.settings_section_privacy)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = activity != null) {
-                    activity?.let { act -> feature.showPrivacyOptions(act) {} }
-                }
-                .padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.settings_ad_privacy), style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    stringResource(R.string.settings_ad_privacy_desc),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
 
 /**
  * Bottom-of-settings footer mirroring AzNavRail's footer: About (repo), Feedback (email),

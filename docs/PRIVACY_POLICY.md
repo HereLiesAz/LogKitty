@@ -56,7 +56,7 @@ server (there is no LogKitty server).
 | `POST_NOTIFICATIONS` | Show the persistent silent control notification. |
 | `PACKAGE_USAGE_STATS` | Detect the foreground app for context filtering; read per‑app network usage in the Developer Stats module. |
 | `INTERNET` | Required by the components below (fonts, ads, GitHub Actions, optional crash reporting). |
-| `AD_ID` | Declared by the on‑demand `:feature:ads` module and used by the Google Mobile Ads SDK (see "Advertising"). |
+
 
 You can review the live grant status of these permissions in
 **Settings → Permissions**.

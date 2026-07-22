@@ -15,7 +15,7 @@
     <!-- QUERY_ALL_PACKAGES removed: the <queries> launcher filter below gives visibility to all
          launchable apps (enough for the app picker) without the permission; root mode lists the rest
          via `pm list packages`. -->
-    <!-- AD_ID moved to the on-demand :feature:ads module. -->
+
     <uses-permission android:name="com.android.vending.BILLING" />
 
     <queries>
@@ -41,18 +41,7 @@
             android:name="com.google.android.gms.fonts.API_KEY"
             android:value="${FONTS_API_KEY}" />
 
-        <!-- The Google Mobile Ads SDK lives in the on-demand :feature:ads split. AGP promotes its
-             auto-init MobileAdsInitProvider into the BASE manifest (tagged splitName="ads"), but some
-             devices still instantiate it at process start when the ads split isn't installed, hitting
-             a ClassNotFoundException and force-closing on launch. We initialize the SDK explicitly
-             (AdsFeatureImpl.initialize), so strip the auto-init provider from the base manifest. -->
-        <provider
-            android:name="com.google.android.gms.ads.MobileAdsInitProvider"
-            android:authorities="${applicationId}.mobileadsinitprovider"
-            tools:node="remove"
-            tools:ignore="MissingClass" />
 
-        <!-- AdMob APPLICATION_ID meta-data now lives in the :feature:ads module manifest. -->
 
         <activity
             android:name=".MainActivity"

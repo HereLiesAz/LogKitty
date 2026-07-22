@@ -83,11 +83,7 @@ android {
         buildConfigField("String", "FONTS_API_KEY", "\"$apiKey\"")
         manifestPlaceholders["FONTS_API_KEY"] = apiKey // THIS WAS THE MISSING LINE
 
-        // AdMob banner unit id. Debug uses Google's official TEST unit so development clicks don't
-        // generate invalid traffic on the live unit; release swaps in the real unit (below). The
-        // app ID and AD_ID permission now live in the :feature:ads module. The base only passes this
-        // unit id to that module's banner. (Unit IDs are public — they ship in the APK.)
-        buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"ca-app-pub-3940256099942544/6300978111\"")
+
 
         // GitHub OAuth app client id for the device-flow sign-in (optional; PAT works without it).
         // Public value (no secret in device flow); supply via local.properties/env to enable the
@@ -137,13 +133,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Production banner ad-unit (real). Debug keeps the test unit from defaultConfig so our
-            // own development clicks don't generate invalid traffic on the live unit. An optional
-            // ADMOB_BANNER_UNIT_ID in local.properties/env overrides it (e.g. for a staging unit).
-            val overrideBannerUnitId = getLocalProperty("ADMOB_BANNER_UNIT_ID", rootProject.projectDir)
-            val bannerUnitId = if (overrideBannerUnitId.isNotBlank()) overrideBannerUnitId
-                else "ca-app-pub-7304740804770627/1839035745"
-            buildConfigField("String", "ADMOB_BANNER_UNIT_ID", "\"$bannerUnitId\"")
+
         }
     }
     lint {
@@ -313,11 +303,7 @@ dependencies {
     implementation(libs.dokar3.sheets.m3)
     implementation(libs.aznavrail)
 
-    // Google Mobile Ads now lives in the on-demand :feature:ads module, not the base. The ad SDK
-    // pulls in WorkManager, whose manifest entries merge into the *base* manifest while its
-    // resources would otherwise only ship in the feature split — so the base needs WorkManager's
-    // resources on its own resource path to link. (AGP de-dupes it out of the feature split.)
-    implementation("androidx.work:work-runtime:2.9.1")
+
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)

@@ -29,7 +29,7 @@ locally and are never uploaded by the app. See [PRIVACY_POLICY.md](PRIVACY_POLIC
 | `PACKAGE_USAGE_STATS` | special app access | Let Context Mode detect the foreground app (where available) to auto-filter the log to it. | Foreground package name, processed on-device only. |
 | `QUERY_ALL_PACKAGES` | sensitive (Play declaration) | Let the user pick **any** installed app to monitor, and classify each log line by its source app/category. | Installed-app list used on-device only; never transmitted. |
 | `INTERNET` | normal | Download the chosen code fonts, show the Settings banner ad, and (in some builds) upload crash reports. | LogKitty never uploads your logs. Fonts/ads handled by Google SDKs; crash reports = stack trace + device metadata only. |
-| `com.google.android.gms.permission.AD_ID` | normal (Play data-safety) | Used by the Google Mobile Ads SDK for the Settings banner. | Advertising ID handled by Google's ad SDK; user can opt out in device Google ad settings. |
+ Advertising ID handled by Google's ad SDK; user can opt out in device Google ad settings. |
 | `BIND_ACCESSIBILITY_SERVICE` | declared on the service (system-bound) | Powers **Context Mode**: detects the foreground app and Home/Recents transitions to auto-filter the log and collapse the overlay. **Not** an assistive tool. | Foreground package name + window-state events only. `canRetrieveWindowContent=false` — no screen content, text, or input is read. Nothing leaves the device. |
 
 ---
