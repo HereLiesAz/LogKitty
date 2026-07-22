@@ -325,7 +325,8 @@ dependencies {
     implementation(libs.okhttp)
 
     // Billing
-    implementation("com.android.billingclient:billing-ktx:6.2.1")
+    val billing_version = "9.1.0"
+    implementation("com.android.billingclient:billing:$billing_version")
 
     // Tests
     testImplementation(libs.junit)
