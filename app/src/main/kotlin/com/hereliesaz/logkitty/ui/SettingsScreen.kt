@@ -1009,7 +1009,6 @@ private fun permissionJustification(permission: String): String {
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_why_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_why_read_logs
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_why_query_all_packages
-        "com.google.android.gms.permission.AD_ID" -> R.string.perm_why_ad_id
         else -> 0
     }
     return if (res != 0) stringResource(res) else permission
@@ -1027,7 +1026,6 @@ private fun permissionLabel(permission: String): String {
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_read_logs
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_query_all_packages
-        "com.google.android.gms.permission.AD_ID" -> R.string.perm_ad_id
         else -> 0
     }
     return if (res != 0) stringResource(res) else permission.substringAfterLast('.')
