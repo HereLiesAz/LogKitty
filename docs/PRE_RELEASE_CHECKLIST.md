@@ -27,8 +27,21 @@ build/signing/publish mechanics; this is the human checklist around them.
 Install a release build — ideally from a **Play internal-testing** track, or a
 `bundletool build-apks --local-testing` install — and verify:
 - [ ] **Resource shrinking** didn't strip anything needed: the on-demand install dialogs show their
-      titles (Developer Stats, Ads), and no screen is missing text/icons. (`isShrinkResources` is on;
-      cross-module title strings are protected by `res/raw/keep.xml`.)
+      titles (Developer Stats, GitHub), and no screen is missing text/icons. (`isShrinkResources` is
+      on; cross-module title strings are protected by `res/raw/keep.xml`.)
+- [ ] **Edge-to-edge safe areas** (enforced from Android 15; we opt in explicitly via
+      `enableEdgeToEdge()` so API 30+ behaves the same). On a device with **gesture navigation** and
+      again with **3-button navigation**, check that nothing is hidden or unreachable behind the
+      bars:
+  - [ ] Dashboard / permission wizard: the logo clears the status bar and the bottom
+        "Settings" / "Open GitHub" buttons clear the navigation bar and gesture handle.
+  - [ ] Scaffold screens (Settings, GitHub, Info, Color scheme editor, Prohibited logs): the top app
+        bar sits below the status bar and the last list row scrolls clear of the navigation bar.
+  - [ ] Dashboard FAB ("Start/Stop") is fully tappable, not clipped by the gesture handle.
+  - [ ] Rotate to **landscape** and re-check — the display cutout moves to a side edge.
+  - [ ] Settings text fields: the IME doesn't cover the focused field.
+  - [ ] The overlay window is a separate `TYPE_APPLICATION_OVERLAY` window that measures the nav-bar
+        inset itself, so confirm it is unchanged (peek strip still sits above the bar).
 - [ ] **On-demand modules install and load**: open the Stats tab (downloads `:feature:stats`); the
 - [ ] **Context Mode** works: foreground-app auto-filtering after granting Usage Access (non-root),
       and via `dumpsys` on a rooted device (no grant needed).

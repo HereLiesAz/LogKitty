@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -108,6 +109,15 @@ class MainActivity : ComponentActivity() {
     ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Draw behind the system bars. From Android 15 (targetSdk 35+) the platform forces this on
+        // regardless, and the `windowOptOutEdgeToEdgeEnforcement` escape hatch is ignored from
+        // targetSdk 36 — so the only question is whether we opt in deliberately or get it done to
+        // us. Calling it here also back-ports the same layout to API 30-34, so there is one inset
+        // behaviour to reason about instead of two. Must run before setContent so the first frame
+        // is already edge-to-edge. Every screen below is responsible for its own safe-area padding:
+        // the Scaffold-based screens get it from Scaffold/TopAppBar defaults, and MainScreenContent
+        // applies WindowInsets.safeDrawing itself.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         // Register receiver for service death
@@ -372,7 +382,15 @@ fun MainScreenContent(
     // Read Logs OR Root is required for functionality.
     val canStart = isOverlayGranted && (isReadLogsGranted || isRootEnabled)
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Unlike the other screens this one has no Scaffold, so nothing applies the safe area for it.
+    // Under edge-to-edge the logo would slide under the status bar and the bottom buttons under the
+    // navigation bar / gesture handle, so inset the scroll viewport here. safeDrawing (rather than
+    // systemBars) also covers display cutouts and the IME.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+    ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(scrollState),
             verticalArrangement = Arrangement.Center,
