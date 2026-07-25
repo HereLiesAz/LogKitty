@@ -128,6 +128,53 @@ jobs:
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
+      # Gate the upload on the bundle actually being free of AD_ID. Play rejects the whole edit with
+      # "This release includes the com.google.android.gms.permission.AD_ID permission but your
+      # declaration on Play Console says your app doesn't use advertising ID" when *any* module in
+      # the bundle declares it — and that same message is also returned when the permission comes
+      # from an older version code still active on the target track, which is a Play Console
+      # problem, not a build problem. Proving the artifact clean here is what tells the two apart:
+      # if this step passes and Play still rejects the commit, the offending permission is in a
+      # previously published release, not in this one.
+      # Runs on dry runs too (no `if:`), so a regression is caught before anyone opts into publish.
+      - name: Verify bundle declares no AD_ID permission
+        run: |
+          set -euo pipefail
+          BT_VERSION=1.17.2
+          curl -fsSL -o bundletool.jar \
+            "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+
+          AAB=$(find app/build/outputs/bundle -name "*.aab" | head -n 1)
+          if [ -z "$AAB" ]; then echo "::error::no .aab produced!"; exit 1; fi
+          echo "Bundle: $AAB"
+
+          # Every top-level directory holding manifest/AndroidManifest.xml is a bundle module
+          # (base, feature:stats, feature:github, ...). Check all of them, not just base.
+          MODULES=$(unzip -Z1 "$AAB" | sed -n 's#^\([^/]*\)/manifest/AndroidManifest\.xml$#\1#p' | sort -u)
+          if [ -z "$MODULES" ]; then echo "::error::no module manifests found in $AAB"; exit 1; fi
+          echo "Modules: $(echo "$MODULES" | tr '\n' ' ')"
+
+          DIRTY=0
+          for M in $MODULES; do
+            # bundletool decodes the proto-encoded manifest back to XML, so this reads the exact
+            # permission set Play will see for that module.
+            MANIFEST=$(java -jar bundletool.jar dump manifest --bundle="$AAB" --module="$M")
+            if echo "$MANIFEST" | grep -q "com.google.android.gms.permission.AD_ID"; then
+              echo "::error::module '$M' declares com.google.android.gms.permission.AD_ID"
+              echo "$MANIFEST" | grep -n "uses-permission" || true
+              DIRTY=1
+            else
+              echo "module '$M': clean"
+            fi
+          done
+
+          if [ "$DIRTY" -ne 0 ]; then
+            echo "::error::Bundle carries AD_ID. Either remove the dependency that merges it in, or"
+            echo "::error::change the Play Console advertising-ID declaration to \"Yes\"."
+            exit 1
+          fi
+          echo "No module declares AD_ID — the advertising-ID declaration may stay \"No\"."
+
       # Publish only when the operator opts in. Service-account JSON + Play API access required
       # (see docs/RELEASING.md). packageName must match the app's applicationId.
       - name: Publish to Google Play
@@ -154,9 +201,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -e
+          # Already fetched by the AD_ID verification step; re-fetch only if that changed.
           BT_VERSION=1.17.2
-          curl -fsSL -o bundletool.jar \
-            "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+          if [ ! -f bundletool.jar ]; then
+            curl -fsSL -o bundletool.jar \
+              "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+          fi
 
           AAB=$(find app/build/outputs/bundle -name "*.aab" | head -n 1)
           if [ -z "$AAB" ]; then echo "Error: no .aab produced!"; exit 1; fi

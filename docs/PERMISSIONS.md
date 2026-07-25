@@ -111,20 +111,36 @@ reduced source-classification accuracy.)*
 ## Other Play data declarations to remember
 
 - **Advertising ID (`AD_ID`):** LogKitty **does not use** the advertising ID.
-  Ads and the Google Mobile Ads SDK were removed, and the base manifest
-  explicitly strips the permission with `tools:node="remove"` so no transitive
-  dependency can merge it back in. Play still requires an answer:
+  Ads and the Google Mobile Ads SDK were removed, and every module manifest —
+  the base plus each dynamic feature — strips the permission with
+  `tools:node="remove"` so no transitive dependency can merge it back in. Each
+  dynamic feature runs its own manifest merge, so the base module's removal does
+  not cover them; the declaration has to be repeated per module. Play still
+  requires an answer:
   - **App content → Advertising ID** → answer **"No, my app does not use
     advertising ID"**. Leaving this unanswered is what produces the
     *"Incomplete advertising ID declaration"* blocker.
   - **Data safety** → do not list advertising ID under collected/shared data.
   - Play cross-checks the answer against the uploaded bundle: answering "No"
     while the bundle still contains `com.google.android.gms.permission.AD_ID`
-    is rejected. Verify with
-    `bundletool dump manifest --bundle=app-release.aab | grep AD_ID`
-    (or check the merged manifest in `app/build/intermediates/merged_manifests/`)
-    before submitting.
+    is rejected. The *Publish to Google Play* workflow gates the upload on this,
+    running `bundletool dump manifest` per bundle module before it touches Play.
+    To check by hand, do the same thing — the plain
+    `bundletool dump manifest --bundle=app-release.aab` only reads the **base**
+    module, so pass `--module=<name>` for each feature too.
+
+  **If Play rejects the edit but the bundle verifies clean.** The API returns the
+  same *"This release includes the com.google.android.gms.permission.AD_ID
+  permission…"* message when the permission comes from an older version code
+  that is still **active on the target track**, not from the bundle being
+  uploaded. Nothing in this repository can fix that. In the Play Console:
+  1. **App bundle explorer** → check **Permissions** per active version code to
+     find which ones carry `AD_ID`. Anything built before commit `0b71c7b`
+     (which removed the `:feature:ads` module) is suspect.
+  2. Either deactivate those releases on every track, **or** flip the
+     declaration to "Yes", roll a verified-clean build out to every track
+     including production, then flip it back to "No".
 - **Usage access (`PACKAGE_USAGE_STATS`):** a special app access the user grants
   in system settings; surfaced and explained in-app under Settings → Permissions.
 
-_Last updated: 2026-06-08._
+_Last updated: 2026-07-25._
