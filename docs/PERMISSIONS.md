@@ -28,8 +28,7 @@ locally and are never uploaded by the app. See [PRIVACY_POLICY.md](PRIVACY_POLIC
 | `POST_NOTIFICATIONS` | runtime (Android 13+) | Show the persistent, silent notification that lets you start/stop capture and confirms the service is running. | None. |
 | `PACKAGE_USAGE_STATS` | special app access | Let Context Mode detect the foreground app (where available) to auto-filter the log to it. | Foreground package name, processed on-device only. |
 | `QUERY_ALL_PACKAGES` | sensitive (Play declaration) | Let the user pick **any** installed app to monitor, and classify each log line by its source app/category. | Installed-app list used on-device only; never transmitted. |
-| `INTERNET` | normal | Download the chosen code fonts, show the Settings banner ad, and (in some builds) upload crash reports. | LogKitty never uploads your logs. Fonts/ads handled by Google SDKs; crash reports = stack trace + device metadata only. |
- Advertising ID handled by Google's ad SDK; user can opt out in device Google ad settings. |
+| `INTERNET` | normal | Download the chosen code fonts, talk to Google Play for billing/updates, and (in some builds) upload crash reports. | LogKitty never uploads your logs. Fonts handled by Google SDKs; crash reports = stack trace + device metadata only. No advertising ID is read or transmitted. |
 | `BIND_ACCESSIBILITY_SERVICE` | declared on the service (system-bound) | Powers **Context Mode**: detects the foreground app and Home/Recents transitions to auto-filter the log and collapse the overlay. **Not** an assistive tool. | Foreground package name + window-state events only. `canRetrieveWindowContent=false` — no screen content, text, or input is read. Nothing leaves the device. |
 
 ---
@@ -111,8 +110,20 @@ reduced source-classification accuracy.)*
 
 ## Other Play data declarations to remember
 
-- **Advertising ID (`AD_ID`):** declare advertising-ID collection/usage in the
-  **Data safety** form (used for ads via the Google Mobile Ads SDK).
+- **Advertising ID (`AD_ID`):** LogKitty **does not use** the advertising ID.
+  Ads and the Google Mobile Ads SDK were removed, and the base manifest
+  explicitly strips the permission with `tools:node="remove"` so no transitive
+  dependency can merge it back in. Play still requires an answer:
+  - **App content → Advertising ID** → answer **"No, my app does not use
+    advertising ID"**. Leaving this unanswered is what produces the
+    *"Incomplete advertising ID declaration"* blocker.
+  - **Data safety** → do not list advertising ID under collected/shared data.
+  - Play cross-checks the answer against the uploaded bundle: answering "No"
+    while the bundle still contains `com.google.android.gms.permission.AD_ID`
+    is rejected. Verify with
+    `bundletool dump manifest --bundle=app-release.aab | grep AD_ID`
+    (or check the merged manifest in `app/build/intermediates/merged_manifests/`)
+    before submitting.
 - **Usage access (`PACKAGE_USAGE_STATS`):** a special app access the user grants
   in system settings; surfaced and explained in-app under Settings → Permissions.
 
