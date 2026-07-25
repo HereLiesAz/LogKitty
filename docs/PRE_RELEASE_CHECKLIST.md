@@ -28,7 +28,12 @@ Install a release build — ideally from a **Play internal-testing** track, or a
 `bundletool build-apks --local-testing` install — and verify:
 - [ ] **Resource shrinking** didn't strip anything needed: the on-demand install dialogs show their
       titles (Developer Stats, GitHub), and no screen is missing text/icons. (`isShrinkResources` is
-      on; cross-module title strings are protected by `res/raw/keep.xml`.)
+      on; cross-module title strings are protected by `res/raw/keep.xml`.) Note this now runs in
+      **optimized** mode (`android.r8.optimizedResourceShrinking=true` in `gradle.properties`),
+      which additionally collapses duplicate resources and strips resource *names* from
+      `resources.arsc` — so anything resolved by name at runtime via `Resources.getIdentifier`
+      would fail here rather than at compile time. Worth a pass over the dynamic-feature install
+      dialogs specifically, since those titles cross a module boundary.
 - [ ] **Edge-to-edge safe areas** (enforced from Android 15; we opt in explicitly via
       `enableEdgeToEdge()` so API 30+ behaves the same). On a device with **gesture navigation** and
       again with **3-button navigation**, check that nothing is hidden or unreachable behind the
