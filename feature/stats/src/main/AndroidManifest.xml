@@ -15,4 +15,12 @@
     </dist:module>
 
     <!-- PACKAGE_USAGE_STATS is declared in the base module (used by Context Mode too). -->
+
+    <!-- Each dynamic feature runs its own manifest merge, so the base module's AD_ID removal does
+         not reach this module. Repeat it here: Play validates the permission across every module
+         in the bundle, and a single feature-level dependency reintroducing it would fail the
+         "Advertising ID = No" declaration for the whole release. -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
 </manifest>
