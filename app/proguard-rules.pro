@@ -26,3 +26,14 @@
 -keep class com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl { <init>(); }
 
 -keep class com.hereliesaz.logkitty.feature.github.GitHubFeatureImpl { <init>(); }
+
+# The Play Billing Library's bundled consumer rules only keep the *fields* of its generated
+# proto-lite message classes (`-keepclassmembers class * extends ...zzgp { <fields>; }`), not the
+# classes themselves. Under R8 full mode those message classes are otherwise only reachable via the
+# proto runtime's own reflection, so tree-shaking removes them entirely — BillingManager's
+# background connection callback (com.android.billingclient.api.BillingClientStateListener) then
+# crashes a few seconds after launch with NoClassDefFoundError the first time it touches one.
+# (android.r8.strictFullModeForKeepRules=false in gradle.properties suppresses the build-time
+# warning R8 would otherwise raise for this exact gap, so it only surfaces at runtime.)
+-keep class com.google.android.gms.internal.play_billing.** { *; }
+-keep class com.android.billingclient.api.** { *; }
