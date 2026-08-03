@@ -37,3 +37,12 @@
 # warning R8 would otherwise raise for this exact gap, so it only surfaces at runtime.)
 -keep class com.google.android.gms.internal.play_billing.** { *; }
 -keep class com.android.billingclient.api.** { *; }
+
+# Same failure mode, different library: com.google.android.play:app-update ships NO consumer
+# proguard rules at all (its AAR has no proguard.txt), yet AppUpdateManager's IPC with the Play
+# Store app (checkForAppUpdate(), called on every launch from MainActivity.onCreate) relies on
+# obfuscated com.google.android.play.core.** classes only reachable through the library's own
+# reflection/Binder callback plumbing. Without an explicit keep, R8 strips them the same way it
+# stripped Billing's proto-lite classes above.
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
