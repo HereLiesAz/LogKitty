@@ -76,7 +76,12 @@ class StateDelegate(
             val start = match.range.first
             if (start == 0) return ParsedLogLine(null, raw, true)
             val prefix = raw.substring(0, start).trim()
-            return ParsedLogLine(parseUid(prefix), raw.substring(start), true)
+            val uid = parseUid(prefix)
+            return if (uid != null) {
+                ParsedLogLine(uid, raw.substring(start), true)
+            } else {
+                ParsedLogLine(null, raw, false)
+            }
         }
 
         /**

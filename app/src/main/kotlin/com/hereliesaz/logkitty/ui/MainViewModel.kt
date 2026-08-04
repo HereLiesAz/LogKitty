@@ -208,6 +208,13 @@ class MainViewModel(
     private val _selectedTab = MutableStateFlow(systemTab)
     val selectedTab: StateFlow<LogTab> = _selectedTab
 
+    private data class FilterSettings(
+        val userFilter: String,
+        val prohibited: Set<String>,
+        val levels: Set<String>,
+        val marks: Map<String, Long>
+    )
+
     private data class FilterInputs(
         val tab: LogTab,
         val userFilter: String,
@@ -224,19 +231,22 @@ class MainViewModel(
      * Each entry preserves its global id so the UI can stably select / copy / prohibit it.
      */
     val filteredIndexedLog: StateFlow<List<IndexedLogLine>> = run {
-        val inputs = combine(
-            _selectedTab, customFilter, prohibitedTags, activeLogLevels, _tabClearMarks,
-            isContextModeEnabled, isHardContextMode, _currentForegroundApp
-        ) { args -> 
+        val contextInputs = combine(isContextModeEnabled, isHardContextMode, _currentForegroundApp) { ctx, hard, fg ->
+            Triple(ctx, hard, fg)
+        }
+        val filterSettings = combine(customFilter, prohibitedTags, activeLogLevels, _tabClearMarks) { f, p, l, m ->
+            FilterSettings(f, p, l, m)
+        }
+        val inputs = combine(_selectedTab, filterSettings, contextInputs) { tab, fs, ci ->
             FilterInputs(
-                tab = args[0] as LogTab,
-                userFilter = args[1] as String,
-                prohibited = args[2] as Set<String>,
-                levels = args[3] as Set<String>,
-                marks = args[4] as Map<String, Long>,
-                isContextMode = args[5] as Boolean,
-                isHardContextMode = args[6] as Boolean,
-                currentFgApp = args[7] as String?
+                tab = tab,
+                userFilter = fs.userFilter,
+                prohibited = fs.prohibited,
+                levels = fs.levels,
+                marks = fs.marks,
+                isContextMode = ci.first,
+                isHardContextMode = ci.second,
+                currentFgApp = ci.third
             )
         }
         combine(stateDelegate.systemLog, inputs) { logs, input ->

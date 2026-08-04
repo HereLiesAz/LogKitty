@@ -16,7 +16,7 @@ object SessionLogFileWriter {
     private const val TAG = "SessionLogFileWriter"
     private const val LOG_DIR_NAME = "logs"
     private data class SessionData(val writer: BufferedWriter, val file: File)
-    private val openSessions = mutableMapOf<String, SessionData>()
+    private val openSessions = java.util.concurrent.ConcurrentHashMap<String, SessionData>()
     
     private fun getLogsDir(context: Context): File {
         val dir = File(context.filesDir, LOG_DIR_NAME)

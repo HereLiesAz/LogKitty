@@ -86,8 +86,15 @@ object LogcatReader {
                 emit("Logcat reader failed: ${e.message}")
                 delay(5000)
             } finally {
-                // Ensure the zombie process is cleaned up before we loop around.
-                process?.destroyForcibly()
+                // Ensure the process and any root children are cleaned up before we loop around.
+                try {
+                    process?.destroyForcibly()
+                    if (useRoot) {
+                        Runtime.getRuntime().exec(arrayOf("su", "-c", "pkill -f logcat"))
+                    }
+                } catch (e: Exception) {
+                    // Ignore cleanup exceptions
+                }
             }
 
             // The uid format exited without ever emitting a real log line — this device likely

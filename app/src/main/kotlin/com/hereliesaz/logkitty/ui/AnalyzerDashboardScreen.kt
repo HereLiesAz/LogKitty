@@ -88,14 +88,14 @@ fun AnalyzerDashboardScreen(
             val totalRam = memoryInfo.totalMem
             val availRam = memoryInfo.availMem
             val usedRam = totalRam - availRam
-            ramUsedPercent = usedRam.toFloat() / totalRam.toFloat()
+            ramUsedPercent = if (totalRam > 0) (usedRam.toFloat() / totalRam.toFloat()).coerceIn(0f, 1f) else 0f
             ramText = "${Formatter.formatShortFileSize(context, usedRam)} / ${Formatter.formatShortFileSize(context, totalRam)}"
 
             val internalDir = context.filesDir
             val totalStorage = internalDir.totalSpace
             val freeStorage = internalDir.freeSpace
             val usedStorage = totalStorage - freeStorage
-            storageUsedPercent = usedStorage.toFloat() / totalStorage.toFloat()
+            storageUsedPercent = if (totalStorage > 0) (usedStorage.toFloat() / totalStorage.toFloat()).coerceIn(0f, 1f) else 0f
             storageText = "${Formatter.formatShortFileSize(context, usedStorage)} / ${Formatter.formatShortFileSize(context, totalStorage)}"
 
             val cores = Runtime.getRuntime().availableProcessors()
