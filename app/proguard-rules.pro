@@ -48,3 +48,4 @@
 -dontwarn com.google.android.play.core.**
 -keep class kotlin.jvm.internal.** { *; }
 -keep class androidx.work.** { *; }
+-keep class androidx.core.** { *; }
