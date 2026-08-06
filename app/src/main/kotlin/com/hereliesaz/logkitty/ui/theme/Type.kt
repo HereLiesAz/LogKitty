@@ -1,13 +1,18 @@
 package com.hereliesaz.logkitty.ui.theme
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontLoadingStrategy
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.text.googlefonts.GoogleFont
+import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.unit.sp
+import androidx.core.content.res.ResourcesCompat
 import com.hereliesaz.logkitty.R
 
 // --- Google Fonts Configuration ---
@@ -37,8 +42,11 @@ enum class CodingFont(val fontName: String, val displayNameRes: Int) {
 /**
  * Returns a [FontFamily] that loads the specified Google Font.
  * Falls back to System Monospace if "System" is selected or if loading fails.
+ *
+ * @param context Optional context to "pre-flight" local font loading (required to catch native
+ * crashes on API 29+ during Font.Builder execution).
  */
-fun getGoogleFontFamily(fontName: String): FontFamily {
+fun getGoogleFontFamily(fontName: String, context: Context? = null): FontFamily {
     return when (fontName) {
         "System" -> FontFamily.Monospace
         "Google Sans Flex" -> {
@@ -47,6 +55,13 @@ fun getGoogleFontFamily(fontName: String): FontFamily {
             // We use a try-catch here as a safety rail, but we also default the app's
             // main Typography to SansSerif to prevent startup crashes.
             try {
+                // Pre-flight check: try to load the font via ResourcesCompat.
+                // This triggers the native Font.Builder.build() immediately on the current thread,
+                // allowing us to catch IllegalArgumentException or other fatal errors.
+                context?.let {
+                    ResourcesCompat.getFont(it, R.font.google_sans_flex)
+                }
+                
                 FontFamily(
                     androidx.compose.ui.text.font.Font(
                         resId = R.font.google_sans_flex,

@@ -146,7 +146,7 @@ fun LogBottomSheet(
 
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
-        getGoogleFontFamily(enumVal.fontName)
+        getGoogleFontFamily(enumVal.fontName, context)
     }
 
     var selectedLineIds by remember { mutableStateOf<Set<Long>>(emptySet()) }

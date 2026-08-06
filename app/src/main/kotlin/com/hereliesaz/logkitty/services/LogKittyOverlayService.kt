@@ -10,9 +10,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.view.Display
+import android.view.WindowInsets
+import android.view.WindowManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
@@ -198,21 +202,29 @@ class LogKittyOverlayService : Service() {
     private fun setupOverlay() {
         val app = applicationContext as MainApplication
         val viewModel = app.mainViewModel
+
+        // On Android 11+ (LogKitty's minSdk is 30), windows added from a Service should use a
+        // WindowContext to associate the window with a display and type, avoiding 
+        // WindowManager$BadTokenException ("token null is not valid") on newer targetSdks.
+        val windowContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val displayManager = getSystemService(DISPLAY_SERVICE) as DisplayManager
+            val display = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
+            createWindowContext(display, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+        } else {
+            // API 30: Use the baseContext to access the Context version of the API.
+            baseContext.createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+        }
+
         // Use the *actual* navigation-bar inset so the overlay window is exactly content + nav bar,
         // and the PeekStrip lifts its text by this same measured value. The resource value is a
         // fixed ~48dp even on gesture nav, which would otherwise make the window taller than the bar
         // and leave a touch dead zone over the app below. `getInsetsIgnoringVisibility` reports the
         // bar height even while it's temporarily hidden.
         val navBarHeightPx = run {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val wm = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-                wm.currentWindowMetrics.windowInsets
-                    .getInsetsIgnoringVisibility(android.view.WindowInsets.Type.navigationBars())
-                    .bottom
-            } else {
-                val resId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-                if (resId > 0) resources.getDimensionPixelSize(resId) else 0
-            }
+            val wm = windowContext.getSystemService(WINDOW_SERVICE) as WindowManager
+            wm.currentWindowMetrics.windowInsets
+                .getInsetsIgnoringVisibility(WindowInsets.Type.navigationBars())
+                .bottom
         }
 
         val composeOwners = ComposeLifecycleHelper().also {
@@ -222,7 +234,7 @@ class LogKittyOverlayService : Service() {
         owners = composeOwners
 
         val host = AzBottomSheetWindowHost(
-            context = this,
+            context = windowContext,
             controller = controller,
             config = sheetConfig(viewModel),
             lifecycleOwner = composeOwners,
@@ -275,9 +287,9 @@ class LogKittyOverlayService : Service() {
             viewModel.sessionFinishedEvent.collect { file ->
                 try {
                     // Set attention glow on the bottom sheet
-                    viewModel.setAttentionColor(androidx.compose.ui.graphics.Color.Red)
+                    viewModel.setAttentionColor(Color.Red)
 
-                    val intent = Intent(applicationContext, com.hereliesaz.logkitty.MainActivity::class.java).apply {
+                    val intent = Intent(applicationContext, MainActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     }
                     val pendingIntent = android.app.PendingIntent.getActivity(
@@ -363,10 +375,8 @@ class LogKittyOverlayService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW)
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     /** Rebuilds and re-posts the notification (e.g. to flip the Start/Stop action on pause toggle). */

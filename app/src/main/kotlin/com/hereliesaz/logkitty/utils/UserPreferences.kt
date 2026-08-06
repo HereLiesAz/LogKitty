@@ -94,7 +94,7 @@ class UserPreferences(context: Context) {
     val fontSize: StateFlow<Int> = _fontSize.asStateFlow()
 
     // --- Preference: Font Family ---
-    private val _fontFamily = MutableStateFlow(prefs.getString(KEY_FONT_FAMILY, CodingFont.GOOGLE_SANS_FLEX.name) ?: CodingFont.GOOGLE_SANS_FLEX.name)
+    private val _fontFamily = MutableStateFlow(prefs.getString(KEY_FONT_FAMILY, CodingFont.SYSTEM.name) ?: CodingFont.SYSTEM.name)
     val fontFamily: StateFlow<String> = _fontFamily.asStateFlow()
 
     // --- Preference: Root Mode ---

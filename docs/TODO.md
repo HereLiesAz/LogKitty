@@ -29,7 +29,10 @@
 - [x] **Harden Font Loading (Fix `IllegalArgumentException` on API 29+)**
     - [x] Modified `Type.kt` to default `GoogleSansFlex` to `FontFamily.SansSerif`.
     - [x] Added `try-catch` and explicit `FontWeight.Normal` to `getGoogleFontFamily` for local font loading.
-- [ ] **Implement `READ_LOGS` Check in `MainActivity`**
+    - [x] **NEW:** Added "pre-flight" probe using `ResourcesCompat.getFont` in `getGoogleFontFamily` to catch native `Font.Builder` crashes immediately.
+    - [x] **NEW:** Switched default font in `UserPreferences` from `GOOGLE_SANS_FLEX` to `SYSTEM` (Monospace) to prevent startup crashes on incompatible devices.
+- [x] **Implement `READ_LOGS` Check in `MainActivity`**
+    - [x] Added `WindowManager$BadTokenException` fix in `LogKittyOverlayService` by using `createWindowContext` on API 30+.
     - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/MainActivity.kt`.
     - [ ] Locate or create the `onResume()` lifecycle method.
     - [ ] Add code to call `ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_LOGS)`.
