@@ -58,9 +58,9 @@ plugins {
 // in the base and R8 fails with "defined multiple times". (Also keeps the security forces uniform.)
 subprojects {
     configurations.all {
-        // WorkManager pulls the `listenablefuture:1.0` stub, which redefines ListenableFuture and
-        // collides with full Guava under R8 ("defined multiple times"). Drop the stub everywhere.
-        exclude(group = "com.google.guava", module = "listenablefuture")
+        // Note: Do NOT exclude listenablefuture globally or guava:listenablefuture, because libraries
+        // like androidx.concurrent:concurrent-futures or androidx.profileinstaller require
+        // com.google.common.util.concurrent.ListenableFuture at runtime.
         resolutionStrategy.eachDependency {
             val g = requested.group
             val n = requested.name
