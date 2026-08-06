@@ -51,18 +51,3 @@ web. Comprehensive documentation is available in the `docs/` directory:
 3.  Navigate to the app you want to debug.
 4.  Watch the logs roll in!
 5.  Use the icons in the overlay header to **Copy**, **Save**, or open **Settings**.
-
-## Development
-
-LogKitty is built with Kotlin and Jetpack Compose.
-
-### Build
-```bash
-./gradlew :app:assembleDebug
-```
-
-### Versioning
-See `version.properties` for the current version state. Local builds auto-increment the build
-number; CI passes `-PversionBuild=$(git rev-list --count HEAD)` for a strictly-increasing
-`versionCode`. See **[docs/RELEASING.md](docs/RELEASING.md)** for signed App Bundle builds and Play
-publishing.
