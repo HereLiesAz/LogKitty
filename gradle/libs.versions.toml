@@ -26,6 +26,7 @@ r8 = "9.2.23"
 playFeatureDelivery = "2.1.0"
 playAppUpdate = "2.1.0"
 workRuntimeKtx = "2.11.2"
+concurrentFutures = "1.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -71,6 +72,8 @@ play-feature-delivery = { module = "com.google.android.play:feature-delivery", v
 play-feature-delivery-ktx = { module = "com.google.android.play:feature-delivery-ktx", version.ref = "playFeatureDelivery" }
 play-app-update = { module = "com.google.android.play:app-update", version.ref = "playAppUpdate" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
+androidx-concurrent-futures = { group = "androidx.concurrent", name = "concurrent-futures", version.ref = "concurrentFutures" }
+androidx-concurrent-futures-ktx = { group = "androidx.concurrent", name = "concurrent-futures-ktx", version.ref = "concurrentFutures" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -280,6 +280,10 @@ dependencies {
 
     // WorkManager: used for log cleanup and background tasks.
     implementation(libs.androidx.work.runtime.ktx)
+    // WorkManager and Billing often expect AbstractResolvableFuture; explicitly bundle it to fix
+    // java.lang.ClassNotFoundException: androidx.concurrent.futures.AbstractResolvableFuture.
+    implementation(libs.androidx.concurrent.futures)
+    implementation(libs.androidx.concurrent.futures.ktx)
 
     // Play Feature Delivery: install/observe on-demand modules at runtime via SplitInstallManager.
     implementation(libs.play.feature.delivery)

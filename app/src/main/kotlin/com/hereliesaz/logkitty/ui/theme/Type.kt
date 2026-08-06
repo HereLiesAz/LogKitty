@@ -1,5 +1,6 @@
 package com.hereliesaz.logkitty.ui.theme
 
+import android.util.Log
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -40,7 +41,23 @@ enum class CodingFont(val fontName: String, val displayNameRes: Int) {
 fun getGoogleFontFamily(fontName: String): FontFamily {
     return when (fontName) {
         "System" -> FontFamily.Monospace
-        "Google Sans Flex" -> FontFamily(androidx.compose.ui.text.font.Font(R.font.google_sans_flex))
+        "Google Sans Flex" -> {
+            // Google Sans Flex is a local variable font. If it fails to load on some API levels
+            // (e.g. 29-30) due to native Font.Builder issues, we fallback to SansSerif.
+            // We use a try-catch here as a safety rail, but we also default the app's
+            // main Typography to SansSerif to prevent startup crashes.
+            try {
+                FontFamily(
+                    androidx.compose.ui.text.font.Font(
+                        resId = R.font.google_sans_flex,
+                        weight = FontWeight.Normal
+                    )
+                )
+            } catch (e: Exception) {
+                Log.e("Type", "Failed to load Google Sans Flex, falling back to SansSerif", e)
+                FontFamily.SansSerif
+            }
+        }
         else -> FontFamily(
             Font(googleFont = GoogleFont(fontName), fontProvider = provider)
         )
@@ -49,9 +66,9 @@ fun getGoogleFontFamily(fontName: String): FontFamily {
 
 // Default Typography styles.
 // Note: The LogBottomSheet uses explicit font sizes from Settings, bypassing some of this.
-val GoogleSansFlex = FontFamily(
-    androidx.compose.ui.text.font.Font(R.font.google_sans_flex)
-)
+// We default this to SansSerif to prevent startup crashes if the local google_sans_flex.ttf
+// is corrupted or incompatible with the current Android version's native font builder.
+val GoogleSansFlex = FontFamily.SansSerif
 
 val Typography = Typography(
     bodyLarge = TextStyle(

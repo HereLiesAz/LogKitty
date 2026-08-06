@@ -4,6 +4,7 @@
 - [x] Integrate Google Play Billing Library.
 - [x] Add global `AdsState` to manage permanent vs session Ad-Free status.
 - [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).
+- [x] Fix `java.lang.ClassNotFoundException: androidx.concurrent.futures.AbstractResolvableFuture` by explicitly bundling `androidx.concurrent:concurrent-futures`.
 
 ## 0. v0.6 — Overhaul (DONE)
 - [x] Replaced dokar3 bottom-sheet with a custom 4-detent overlay (HIDDEN / PEEK / HALF / FULL).
@@ -25,6 +26,9 @@
 **Goal:** Prevent crashes and guide the user through the "Hostile" Android permission landscape.
 
 ### 1.1 Permission Management
+- [x] **Harden Font Loading (Fix `IllegalArgumentException` on API 29+)**
+    - [x] Modified `Type.kt` to default `GoogleSansFlex` to `FontFamily.SansSerif`.
+    - [x] Added `try-catch` and explicit `FontWeight.Normal` to `getGoogleFontFamily` for local font loading.
 - [ ] **Implement `READ_LOGS` Check in `MainActivity`**
     - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/MainActivity.kt`.
     - [ ] Locate or create the `onResume()` lifecycle method.
