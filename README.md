@@ -9,7 +9,8 @@ LogKitty is a developer tool that puts your system logs right where you need the
 *   **Always-On Overlay:** A persistent bottom sheet that floats over other apps.
 *   **Real-Time Logs:** Streams `logcat` output directly to the overlay.
 *   **Peek & Expand:**
-    *   **Peek:** See the latest log line without obstruction.
+    *   **Hidden:**  See the latest log line without obstruction.
+    *   **Peek:** See a few lines more.
     *   **Half:** Scroll through recent logs.
     *   **Full:** Deep dive into stack traces.
 *   **Context Awareness:** Automatically detects the foreground app to highlight or filter relevant logs.
