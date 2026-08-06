@@ -46,3 +46,6 @@
 # stripped Billing's proto-lite classes above.
 -keep class com.google.android.play.core.** { *; }
 -dontwarn com.google.android.play.core.**
+-keep class kotlin.jvm.internal.** { *; }
+-keep class androidx.work.** { *; }
+-keep class androidx.core.** { *; }
