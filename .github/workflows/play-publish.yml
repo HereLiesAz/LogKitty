@@ -19,14 +19,14 @@ on:
       status:
         description: "Release status"
         type: choice
-        default: draft
+        default: completed
         options:
           - draft
           - completed
       publish:
         description: "Publish to Play? (off = build + upload the .aab artifact only)"
         type: boolean
-        default: false
+        default: true
 
 jobs:
   publish:
