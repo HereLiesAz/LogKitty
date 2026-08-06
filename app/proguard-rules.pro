@@ -49,3 +49,13 @@
 -keep class kotlin.jvm.internal.** { *; }
 -keep class androidx.work.** { *; }
 -keep class androidx.core.** { *; }
+-keep class okhttp3.** { *; }
+-keep class kotlinx.coroutines.** { *; }
+-keep class kotlinx.serialization.** { *; }
+-keep class androidx.lifecycle.** { *; }
+-keep class androidx.compose.** { *; }
+-keep class com.hereliesaz.** { *; }
+-keep class com.dokar3.** { *; }
+-keep class dokar3.** { *; }
+-keep class io.github.dokar3.** { *; }
+-keep class dokar.sheets.** { *; }
