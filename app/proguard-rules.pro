@@ -46,3 +46,16 @@
 # stripped Billing's proto-lite classes above.
 -keep class com.google.android.play.core.** { *; }
 -dontwarn com.google.android.play.core.**
+-keep class kotlin.** { *; }
+-keep class kotlinx.** { *; }
+-keep class androidx.** { *; }
+-keep class com.hereliesaz.** { *; }
+-keep class io.github.dokar3.** { *; }
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+-keep class com.google.** { *; }
+-keep class java.** { *; }
+-keep class javax.** { *; }
+-keep class org.** { *; }
+-keep class sun.** { *; }
+-keep class com.sun.** { *; }
