@@ -1,8 +1,7 @@
 # TODO Roadmap & Tactical Implementation Plan
 
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
-- [x] Integrate Google Play Billing Library.
-- [x] Add global `AdsState` to manage permanent vs session Ad-Free status.
+- [x] ~~Google Play Billing / `AdsState`~~ — removed in 0.9.0 (gated nothing).
 - [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).
 - [x] Fix `java.lang.ClassNotFoundException: androidx.concurrent.futures.AbstractResolvableFuture` by explicitly bundling `androidx.concurrent:concurrent-futures`.
 

@@ -28,7 +28,7 @@ locally and are never uploaded by the app. See [PRIVACY_POLICY.md](PRIVACY_POLIC
 | `POST_NOTIFICATIONS` | runtime (Android 13+) | Show the persistent, silent notification that lets you start/stop capture and confirms the service is running. | None. |
 | `PACKAGE_USAGE_STATS` | special app access | Let Context Mode detect the foreground app (where available) to auto-filter the log to it. | Foreground package name, processed on-device only. |
 | `QUERY_ALL_PACKAGES` | sensitive (Play declaration) | Let the user pick **any** installed app to monitor, and classify each log line by its source app/category. | Installed-app list used on-device only; never transmitted. |
-| `INTERNET` | normal | Download the chosen code fonts, talk to Google Play for billing/updates, and (in some builds) upload crash reports. | LogKitty never uploads your logs. Fonts handled by Google SDKs; crash reports = stack trace + device metadata only. No advertising ID is read or transmitted. |
+| `INTERNET` | normal | Download the chosen code fonts, talk to Google Play for updates, and (in some builds) upload crash reports. | LogKitty never uploads your logs. Fonts handled by Google SDKs; crash reports = stack trace + device metadata only. No advertising ID is read or transmitted. |
 | `BIND_ACCESSIBILITY_SERVICE` | declared on the service (system-bound) | Powers **Context Mode**: detects the foreground app and Home/Recents transitions to auto-filter the log and collapse the overlay. **Not** an assistive tool. | Foreground package name + window-state events only. `canRetrieveWindowContent=false` — no screen content, text, or input is read. Nothing leaves the device. |
 
 ---

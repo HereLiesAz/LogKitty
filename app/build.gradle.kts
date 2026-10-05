@@ -280,7 +280,7 @@ dependencies {
 
     // WorkManager: used for log cleanup and background tasks.
     implementation(libs.androidx.work.runtime.ktx)
-    // WorkManager and Billing often expect AbstractResolvableFuture; explicitly bundle it to fix
+    // WorkManager expects AbstractResolvableFuture; explicitly bundle it to fix
     // java.lang.ClassNotFoundException: androidx.concurrent.futures.AbstractResolvableFuture.
     implementation(libs.androidx.concurrent.futures)
     implementation(libs.androidx.concurrent.futures.ktx)
@@ -314,10 +314,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
-
-    // Billing
-    val billing_version = "9.1.0"
-    implementation("com.android.billingclient:billing:$billing_version")
 
     // Tests
     testImplementation(libs.junit)
