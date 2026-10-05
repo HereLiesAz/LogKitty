@@ -3,6 +3,7 @@ package com.hereliesaz.logkitty.ui.delegates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -38,5 +39,7 @@ class StateDelegateTest {
         assertEquals("Line 3", logs[0].text)
         assertEquals("Line 4", logs[1].text)
         assertEquals("Line 5", logs[2].text)
+        // StateDelegate's batch loop never ends; cancel it so runBlocking can return.
+        coroutineContext.cancelChildren()
     }
 }

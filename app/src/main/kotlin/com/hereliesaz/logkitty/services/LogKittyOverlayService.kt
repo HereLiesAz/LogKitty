@@ -315,10 +315,27 @@ class LogKittyOverlayService : Service() {
             }
         }
 
+        // A monitored app crashed: the user is about to land on the launcher, where the overlay is
+        // disabled, so open the full-screen log on that app's tab. SYSTEM_ALERT_WINDOW normally
+        // exempts this background start, but Android 15+ also wants a visible overlay window and a
+        // blocked start fails silently — so a heads-up notification is always posted as a fallback.
+        // If LogKitty is already in front, just switch to the crashed app's tab.
+        serviceScope.launch {
+            viewModel.crashEvent.collect { pkg ->
+                if (viewModel.rawForegroundApp.value == packageName) {
+                    viewModel.selectAppTab(pkg)
+                    return@collect
+                }
+                postCrashNotification(pkg)
+                runCatching { startActivity(com.hereliesaz.logkitty.CrashLogActivity.intent(this@LogKittyOverlayService, pkg)) }
+                    .onFailure { android.util.Log.e(TAG, "Failed to open crash log for $pkg", it) }
+            }
+        }
+
         // While on the launcher, disable the overlay so the system swipe-up-for-app-drawer
         // gesture is untouched. Re-enable when any other foreground app comes up.
         serviceScope.launch {
-            viewModel.currentForegroundApp.collect { pkg ->
+            viewModel.rawForegroundApp.collect { pkg ->
                 controller.isEnabled = !AccessibilityActions.isLauncherPackage(pkg)
             }
         }
@@ -374,7 +391,31 @@ class LogKittyOverlayService : Service() {
         )
     }
 
+    /** Heads-up "app crashed" notification that opens [com.hereliesaz.logkitty.CrashLogActivity]. */
+    private fun postCrashNotification(pkg: String) {
+        val pending = android.app.PendingIntent.getActivity(
+            this, pkg.hashCode(),
+            com.hereliesaz.logkitty.CrashLogActivity.intent(this, pkg),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(this, CRASH_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(getString(R.string.notif_crash_title, pkg))
+            .setContentText(getString(R.string.notif_crash_text))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ERROR)
+            .setContentIntent(pending)
+            .setAutoCancel(true)
+            .build()
+        runCatching {
+            getSystemService(NotificationManager::class.java)?.notify(crashNotificationId(pkg), notification)
+        }
+    }
+
     private fun createNotificationChannel() {
+        getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+            NotificationChannel(CRASH_CHANNEL_ID, getString(R.string.notif_crash_channel_name), NotificationManager.IMPORTANCE_HIGH)
+        )
         val channel = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW)
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -424,6 +465,10 @@ class LogKittyOverlayService : Service() {
         private const val TAG = "LogKittyOverlay"
         private const val CHANNEL_ID = "logkitty_overlay_channel"
         private const val SERVICE_ID = 1001
+        private const val CRASH_CHANNEL_ID = "logkitty_crash_channel"
+
+        /** Per-package id for the crash notification; [com.hereliesaz.logkitty.CrashLogActivity] cancels it. */
+        fun crashNotificationId(pkg: String): Int = ("crash:" + pkg).hashCode()
         private const val ACTION_STOP_SERVICE = "com.hereliesaz.logkitty.STOP_SERVICE"
         private const val ACTION_OPEN_SETTINGS = "com.hereliesaz.logkitty.OPEN_SETTINGS"
         private const val ACTION_TOGGLE_PAUSE = "com.hereliesaz.logkitty.TOGGLE_PAUSE"

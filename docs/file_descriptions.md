@@ -15,6 +15,7 @@
 ### Root Package
 *   `MainActivity.kt`: The entry point activity. Handles initial setup, permission requests (Overlay, Root), and service starting.
 *   `MainApplication.kt`: The Application class. Initializes global singletons like `MainViewModel`.
+*   `CrashLogActivity.kt`: Full-screen log view (the `LogBottomSheet` pinned at FULL) opened by the overlay service when a monitored app crashes, since the overlay is disabled on the launcher a crash lands on. Collapsing it finishes the activity.
 *   `FileSaverActivity.kt`: A transient Activity used to save log buffers to a file using the System File Picker.
 
 ### services/
@@ -43,6 +44,7 @@
 
 ### utils/
 *   `LogcatReader.kt`: The engine that spawns and reads the `logcat` process. Handles stream parsing and resilience.
+*   `CrashDetector.kt`: Pure recognizer for app-crash lines (`FATAL EXCEPTION` by UID, `AndroidRuntime: Process: <pkg>`, native tombstone `>>> <pkg> <<<`). Feeds `MainViewModel.crashEvent`.
 *   `ComposeLifecycleHelper.kt`: Critical utility for bridging the gap between an Android Service and Jetpack Compose's Lifecycle-aware components.
 *   `UserPreferences.kt`: Manages persistence of user settings (DataStore/SharedPreferences) and export/import functionality.
 *   `CrashReporter.kt`: A custom `UncaughtExceptionHandler` that captures crashes and attempts to report them (e.g., to GitHub Issues).

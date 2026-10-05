@@ -60,6 +60,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Full-screen log view opened by the overlay service when a monitored app crashes. -->
+        <activity
+            android:name=".CrashLogActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.hereliesaz.logkitty.crash"
+            android:theme="@style/Theme.LogKitty" />
+
         <activity
             android:name=".FileSaverActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"

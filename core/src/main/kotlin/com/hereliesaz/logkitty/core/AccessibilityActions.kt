@@ -30,4 +30,19 @@ object AccessibilityActions {
             pkg == "com.android.launcher3" ||
             pkg.contains("launcher", ignoreCase = true)
     }
+
+    /**
+     * Packages that take the foreground *between* apps rather than being the app under inspection:
+     * the launcher, System UI, the `android` system package (crash / ANR dialogs), and LogKitty
+     * itself ([ownPackage]). Context Mode stays locked on the last real app while one of these is
+     * on top — otherwise a crash (crash dialog → home) or opening LogKitty to read the log would
+     * retarget the stream and drop / hide the crashed app's lines.
+     */
+    fun isTransitPackage(pkg: String?, ownPackage: String?): Boolean {
+        if (pkg.isNullOrBlank()) return true
+        return pkg == ownPackage ||
+            pkg == "android" ||
+            pkg == "com.android.systemui" ||
+            isLauncherPackage(pkg)
+    }
 }

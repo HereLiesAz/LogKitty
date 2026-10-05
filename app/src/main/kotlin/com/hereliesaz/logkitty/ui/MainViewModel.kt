@@ -130,6 +130,10 @@ class MainViewModel(
     private val _currentForegroundApp = MutableStateFlow<String?>(null)
     val currentForegroundApp: StateFlow<String?> = _currentForegroundApp
 
+    // Unfiltered foreground package, including transit packages (launcher, System UI, crash dialog).
+    private val _rawForegroundApp = MutableStateFlow<String?>(null)
+    val rawForegroundApp: StateFlow<String?> = _rawForegroundApp
+
     // Target UIDs and Packages to filter the logcat stream
     private val targetApps = combine(monitoredApps, _currentForegroundApp) { monitored, fg ->
         val pkgs = monitored.toMutableSet()
@@ -324,6 +328,26 @@ class MainViewModel(
         return false
     }
 
+    /** Emits [crashEvent] when [lines] carry a crash signature for a monitored app. */
+    private fun detectCrash(lines: List<IndexedLogLine>) {
+        val monitored = monitoredApps.value
+        if (monitored.isEmpty()) return
+        val watched = monitored.associateWith { uidFor(it) }
+        for (line in lines) {
+            val pkg = com.hereliesaz.logkitty.utils.CrashDetector.crashedPackage(line.text, line.uid, watched) ?: continue
+            val now = System.currentTimeMillis()
+            val last = lastCrashAt[pkg]
+            if (last != null && now - last < CRASH_DEBOUNCE_MS) continue
+            lastCrashAt[pkg] = now
+            _crashChannel.trySend(pkg)
+        }
+    }
+
+    /** Selects [pkg]'s pinned app tab, if present (used when surfacing a crash). */
+    fun selectAppTab(pkg: String) {
+        _tabs.value.firstOrNull { it.id == "app_logs_$pkg" }?.let { _selectedTab.value = it }
+    }
+
     /**
      * Backward-compatible textual view retained for callers (e.g. FileSaverActivity).
      */
@@ -336,6 +360,14 @@ class MainViewModel(
     private val _sessionFinishedChannel = kotlinx.coroutines.channels.Channel<java.io.File>(kotlinx.coroutines.channels.Channel.BUFFERED)
     val sessionFinishedEvent = _sessionFinishedChannel.receiveAsFlow()
 
+    // Package of a monitored app that just crashed (see CrashDetector). The overlay service opens
+    // CrashLogActivity in response — the overlay itself is disabled on the launcher a crash lands on.
+    private val _crashChannel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    val crashEvent = _crashChannel.receiveAsFlow()
+    // Last crash report time per package: one crash emits several matching lines (Java header +
+    // Process line, or a whole tombstone), so repeats within CRASH_DEBOUNCE_MS are collapsed.
+    private val lastCrashAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     private val _attentionColor = MutableStateFlow<androidx.compose.ui.graphics.Color?>(null)
     val attentionColor = _attentionColor.asStateFlow()
 
@@ -345,12 +377,17 @@ class MainViewModel(
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED) {
                 val pkg = intent.getStringExtra(AccessibilityActions.EXTRA_PACKAGE_NAME)
-                _currentForegroundApp.value = pkg
+                // Raw value (launcher included) — the overlay uses it to step aside on the home screen.
+                _rawForegroundApp.value = pkg
 
-                // Automatically add a tab for the current app if desired.
-                if (!pkg.isNullOrBlank()) {
-                    addAppTab(pkg)
-                }
+                // Context follows real apps only. Launcher / System UI / crash dialog / LogKitty keep
+                // the previous app as the target so its logs (including a crash) aren't dropped at
+                // ingest, hidden by Hard Context Mode, or cut off from its session file.
+                val ownPkg = context?.packageName ?: getApplication<Application>().packageName
+                if (pkg == null || AccessibilityActions.isTransitPackage(pkg, ownPkg)) return
+                _currentForegroundApp.value = pkg
+                // Automatically add a tab for the current app.
+                addAppTab(pkg)
 
                 // Session Management
                 val oldPkg = activeSessionPackage
@@ -366,7 +403,7 @@ class MainViewModel(
                     }
 
                     // Open new session if it is monitored
-                    if (pkg != null && userPreferences.monitoredApps.value.contains(pkg)) {
+                    if (userPreferences.monitoredApps.value.contains(pkg)) {
                         viewModelScope.launch(Dispatchers.IO) {
                             com.hereliesaz.logkitty.data.SessionLogFileWriter.openSession(getApplication(), pkg)
                             activeSessionUid = uidFor(pkg)
@@ -392,6 +429,7 @@ class MainViewModel(
         // Session log writing
         viewModelScope.launch(Dispatchers.IO) {
             stateDelegate.newLinesEvent.collect { newLines ->
+                detectCrash(newLines)
                 val pkg = activeSessionPackage
                 val targetUid = activeSessionUid
                 if (pkg != null && targetUid != null) {
@@ -435,9 +473,13 @@ class MainViewModel(
         registerForegroundReceiver()
         // Observe Root Mode toggle: when it changes, restart the reader with the new privileges.
         captureJob = viewModelScope.launch {
+            var previousRoot: Boolean? = null
             isRootEnabled.collect { useRoot ->
                 logJob?.cancel() // Stop existing reader
-                stateDelegate.clearLog() // Clear old logs (optional, but cleaner)
+                // Clear only on an actual Root Mode switch. Clearing on every (re)start wiped the
+                // buffer whenever the overlay service was recreated — e.g. right after a crash.
+                if (previousRoot != null && previousRoot != useRoot) stateDelegate.clearLog()
+                previousRoot = useRoot
                 logJob = launch {
                     LogcatReader.observe(useRoot).collect {
                         if (!_isPaused.value) stateDelegate.appendSystemLog(it)
@@ -682,3 +724,6 @@ class MainViewModel(
         userPreferences.setColorScheme(scheme)
     }
 }
+
+/** Window in which repeated crash lines for one package count as a single crash. */
+private const val CRASH_DEBOUNCE_MS = 10_000L

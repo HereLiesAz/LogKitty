@@ -10,5 +10,6 @@
 
 ## Components
 *   `MainActivity`: Launcher.
+*   `CrashLogActivity`: Non-exported, own task affinity, excluded from recents. Started from the overlay service on a monitored-app crash (background start allowed via `SYSTEM_ALERT_WINDOW`).
 *   `IdeazOverlayService`: `foregroundServiceType="specialUse"`.
 *   `IdeazAccessibilityService`: Accessibility service configuration.

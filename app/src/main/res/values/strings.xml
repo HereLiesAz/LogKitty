@@ -196,6 +196,9 @@
 
     <!-- Notifications (overlay service) -->
     <string name="notif_channel_name">Overlay Service</string>
+    <string name="notif_crash_channel_name">App crashes</string>
+    <string name="notif_crash_title">%1$s crashed</string>
+    <string name="notif_crash_text">Tap to view the log.</string>
     <string name="notif_title">LogKitty is running</string>
     <string name="notif_text_paused">Logging paused.</string>
     <string name="notif_text_running">Logging.</string>

@@ -136,15 +136,7 @@
 **Goal:** Make the "Current App" filter smarter and less jittery.
 
 ### 3.1 Service-Side Filtering
-- [ ] **Implement Package Blocklist**
-    - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyAccessibilityService.kt`.
-    - [ ] Define a private constant `IGNORED_PACKAGES`.
-    - [ ] Initialize it as a Set containing: `com.android.systemui`.
-    - [ ] Add `com.google.android.apps.nexuslauncher` to the Set.
-    - [ ] Add `com.android.launcher3` to the Set.
-    - [ ] Locate the `onAccessibilityEvent` method.
-    - [ ] Add a check: `if (packageName in IGNORED_PACKAGES)`.
-    - [ ] If true, return immediately (do **not** broadcast `ACTION_FOREGROUND_APP_CHANGED`).
+- [x] **Implement Package Blocklist** — done in the consumer instead of the (since-removed) accessibility service: `AccessibilityActions.isTransitPackage` (launcher, `com.android.systemui`, `android` crash/ANR dialogs, LogKitty itself) keeps Context Mode on the last real app, so a crash no longer retargets the stream and drops the crashed app's log.
 
 - [ ] **Debounce Broadcasts**
     - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyAccessibilityService.kt`.
@@ -246,3 +238,8 @@
     - [x] Run a loop to add 15 log items.
     - [x] Assert `delegate.systemLog.value.size` equals 10.
     - [x] Assert `delegate.systemLog.value.first()` equals the 6th item added (FIFO validation).
+
+- [x] **Crash capture (0.9.0)**
+    - [x] Context Mode ignores transit packages (launcher, System UI, crash dialog, LogKitty) so a crash doesn't retarget capture or end the session file. Note: a monitored app's session file now closes (and "Session Log Saved" fires) when the next *real* app comes to the front, not on going home.
+    - [x] Buffer cleared only on an actual Root Mode switch, not on every capture start.
+    - [x] Monitored-app crash opens `CrashLogActivity` (full-screen log on that app's tab).
