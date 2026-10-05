@@ -22,7 +22,7 @@ build/signing/publish mechanics; this is the human checklist around them.
       `SYSTEM_ALERT_WINDOW`, `FOREGROUND_SERVICE_SPECIAL_USE`, `PACKAGE_USAGE_STATS`.
 
 ## Build verification (CI)
-- [ ] `build-and-release` green on the release commit (compiles + bundles all modules).
+- [ ] `Android CI` green on the release commit.
 - [ ] Do a **dry run** of `play-publish.yml` with `publish: off` and inspect the produced `.aab`
       artifact.
 
@@ -59,5 +59,5 @@ Install a release build — ideally from a **Play internal-testing** track, or a
       flexible update and, once downloaded, shows the "Restart & update" prompt.
 
 ## Versioning
-- [ ] `versionCode` increases — CI derives it from `git rev-list --count HEAD`, so just make sure the
-      release commit is ahead of the last published one.
+- [ ] `versionCode` increases — the central Play release picks one above the highest code Play
+      already holds, so nothing to do by hand.

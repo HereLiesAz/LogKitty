@@ -24,17 +24,21 @@ if (versionPropsFile.exists()) {
     versionProps.load(FileInputStream(versionPropsFile))
 }
 
-val major = versionProps.getProperty("major")?.toIntOrNull() ?: 1
-val minor = versionProps.getProperty("minor")?.toIntOrNull() ?: 0
-val patch = versionProps.getProperty("patch")?.toIntOrNull() ?: 0
+// Keys follow the central HereLiesAz/workflows version contract (versionMajor/Minor/Patch/Build);
+// the legacy short keys are read only as a fallback.
+fun versionKey(key: String, legacy: String): Int? =
+    (versionProps.getProperty(key) ?: versionProps.getProperty(legacy))?.trim()?.toIntOrNull()
+val major = versionKey("versionMajor", "major") ?: 1
+val minor = versionKey("versionMinor", "minor") ?: 0
+val patch = versionKey("versionPatch", "patch") ?: 0
 
-// versionCode source. CI passes `-PversionBuild=$(git rev-list --count HEAD)` so every Play upload
-// gets a strictly-increasing code (commit count only ever grows). Local builds (CLI, Android Studio)
+// Build number. Central release workflows pass `-PversionBuild` (plus the overrides below). Local
+// builds (CLI, Android Studio)
 // auto-increment a counter on each artifact-producing task. The counter lives in the untracked
 // `.local-build-number` — not version.properties — so builds never dirty a tracked file.
 val versionBuildOverride = project.findProperty("versionBuild")?.toString()?.toIntOrNull()
 val localBuildFile = rootProject.file(".local-build-number")
-val committedBuild = versionProps.getProperty("build")?.toIntOrNull() ?: 0
+val committedBuild = versionKey("versionBuild", "build") ?: 0
 var buildNumber = versionBuildOverride
     ?: maxOf(committedBuild, localBuildFile.takeIf { it.exists() }?.readText()?.trim()?.toIntOrNull() ?: 0)
 
@@ -70,8 +74,12 @@ android {
         // Give buildNumber its own 5-digit slot so a commit-count buildNumber (up to 99_999) can't
         // overflow into the patch/minor/major digits and collide. Stays well under Android's
         // 2_100_000_000 versionCode cap (envelope: major <= 2, minor/patch <= 99, build <= 99_999).
-        versionCode = (major * 10000 + minor * 100 + patch) * 100000 + buildNumber
-        versionName = "$major.$minor.$patch.$buildNumber"
+        // The central release workflows decide the published pair (Play's next free code) and pass
+        // it as -PversionCodeOverride / -PversionNameOverride; those always win.
+        versionCode = project.findProperty("versionCodeOverride")?.toString()?.toIntOrNull()
+            ?: ((major * 10000 + minor * 100 + patch) * 100000 + buildNumber)
+        versionName = project.findProperty("versionNameOverride")?.toString()?.takeIf { it.isNotBlank() }
+            ?: "$major.$minor.$patch.$buildNumber"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
