@@ -56,7 +56,6 @@ fun AnalyzerDashboardScreen(
     isServiceRunning: Boolean,
     onToggleService: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenGitHub: () -> Unit,
     viewModel: MainViewModel
 ) {
     val context = LocalContext.current

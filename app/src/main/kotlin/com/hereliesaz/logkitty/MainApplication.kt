@@ -7,10 +7,6 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import com.google.android.play.core.splitcompat.SplitCompat
 import com.hereliesaz.logkitty.ui.MainViewModel
-import com.hereliesaz.logkitty.utils.CrashReporter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * [MainApplication] serves as the global entry point for the app process.
@@ -19,7 +15,6 @@ import kotlinx.coroutines.launch
  * 1. Initializing the global [MainViewModel] singleton. This is crucial because both the
  *    [MainActivity] (UI) and [LogKittyOverlayService] (Overlay) need to share the exact same
  *    instance of the ViewModel to sync state (logs, preferences, filters).
- * 2. Setting up the [CrashReporter] to catch and upload unhandled exceptions.
  */
 class MainApplication : Application(), ViewModelStoreOwner {
 
@@ -43,16 +38,6 @@ class MainApplication : Application(), ViewModelStoreOwner {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize Crash Reporting mechanisms.
-        // This installs a default UncaughtExceptionHandler.
-        val crashReporter = CrashReporter(this)
-        crashReporter.init()
-
-        // Attempt to upload any pending crash reports from previous runs in the background.
-        CoroutineScope(Dispatchers.IO).launch {
-            crashReporter.uploadPendingReports()
-        }
-
         // Initialize the shared ViewModel via a ViewModelProvider backed by this app-scoped store,
         // so it gets a properly-managed lifecycle/viewModelScope rather than being newed up directly.
         mainViewModel = ViewModelProvider(
@@ -60,6 +45,29 @@ class MainApplication : Application(), ViewModelStoreOwner {
             ViewModelProvider.AndroidViewModelFactory.getInstance(this),
         )[MainViewModel::class.java]
 
+        // Enforce the "auto-delete after N days" / "max total size" settings on saved sessions.
+        com.hereliesaz.logkitty.data.LogFileCleanupWorker.schedule(this)
+        purgeLegacyGitHubData()
+    }
 
+    /**
+     * GitHub integration was removed. Wipe anything older versions stored for it: the encrypted PAT
+     * store, its Keystore key, and the repo owner/name preferences. Idempotent and cheap.
+     */
+    private fun purgeLegacyGitHubData() {
+        runCatching { deleteSharedPreferences("logkitty_secure_prefs") }
+        runCatching {
+            val ks = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (ks.containsAlias("logkitty_github_pat")) ks.deleteEntry("logkitty_github_pat")
+        }
+        runCatching {
+            getSharedPreferences("logkitty_user_prefs", MODE_PRIVATE).edit()
+                .remove("github_owner").remove("github_repo").apply()
+        }
+        // Pending GitHub run-watch jobs (WorkManager tags each request with its worker class name).
+        runCatching {
+            androidx.work.WorkManager.getInstance(this)
+                .cancelAllWorkByTag("com.hereliesaz.logkitty.work.RunWatchWorker")
+        }
     }
 }

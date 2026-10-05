@@ -60,5 +60,14 @@ class LogFileCleanupWorker(
 
     companion object {
         private const val TAG = "LogFileCleanupWorker"
+        private const val WORK_NAME = "log_file_cleanup"
+
+        /** Schedules the daily retention pass (idempotent — an existing schedule is kept). */
+        fun schedule(context: Context) {
+            val request = androidx.work.PeriodicWorkRequestBuilder<LogFileCleanupWorker>(1, TimeUnit.DAYS).build()
+            androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                WORK_NAME, androidx.work.ExistingPeriodicWorkPolicy.KEEP, request,
+            )
+        }
     }
 }
