@@ -29,8 +29,10 @@ no separate artifacts to build. You upload one `.aab`; Play generates the optimi
 `versionMajor`, `versionMinor`, `versionPatch` (hand-managed) and `versionBuild`. The central release
 workflows also record the published `versionCode` / `versionName` there.
 
-- **Central release builds** decide the published pair (Play's next free `versionCode`) and pass it
-  as `-PversionCodeOverride` / `-PversionNameOverride` (plus `-PversionBuild`); those always win.
+- **The shared `android-release.yml`** decides the published pair (`versionCode` one above Play's
+  highest; `versionName` = major.minor.patch + next build) and passes exactly `-PversionCode` /
+  `-PversionName`; those always win. It records the pair back into `version.properties` after a
+  successful publish.
 - **Local / Android Studio**: `versionCode = (major*10_000 + minor*100 + patch)*100_000 + build`,
   `versionName = major.minor.patch.build`, with `build` auto-incremented in the untracked
   `.local-build-number`.
@@ -52,22 +54,22 @@ export KEY_PASSWORD=…
 > Never commit a keystore or secrets. There is no `keystore.properties` in this repo — signing is
 > env-injected, and CI reconstructs the keystore from secrets at runtime.
 
-The GitHub release APK is built by the central Android GitHub Release workflow (see below).
+The GitHub Release APK is the universal APK the shared release workflow builds from the AAB (see below).
 
 ## Publish via CI (central workflows)
 
-LogKitty uses the same build and publishing workflows as the other HereLiesAz Android apps. They run
-in **HereLiesAz/workflows**; this repo keeps only the entry points, which the central sync turns into
-trackers (one short job that points at the commit status carrying the central result):
+LogKitty uses the shared **`android-release.yml`** in **HereLiesAz/workflows**, the one workflow that
+builds, signs, versions and publishes every migrated HereLiesAz Android app (see that repo's
+`docs/ANDROID_RELEASE.md`). This repo keeps only the entry point, which the central sync turns into a
+tracker (one short job that points at the commit status carrying the central result):
 
-| Entry point | Central implementation | What it does |
+| Entry point | Trigger | What happens |
 | --- | --- | --- |
-| `.github/workflows/play-publish.yml` — "Publish to Google Play" | `android-play-release.yml` | Signed `bundleRelease`, R8 mapping upload, Play tracks chosen at dispatch (`track`, `status`, `publish`) |
-| `.github/workflows/android-release-apk.yml` — "Compile and Release APK" | `android-github-release.yml` | Signed release APK published to the grouped GitHub Release |
+| `.github/workflows/play-publish.yml` — "Publish to Google Play" | every push / merge to `main`, or *Run workflow* | Signed `bundleRelease` → Google Play on the shared tracks (internal, alpha, beta live; production draft) → GitHub Release with the universal APK → version recorded in `version.properties` |
 
-LogKitty's profile (signing mode, tracks-from-inputs, app name) lives in the central
-`scripts/semantic_catalog.py`. Run either from Actions → *Run workflow*; results appear as a commit
-status named after the entry point's path.
+Pushes to other branches never reach it. A dispatch with `publish: false` builds without publishing.
+LogKitty's profile (build command, bundle path, package, tracks, GitHub Release) lives in the central
+`scripts/semantic_catalog.py`.
 
 `android-ci.yml` stays local by design (CI always runs in its own repository).
 

@@ -74,11 +74,13 @@ android {
         // Give buildNumber its own 5-digit slot so a commit-count buildNumber (up to 99_999) can't
         // overflow into the patch/minor/major digits and collide. Stays well under Android's
         // 2_100_000_000 versionCode cap (envelope: major <= 2, minor/patch <= 99, build <= 99_999).
-        // The central release workflows decide the published pair (Play's next free code) and pass
-        // it as -PversionCodeOverride / -PversionNameOverride; those always win.
-        versionCode = project.findProperty("versionCodeOverride")?.toString()?.toIntOrNull()
+        // The shared HereLiesAz/workflows android-release.yml decides the published pair (one above
+        // Play's highest code) and passes exactly -PversionCode / -PversionName; those always win.
+        // (-PversionCodeOverride / -PversionNameOverride are the older central workflows' names.)
+        fun prop(vararg names: String) = names.firstNotNullOfOrNull { project.findProperty(it)?.toString()?.takeIf(String::isNotBlank) }
+        versionCode = prop("versionCode", "versionCodeOverride")?.toIntOrNull()
             ?: ((major * 10000 + minor * 100 + patch) * 100000 + buildNumber)
-        versionName = project.findProperty("versionNameOverride")?.toString()?.takeIf { it.isNotBlank() }
+        versionName = prop("versionName", "versionNameOverride")
             ?: "$major.$minor.$patch.$buildNumber"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
