@@ -10,12 +10,8 @@ package com.hereliesaz.logkitty.core
  */
 object AccessibilityActions {
     const val ACTION_FOREGROUND_APP_CHANGED = "com.hereliesaz.logkitty.FOREGROUND_APP_CHANGED"
-    const val ACTION_COLLAPSE_OVERLAY = "com.hereliesaz.logkitty.COLLAPSE_OVERLAY"
 
     const val EXTRA_PACKAGE_NAME = "PACKAGE_NAME"
-    const val EXTRA_REASON = "reason"
-    const val REASON_HOME = "home"
-    const val REASON_RECENTS = "recents"
 
     /** Resolved launcher package, cached by the foreground monitor so home is detected reliably. */
     @Volatile

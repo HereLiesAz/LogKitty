@@ -523,7 +523,7 @@ private fun ExpandedView(
                             .width(width)
                             .clip(RectangleShape)
                             .background(bgColor)
-                            .clickable { onTabSelected(tab) }
+                            .selectable(selected = isHero, role = androidx.compose.ui.semantics.Role.Tab) { onTabSelected(tab) }
                             .padding(horizontal = 8.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {

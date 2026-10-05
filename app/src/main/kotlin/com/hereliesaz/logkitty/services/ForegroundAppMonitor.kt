@@ -36,8 +36,12 @@ class ForegroundAppMonitor(context: Context) {
     suspend fun observe(useRoot: Boolean) = withContext(Dispatchers.IO) {
         resolveLauncherOnce()
         var last: String? = null
+        // The first poll looks back much further: an app opened before Context Mode started has no
+        // recent foreground event, and would otherwise go undetected until the user switches apps.
+        var lookback = INITIAL_LOOKBACK_MS
         while (currentCoroutineContext().isActive) {
-            val pkg = if (useRoot) rootForeground() else usageForeground()
+            val pkg = if (useRoot) rootForeground() else usageForeground(lookback)
+            lookback = LOOKBACK_MS
             if (!pkg.isNullOrBlank() && pkg != last) {
                 last = pkg
                 appContext.sendBroadcast(
@@ -62,17 +66,18 @@ class ForegroundAppMonitor(context: Context) {
         }.getOrNull()
     }
 
-    private fun usageForeground(): String? {
+    private fun usageForeground(lookbackMs: Long): String? {
         val usm = appContext.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
         val now = System.currentTimeMillis()
         return try {
-            val events = usm.queryEvents(now - LOOKBACK_MS, now)
+            val events = usm.queryEvents(now - lookbackMs, now)
             val event = UsageEvents.Event()
             var pkg: String? = null
             var lastTime = 0L
             while (events.hasNextEvent()) {
                 events.getNextEvent(event)
-                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND && event.timeStamp >= lastTime) {
+                // ACTIVITY_RESUMED (API 29+) shares MOVE_TO_FOREGROUND's value; named for clarity.
+                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED && event.timeStamp >= lastTime) {
                     lastTime = event.timeStamp
                     pkg = event.packageName
                 }
@@ -98,6 +103,7 @@ class ForegroundAppMonitor(context: Context) {
     private companion object {
         const val POLL_INTERVAL_MS = 1500L
         const val LOOKBACK_MS = 10_000L
+        const val INITIAL_LOOKBACK_MS = 6 * 60 * 60 * 1000L
         // Captures the package in `<pkg>/<activity>` from a dumpsys resumed-activity line.
         val RESUMED_PACKAGE = Regex("""\s([a-zA-Z][a-zA-Z0-9_.]+)/[a-zA-Z0-9_.]+""")
     }

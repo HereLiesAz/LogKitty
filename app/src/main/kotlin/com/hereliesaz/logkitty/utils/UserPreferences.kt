@@ -200,6 +200,7 @@ class UserPreferences(context: Context) {
         _bufferSize.value = size
     }
 
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun toggleLogLevel(levelName: String, enabled: Boolean) {
         val current = _activeLogLevels.value.toMutableSet()
         if (enabled) current.add(levelName) else current.remove(levelName)
@@ -235,6 +236,7 @@ class UserPreferences(context: Context) {
     /**
      * Adds a tag to the prohibited list.
      */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun addProhibitedTag(tag: String) {
         val current = _prohibitedTags.value.toMutableSet()
         current.add(tag)
@@ -245,6 +247,7 @@ class UserPreferences(context: Context) {
     /**
      * Removes a tag from the prohibited list.
      */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun removeProhibitedTag(tag: String) {
         val current = _prohibitedTags.value.toMutableSet()
         current.remove(tag)
@@ -253,6 +256,7 @@ class UserPreferences(context: Context) {
     }
 
     /** Pins a package for a dedicated app-specific log tab. */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun addMonitoredApp(packageName: String) {
         if (packageName.isBlank()) return
         val current = _monitoredApps.value.toMutableSet()
@@ -263,6 +267,7 @@ class UserPreferences(context: Context) {
     }
 
     /** Unpins a previously monitored package. */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun removeMonitoredApp(packageName: String) {
         val current = _monitoredApps.value.toMutableSet()
         if (current.remove(packageName)) {
@@ -272,6 +277,7 @@ class UserPreferences(context: Context) {
     }
 
     /** Enables/disables a log-source filter tab (key from `LogSources`). */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun setSourceFilterEnabled(key: String, enabled: Boolean) {
         val current = _activeSourceFilters.value.toMutableSet()
         if (enabled) current.add(key) else current.remove(key)
@@ -283,6 +289,7 @@ class UserPreferences(context: Context) {
      * Customizes the color for a specific log level. Switches the scheme to CUSTOM so further
      * scheme changes don't silently overwrite the user's overrides.
      */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun setLogColor(level: LogLevel, color: Color) {
         val current = _logColors.value.toMutableMap()
         current[level] = color
@@ -423,14 +430,15 @@ class UserPreferences(context: Context) {
             setHardContextMode(imported.isHardContextMode)
             setThemeMode(imported.themeMode)
             setCustomFilter(imported.customFilter)
-            setOverlayOpacity(imported.overlayOpacity)
+            // Imported files are user-supplied: clamp numbers to the ranges Settings offers.
+            setOverlayOpacity(imported.overlayOpacity.coerceIn(0.1f, 1.0f))
             setBackgroundColor(imported.backgroundColor)
-            setFontSize(imported.fontSize)
+            setFontSize(imported.fontSize.coerceIn(8, 24))
             setFontFamily(imported.fontFamily)
             setRootEnabled(imported.isRootEnabled)
             setLogReversed(imported.isLogReversed)
             setShowTimestamp(imported.showTimestamp)
-            setBufferSize(imported.bufferSize)
+            setBufferSize(imported.bufferSize.coerceIn(1000, 10000))
             setTagColoringEnabled(imported.tagColoringEnabled)
 
             val levels = imported.activeLogLevels.toMutableSet()
@@ -449,8 +457,8 @@ class UserPreferences(context: Context) {
             prefs.edit().putStringSet(KEY_ACTIVE_SOURCE_FILTERS, sources).apply()
             _activeSourceFilters.value = sources
 
-            setAutoDeleteDurationDays(imported.autoDeleteDurationDays)
-            setMaxTotalLogSizeMegabytes(imported.maxTotalLogSizeMegabytes)
+            setAutoDeleteDurationDays(imported.autoDeleteDurationDays.coerceIn(0, 365))
+            setMaxTotalLogSizeMegabytes(imported.maxTotalLogSizeMegabytes.coerceIn(0, 10_000))
 
             val scheme = try { LogColorScheme.valueOf(imported.colorScheme) } catch (e: Exception) { LogColorScheme.MATERIAL }
 

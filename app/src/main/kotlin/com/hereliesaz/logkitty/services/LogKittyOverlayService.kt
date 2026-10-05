@@ -5,10 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.hardware.display.DisplayManager
 import android.os.Build
@@ -20,7 +18,6 @@ import android.view.WindowManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
 import com.hereliesaz.aznavrail.bottomsheet.AzBottomSheetWindowHost
 import com.hereliesaz.aznavrail.bottomsheet.AzSheetController
 import com.hereliesaz.aznavrail.model.AzSheetConfig
@@ -70,13 +67,6 @@ class LogKittyOverlayService : Service() {
     // start, we never flip this and tear the service down instead of crashing or lingering.
     private var startedForeground = false
 
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == AccessibilityActions.ACTION_COLLAPSE_OVERLAY) {
-                controller.hide()
-            }
-        }
-    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -139,13 +129,6 @@ class LogKittyOverlayService : Service() {
             serviceScope.launch {
                 viewModel.isPaused.collect { updateNotification() }
             }
-
-            ContextCompat.registerReceiver(
-                this,
-                receiver,
-                IntentFilter(AccessibilityActions.ACTION_COLLAPSE_OVERLAY),
-                ContextCompat.RECEIVER_NOT_EXPORTED,
-            )
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Overlay initialization failed; tearing down service", e)
             // Mark not-foregrounded so a subsequent onStartCommand short-circuits; onDestroy still
@@ -195,7 +178,6 @@ class LogKittyOverlayService : Service() {
             it.onDestroy()
         }
         owners = null
-        try { unregisterReceiver(receiver) } catch (e: Exception) { e.printStackTrace() }
         // Let MainActivity's toggle reflect that the service is gone (crash teardown, OOM-free stop).
         sendBroadcast(Intent(ACTION_SERVICE_STOPPED).setPackage(packageName))
         // Call super last so our cleanup runs while the service Context is still fully valid.
