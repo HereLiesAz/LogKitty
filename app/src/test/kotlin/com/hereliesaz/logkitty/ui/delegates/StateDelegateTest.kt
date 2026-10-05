@@ -3,6 +3,7 @@ package com.hereliesaz.logkitty.ui.delegates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -38,5 +39,25 @@ class StateDelegateTest {
         assertEquals("Line 3", logs[0].text)
         assertEquals("Line 4", logs[1].text)
         assertEquals("Line 5", logs[2].text)
+        // StateDelegate's batch loop never ends; cancel it so runBlocking can return.
+        coroutineContext.cancelChildren()
+    }
+}
+
+class CappingTest {
+    private fun l(id: Long, target: Boolean) = IndexedLogLine(id, "line $id", null, target)
+
+    @Test
+    fun `non-target lines are evicted before target lines`() {
+        val current = listOf(l(1, true), l(2, false), l(3, true), l(4, false))
+        val out = StateDelegate.Capping.capped(current, listOf(l(5, false)), 4)
+        assertEquals(listOf(1L, 3L, 4L, 5L), out.map { it.id })
+    }
+
+    @Test
+    fun `falls back to oldest when only target lines remain`() {
+        val current = listOf(l(1, true), l(2, true), l(3, true))
+        val out = StateDelegate.Capping.capped(current, listOf(l(4, true)), 3)
+        assertEquals(listOf(2L, 3L, 4L), out.map { it.id })
     }
 }

@@ -22,7 +22,6 @@
     <string name="main_ready_to_purr">Ready to Purr</string>
     <string name="main_stop_service">Stop Service</string>
     <string name="main_start_service">Start Service</string>
-    <string name="main_open_github">GitHub Actions</string>
     <string name="update_ready_title">Update ready</string>
     <string name="update_ready_desc">A new version has downloaded. Restart to finish updating.</string>
     <string name="update_restart">Restart &amp; update</string>
@@ -134,41 +133,7 @@
     <string name="stats_toggle_stats">Stats</string>
 
     <string name="feature_stats_title">Developer Stats</string>
-    <string name="feature_github_title">GitHub Actions</string>
 
-    <!-- GitHub feature -->
-    <string name="tab_github">GitHub</string>
-    <string name="github_install_prompt">GitHub Actions is an optional add-on. Download it to browse your repo\'s workflow runs, jobs and logs right here.</string>
-    <string name="github_get">Get GitHub Actions</string>
-    <string name="github_installing">Installing GitHub Actions…</string>
-    <string name="github_finishing_install">Finishing install — tap to load.</string>
-    <!-- GitHub settings -->
-    <string name="settings_section_github">GitHub Actions</string>
-    <string name="settings_github_desc">Browse a repo\'s workflow runs, jobs and logs from the GitHub tab. Use a fine-grained token with Actions: Read access (plus repository access for private repos). The token is encrypted on this device and never backed up.</string>
-    <string name="github_owner_label">Owner (user or org)</string>
-    <string name="github_repo_label">Repository</string>
-    <string name="github_token_label">Personal access token</string>
-    <string name="github_token_saved">A token is saved on this device.</string>
-    <string name="github_token_none">No token saved.</string>
-    <string name="github_show">Show</string>
-    <string name="github_hide">Hide</string>
-    <string name="github_save">Save</string>
-    <string name="github_clear_token">Clear token</string>
-    <string name="toast_github_saved">GitHub settings saved</string>
-    <string name="toast_github_token_cleared">GitHub token cleared</string>
-    <!-- GitHub OAuth device-flow sign-in -->
-    <string name="github_oauth_signin">Sign in with GitHub</string>
-    <string name="github_oauth_title">Authorize LogKitty</string>
-    <string name="github_oauth_instructions">Go to %1$s and enter this code:</string>
-    <string name="github_oauth_waiting">Waiting for you to authorize…</string>
-    <string name="github_oauth_open">Open page</string>
-    <string name="toast_github_signed_in">Signed in to GitHub</string>
-    <string name="toast_github_signin_failed">Sign-in didn\'t complete</string>
-    <!-- GitHub run-completion notifications -->
-    <string name="github_notif_channel">GitHub Actions</string>
-    <string name="github_notif_passed">%1$s Workflow run passed</string>
-    <string name="github_notif_finished">%1$s Workflow run finished</string>
-    <string name="github_notif_run">%1$s · %2$s</string>
 
     <!-- Tabs -->
     <string name="tab_all">All</string>
@@ -196,6 +161,12 @@
 
     <!-- Notifications (overlay service) -->
     <string name="notif_channel_name">Overlay Service</string>
+    <string name="notif_crash_channel_name">App crashes</string>
+    <string name="notif_session_channel_name">Saved sessions</string>
+    <string name="notif_session_saved_title">Session log saved</string>
+    <string name="notif_session_saved_text">Saved %1$s. Tap to view or share.</string>
+    <string name="notif_crash_title">%1$s crashed</string>
+    <string name="notif_crash_text">Tap to view the log.</string>
     <string name="notif_title">LogKitty is running</string>
     <string name="notif_text_paused">Logging paused.</string>
     <string name="notif_text_running">Logging.</string>
@@ -237,7 +208,7 @@
     <string name="perm_open_settings">Open settings</string>
     <string name="perm_close">Close</string>
     <string name="perm_why_post_notifications">Shows LogKitty\'s persistent, silent notification so you can start/stop log capture and see at a glance that it\'s running. Required to display notifications on Android 13+.</string>
-    <string name="perm_why_internet">Used to download the code fonts you pick and (in some builds) upload crash reports. LogKitty never uploads your logs.</string>
+    <string name="perm_why_internet">Used to download the code fonts you pick, optional modules, and app updates. LogKitty never uploads your logs.</string>
     <string name="perm_why_package_usage_stats">Lets Context Mode detect which app is in the foreground so it can auto-filter the log to that app. Processed on your device only.</string>
     <string name="perm_why_foreground_service">Lets LogKitty run the log-capture overlay as a foreground service so it keeps working while you use other apps.</string>
     <string name="perm_why_foreground_service_special">Declares the foreground service\'s special use: a persistent on-screen log overlay for real-time debugging while you interact with other apps.</string>

@@ -14,17 +14,18 @@ import java.util.Locale
 
 class FileSaverActivity : ComponentActivity() {
 
+    // Snapshot of what the user was looking at when they tapped Save, so lines arriving while the
+    // picker is open don't change the file. Read from filteredIndexedLog (kept hot by the sheet);
+    // filteredSystemLog is WhileSubscribed and has no subscriber here, so it would read empty.
+    private var snapshot: String? = null
+
     private val createDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
         if (uri != null) {
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    val app = application as MainApplication
-                    
-                    // We now capture the FILTERED logs (what the user sees)
-                    // rather than the raw firehose.
-                    val logs = app.mainViewModel.filteredSystemLog.value.joinToString("\n")
+                    val logs = snapshot ?: currentLog()
 
                     contentResolver.openOutputStream(uri)?.use { output ->
                         output.write(logs.toByteArray())
@@ -48,9 +49,17 @@ class FileSaverActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        snapshot = currentLog()
+        // A recreate (rotation, process restore) must not open a second picker; the first picker's
+        // result is still delivered to the re-registered launcher.
+        if (savedInstanceState != null) return
 
         val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
         val fileName = "logkitty_$timestamp.txt"
         createDocumentLauncher.launch(fileName)
     }
+
+    /** The filtered log (what the user sees), one line per entry. */
+    private fun currentLog(): String =
+        (application as MainApplication).mainViewModel.filteredIndexedLog.value.joinToString("\n") { it.text }
 }

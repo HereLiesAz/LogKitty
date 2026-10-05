@@ -27,9 +27,7 @@ locally and are never uploaded by the app. See [PRIVACY_POLICY.md](PRIVACY_POLIC
 | `FOREGROUND_SERVICE_SPECIAL_USE` | special (Play declaration) | Declares the foreground service's "special use": a persistent on-screen log overlay for real-time debugging. | None. |
 | `POST_NOTIFICATIONS` | runtime (Android 13+) | Show the persistent, silent notification that lets you start/stop capture and confirms the service is running. | None. |
 | `PACKAGE_USAGE_STATS` | special app access | Let Context Mode detect the foreground app (where available) to auto-filter the log to it. | Foreground package name, processed on-device only. |
-| `QUERY_ALL_PACKAGES` | sensitive (Play declaration) | Let the user pick **any** installed app to monitor, and classify each log line by its source app/category. | Installed-app list used on-device only; never transmitted. |
-| `INTERNET` | normal | Download the chosen code fonts, talk to Google Play for billing/updates, and (in some builds) upload crash reports. | LogKitty never uploads your logs. Fonts handled by Google SDKs; crash reports = stack trace + device metadata only. No advertising ID is read or transmitted. |
-| `BIND_ACCESSIBILITY_SERVICE` | declared on the service (system-bound) | Powers **Context Mode**: detects the foreground app and Home/Recents transitions to auto-filter the log and collapse the overlay. **Not** an assistive tool. | Foreground package name + window-state events only. `canRetrieveWindowContent=false` — no screen content, text, or input is read. Nothing leaves the device. |
+| `INTERNET` | normal | Download the chosen code fonts, talk to Google Play for updates. | LogKitty never uploads your logs. Fonts handled by Google SDKs. No advertising ID is read or transmitted. |
 
 ---
 
@@ -37,56 +35,10 @@ locally and are never uploaded by the app. See [PRIVACY_POLICY.md](PRIVACY_POLIC
 
 Play flagged four declaration cards. Paste-ready text for each below.
 
-### 1. Accessibility service — declaration / `isAccessibilityTool`
-
-**Status:** `android:isAccessibilityTool` is intentionally **not set (false)**.
-LogKitty is **not** an assistive tool for users with disabilities, so claiming
-otherwise would misrepresent the app. Because it uses the AccessibilityService
-API for a non-assistive purpose, it instead meets the **prominent disclosure +
-consent** requirement (see item 2).
-
-**How the API is used (paste into the accessibility declaration):**
-> LogKitty is a developer log (logcat) viewer with an optional "Context Mode."
-> It uses the AccessibilityService API solely to read the package name of the
-> foreground app and to detect Home/Recents transitions (TYPE_WINDOW_STATE_CHANGED
-> events). This lets LogKitty automatically filter the log to the app the user is
-> currently viewing and collapse its overlay when the user leaves an app. The
-> service has `canRetrieveWindowContent=false`; it does not read screen content,
-> text, form fields, or user input, and no data collected leaves the device.
-
-### 2. Accessibility service — prominent disclosure + consent video
-
-**In-app disclosure:** before Context Mode is enabled, LogKitty shows a
-full-screen consent dialog (the "Enable Context Mode" popup) explaining the use,
-its limited scope, and that no personal data is read; the user must tap
-**Agree** before being sent to Accessibility settings.
-
-**What the demo video must show (Play requirement):**
-1. The app open on the LogKitty Settings screen.
-2. The user toggling **Context Mode (Auto-Filter)** on.
-3. The **prominent disclosure dialog** appearing, with its full text legible —
-   stating that the Accessibility Service is used to detect the foreground app /
-   Home & Recents transitions, only to auto-filter the log and collapse the
-   overlay, and that no screen content or personal data is read.
-4. The user tapping **Agree**, then enabling the service in system Accessibility
-   settings.
-Keep the video short (15–30s), unlisted/public link (YouTube/Drive), no edits
-that hide the disclosure text.
-
-### 3. `QUERY_ALL_PACKAGES` — core purpose
-
-**Permitted-use answer (paste into "Describe 1 feature…"):**
-> LogKitty is a developer log (logcat) viewer. Its core feature lets the user
-> select any installed app to monitor that app's logs, and it labels every log
-> line with the originating app and category. This requires broad visibility
-> into installed apps to (a) present the app picker and (b) resolve arbitrary
-> process UIDs from the log stream to package names for per-app filtering and
-> source classification. The installed-app information is used only on-device
-> and is never transmitted.
-
-*(If Play rejects this use, the fallback is to drop `QUERY_ALL_PACKAGES` and
-limit the picker to launchable apps via the manifest `<queries>` element, with
-reduced source-classification accuracy.)*
+> **No longer applicable:** the accessibility service and `QUERY_ALL_PACKAGES` were removed.
+> Context Mode detects the foreground app with `PACKAGE_USAGE_STATS` (or `dumpsys` under root), and
+> the app picker uses the manifest's launcher `<queries>`. Withdraw those Play declarations if they
+> are still on file.
 
 ### 4. `FOREGROUND_SERVICE_SPECIAL_USE`
 

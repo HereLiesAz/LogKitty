@@ -7,8 +7,8 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
 ### 1. Service Layer (The Host)
 * **`LogKittyOverlayService`**: The application's true entry point for the overlay experience. It manages the `ComposeView` and the system `WindowManager`.
     * **Responsibility**: It handles the delicate negotiation of window flags (`FLAG_NOT_TOUCHABLE`), managing the overlay's pass-through capabilities. It dynamically resizes the underlying window container based on the `LogBottomSheet` state to ensure the overlay never blocks touches it shouldn't.
-* **`LogKittyAccessibilityService`**: A focused background service.
-    * **Responsibility**: Strictly limited to detecting `TYPE_WINDOW_STATE_CHANGED` events to identify the current foreground package. This powers the "Contextual Logging" feature. It contains **no** UI inspection or node traversal logic beyond package name identification.
+* **`ForegroundAppMonitor`**: Run by the overlay service while Context Mode is on.
+    * **Responsibility**: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground package and broadcasts changes. Transit packages (launcher, System UI, crash dialog, LogKitty) never become the context target.
 
 ### 2. UI Layer (View)
 * **`LogBottomSheet`**: The primary UI. A pure Jetpack Compose component that renders the log stream, tabs, and control surfaces.
@@ -25,7 +25,6 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
     * **Mechanism**: Uses `ProcessBuilder` to spawn a `logcat` shell process (or `su -c logcat` if root is enabled). It features an internal heartbeat and retry loop to automatically resurrect the stream if the system kills the logcat process.
 * **`StateDelegate`**: The single source of truth for the raw log buffer. It implements batching to ensure UI performance isn't degraded by high-frequency log events.
 * **`UserPreferences`**: Handles persistence of settings (Opacity, Filters, Colors, Root mode, etc.) and supports Import/Export of these settings.
-* **`CrashReporter`**: Captures uncaught exceptions and facilitates reporting them to the development team.
 
 ## Data Flow
 
@@ -37,5 +36,5 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
 
 * **Dynamic Window Resizing**: Unlike standard overlays that cover the screen and intercept all touches (or none), LogKitty dynamically adjusts its window height. When collapsed, the window physically shrinks to the bottom of the screen, guaranteeing 0% interference with the rest of the device.
 * **Hardened IO**: The log reader does not trust the OS. It assumes the stream will die and is built to recover silently without crashing the UI.
-* **Context Isolation**: The "Current App" logic is decoupled. If the Accessibility Service is disabled, the app functions perfectly as a global logger.
+* **Context Isolation**: The "Current App" logic is decoupled. If Context Mode is off (or Usage Access isn't granted), the app functions perfectly as a global logger.
 * **Singleton ViewModel**: `MainViewModel` is manually instantiated in `MainApplication` to ensure the Overlay Service and the Settings UI (running in the Activity) share the exact same state and data.
