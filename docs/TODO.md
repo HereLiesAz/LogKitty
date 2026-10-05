@@ -1,8 +1,7 @@
 # TODO Roadmap & Tactical Implementation Plan
 
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
-- [x] Integrate Google Play Billing Library.
-- [x] Add global `AdsState` to manage permanent vs session Ad-Free status.
+- [x] ~~Google Play Billing / `AdsState`~~ — removed in 0.9.0 (gated nothing).
 - [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).
 - [x] Fix `java.lang.ClassNotFoundException: androidx.concurrent.futures.AbstractResolvableFuture` by explicitly bundling `androidx.concurrent:concurrent-futures`.
 
@@ -44,7 +43,7 @@
         - [ ] Add a "Copy Command" button to the dialog.
         - [ ] Implement the "Copy Command" button logic to copy the string to the system clipboard.
 
-- [ ] **Implement Service Accessibility Check**
+- [x] ~~**Implement Service Accessibility Check**~~ — obsolete: the accessibility service was removed (Context Mode uses Usage Access / root).
     - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/MainActivity.kt`.
     - [ ] Create a new private method named `checkAccessibilityPermission()`.
     - [ ] Inside the method, get the `AccessibilityManager` system service.
@@ -136,18 +135,10 @@
 **Goal:** Make the "Current App" filter smarter and less jittery.
 
 ### 3.1 Service-Side Filtering
-- [ ] **Implement Package Blocklist**
-    - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyAccessibilityService.kt`.
-    - [ ] Define a private constant `IGNORED_PACKAGES`.
-    - [ ] Initialize it as a Set containing: `com.android.systemui`.
-    - [ ] Add `com.google.android.apps.nexuslauncher` to the Set.
-    - [ ] Add `com.android.launcher3` to the Set.
-    - [ ] Locate the `onAccessibilityEvent` method.
-    - [ ] Add a check: `if (packageName in IGNORED_PACKAGES)`.
-    - [ ] If true, return immediately (do **not** broadcast `ACTION_FOREGROUND_APP_CHANGED`).
+- [x] **Implement Package Blocklist** — done in the consumer instead of the (since-removed) accessibility service: `AccessibilityActions.isTransitPackage` (launcher, `com.android.systemui`, `android` crash/ANR dialogs, LogKitty itself) keeps Context Mode on the last real app, so a crash no longer retargets the stream and drops the crashed app's log.
 
-- [ ] **Debounce Broadcasts**
-    - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyAccessibilityService.kt`.
+- [x] ~~**Debounce Broadcasts**~~ — obsolete: `ForegroundAppMonitor` polls every 1.5 s and only broadcasts on change.
+    - [ ] ~~Open `LogKittyAccessibilityService.kt`.~~
     - [ ] Add a private variable `lastBroadcastTime` initialized to `0L`.
     - [ ] Inside `onAccessibilityEvent`, get `System.currentTimeMillis()`.
     - [ ] Add check: `if (currentTime - lastBroadcastTime < 300) return`.
@@ -246,3 +237,11 @@
     - [x] Run a loop to add 15 log items.
     - [x] Assert `delegate.systemLog.value.size` equals 10.
     - [x] Assert `delegate.systemLog.value.first()` equals the 6th item added (FIFO validation).
+
+- [x] **Crash capture (0.9.0)**
+    - [x] Context Mode ignores transit packages (launcher, System UI, crash dialog, LogKitty) so a crash doesn't retarget capture or end the session file. Note: a monitored app's session file now closes (and "Session Log Saved" fires) when the next *real* app comes to the front, not on going home.
+    - [x] Buffer cleared only on an actual Root Mode switch, not on every capture start.
+    - [x] Monitored-app crash opens `CrashLogActivity` (full-screen log on that app's tab).
+    - [x] Hard Context Mode filters only general tabs (System, Errors); app tabs stay on their app, and every open app tab keeps receiving its lines.
+- [x] **GitHub removed (0.9.0):** `:feature:github` module, GitHub tab/screen/settings, PAT store, device sign-in, run-watch worker, crash-report upload (and the build-time `GH_TOKEN`), and the labeler workflow.
+- [x] **Audit fixes (0.9.0):** log pipeline (no ingest drops, ordered sessions, scoped root cleanup, uid-format downgrade only on rejection), service/notification fixes, working sub-tab filters, feature-install states, scheduled log cleanup, backup exclusions, CI gating to `main` + version alignment + lint step, local build counter moved out of `version.properties`.

@@ -13,13 +13,12 @@ This document provides a high-level overview of the key classes and components i
     *   Handling window pass-through interactions (switching between `FLAG_NOT_TOUCHABLE` and interactive modes).
     *   Observing `MainViewModel` and `LogBottomSheet` state to resize the window dynamically.
 
-### `LogKittyAccessibilityService`
+### `ForegroundAppMonitor`
 *   **Package:** `com.hereliesaz.logkitty.services`
-*   **Description:** An Accessibility Service strictly used for context awareness.
+*   **Description:** Detects the foreground app for Context Mode, without an accessibility service.
 *   **Key Responsibilities:**
-    *   Listening for `AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED`.
-    *   Extracting the package name of the foreground application.
-    *   Broadcasting `ACTION_FOREGROUND_APP_CHANGED` intents.
+    *   Polling `UsageStatsManager` (non-root) or `dumpsys activity activities` (root).
+    *   Broadcasting `ACTION_FOREGROUND_APP_CHANGED` when the foreground package changes.
 
 ## Core Logic
 

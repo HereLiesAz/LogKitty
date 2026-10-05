@@ -50,27 +50,25 @@ data class InstalledApp(val packageName: String, val label: String)
  * (so the caller falls back to the launcher-visible PackageManager list). Lets rooted users keep the
  * full app list after QUERY_ALL_PACKAGES was dropped.
  */
-private fun rootListPackages(): List<String>? = try {
-    val process = ProcessBuilder("su", "-c", "pm list packages").redirectErrorStream(true).start()
-    val output = process.inputStream.bufferedReader().use { it.readText() }
-    val finished = process.waitFor(4, java.util.concurrent.TimeUnit.SECONDS)
-    if (!finished) process.destroyForcibly()
-    val pkgs = output.lineSequence()
+private suspend fun rootListPackages(): List<String>? {
+    // RootShell's watchdog kills a hung `su` (e.g. an unanswered root prompt) instead of blocking
+    // forever in readText().
+    val output = com.hereliesaz.logkitty.core.shell.RootShell.run("pm list packages", useRoot = true, timeoutMs = 4000)
+        ?: return null
+    return output.lineSequence()
         .map { it.trim() }
         .filter { it.startsWith("package:") }
         .map { it.removePrefix("package:").trim() }
         .filter { it.isNotEmpty() }
         .distinct()
         .toList()
-    pkgs.ifEmpty { null }
-} catch (e: Exception) {
-    null
+        .ifEmpty { null }
 }
 
 /**
  * A dialog that lists installed applications (label + icon, searchable) and returns the package
  * name of the one the user taps. Used by [SettingsScreen] to pin an app for a dedicated,
- * UID-filtered log tab. Requires `QUERY_ALL_PACKAGES` (declared in the manifest).
+ * UID-filtered log tab. Uses the manifest's launcher `<queries>` (or root, when available).
  */
 @Composable
 fun AppPickerDialog(

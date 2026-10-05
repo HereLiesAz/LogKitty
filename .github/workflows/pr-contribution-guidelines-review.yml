@@ -5,6 +5,8 @@ name: "📐 Enforce Contribution Guidelines"
 # https://geminicli.com/docs/cli/trusted-folders/#headless-and-automated-environments
 env:
   GEMINI_CLI_TRUST_WORKSPACE: 'true'
+  # `secrets` isn't usable in step-level `if:`; expose presence through env instead.
+  HAS_GEMINI_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
 
 on:
   pull_request:
@@ -108,7 +110,7 @@ jobs:
 
       - name: Validate PR against CONTRIBUTING.md
         id: gemini
-        if: ${{ secrets.GEMINI_API_KEY != '' }}
+        if: ${{ env.HAS_GEMINI_KEY == 'true' }}
         uses: google-github-actions/run-gemini-cli@v0
         env:
           # gh CLI inside Gemini
