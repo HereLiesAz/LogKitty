@@ -21,8 +21,8 @@ import java.io.IOException
  */
 object LogcatReader {
 
-    /** Matches a standard logcat timestamp (`MM-DD HH:MM:SS.mmm`); used to detect real log output. */
-    private val TIMESTAMP_PATTERN = Regex("""\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}""")
+    /** Matches a standard logcat timestamp (`MM-DD HH:MM:SS.mmm`). Shared with StateDelegate. */
+    internal val TIMESTAMP_PATTERN = Regex("""\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}""")
 
     /**
      * Starts observing the logcat stream.
@@ -54,6 +54,8 @@ object LogcatReader {
 
             var process: Process? = null
             var sawValidLog = false
+            // Non-log output (logcat's own usage/error text) — the signature of a rejected `-v uid`.
+            var sawOtherOutput = false
             try {
                 // Use ProcessBuilder for better control over streams than Runtime.exec()
                 val pb = ProcessBuilder(cmd)
@@ -71,7 +73,10 @@ object LogcatReader {
 
                     // Inner loop: Stream data while the process is alive.
                     while (currentCoroutineContext().isActive && line != null) {
-                        if (!sawValidLog && TIMESTAMP_PATTERN.containsMatchIn(line)) sawValidLog = true
+                        if (!sawValidLog) {
+                            if (TIMESTAMP_PATTERN.containsMatchIn(line)) sawValidLog = true
+                            else if (line.isNotBlank() && !line.startsWith("-")) sawOtherOutput = true
+                        }
                         emit(line)
                         line = reader.readLine()
                     }
@@ -90,16 +95,23 @@ object LogcatReader {
                 try {
                     process?.destroyForcibly()
                     if (useRoot) {
-                        Runtime.getRuntime().exec(arrayOf("su", "-c", "pkill -f logcat"))
+                        // Destroying the `su` client can leave its root logcat child running. Kill
+                        // only a logcat started with our exact arguments, and wait for it, so the
+                        // next iteration's fresh reader can't be caught by a late pkill.
+                        val pattern = "^logcat " + formatArgs.joinToString(" ") + "$" // args are fixed literals; no regex metachars
+                        ProcessBuilder("su", "-c", "pkill -f '$pattern'")
+                            .redirectErrorStream(true).start()
+                            .apply { inputStream.close(); waitFor(3, java.util.concurrent.TimeUnit.SECONDS); destroy() }
                     }
                 } catch (e: Exception) {
                     // Ignore cleanup exceptions
                 }
             }
 
-            // The uid format exited without ever emitting a real log line — this device likely
-            // rejects `-v uid`. Downgrade to plain `-v time` and retry immediately so logs appear.
-            if (useUidFormat && !sawValidLog) {
+            // The uid format exited with logcat's own error/usage text and no real log line — this
+            // device rejects `-v uid`. Downgrade to plain `-v time` and retry immediately. A run that
+            // was merely quiet, killed, or blocked on a root prompt keeps the uid format.
+            if (useUidFormat && !sawValidLog && sawOtherOutput) {
                 useUidFormat = false
                 continue
             }

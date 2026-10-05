@@ -83,14 +83,19 @@ class MainViewModel(
 
     // Cache of package name -> Android UID (-1 = resolved-but-unknown). Used to filter the log
     // stream to a specific app reliably (UID is stable across process restarts, unlike PID).
-    private val appUidCache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    // A failed lookup is cached only briefly, so an app installed later resolves.
+    private val appUidCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Long>>()
 
     private fun uidFor(pkg: String): Int? {
-        appUidCache[pkg]?.let { return it.takeIf { v -> v >= 0 } }
+        val now = android.os.SystemClock.elapsedRealtime()
+        appUidCache[pkg]?.let { (uid, at) ->
+            if (uid >= 0) return uid
+            if (now - at < UNRESOLVED_UID_TTL_MS) return null
+        }
         val resolved = try {
             getApplication<Application>().packageManager.getApplicationInfo(pkg, 0).uid
         } catch (e: Exception) { -1 }
-        appUidCache[pkg] = resolved
+        appUidCache[pkg] = resolved to now
         return resolved.takeIf { it >= 0 }
     }
 
@@ -140,7 +145,8 @@ class MainViewModel(
         tabs.forEach { if (it.type == TabType.APP) it.filterValue?.let(pkgs::add) }
         val uids = pkgs.mapNotNull { uidFor(it) }.toSet()
         Pair(uids, pkgs.toSet())
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, Pair(emptySet<Int>(), emptySet<String>())) }
+    }.flowOn(Dispatchers.IO) // uidFor may hit PackageManager; keep it off the main thread
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Pair(emptySet<Int>(), emptySet<String>())) }
 
     // Whether log capture is paused (frozen). Runtime-only: the logcat stream keeps running but new
     // lines are dropped while paused so the view holds still. Toggled from the sheet's play/pause
@@ -318,8 +324,17 @@ class MainViewModel(
         .map { list -> list.map { it.text } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private var activeSessionPackage: String? = null
-    private var activeSessionUid: Int? = null
+    /** The monitored app whose session file is open, with its UID (null if unresolved). */
+    private data class ActiveSession(val pkg: String, val uid: Int?)
+
+    // Written on the main thread (receiver / stopCapture), read by the session writer on IO.
+    @Volatile private var activeSessionPackage: String? = null
+    @Volatile private var activeSession: ActiveSession? = null
+
+    // Session open/close/append run strictly in order on one lane, so a quick A→B→A switch can't
+    // open before the previous close finishes (openSession would refuse and the file be lost).
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val sessionLane = Dispatchers.IO.limitedParallelism(1)
     private val _sessionFinishedChannel = kotlinx.coroutines.channels.Channel<java.io.File>(kotlinx.coroutines.channels.Channel.BUFFERED)
     val sessionFinishedEvent = _sessionFinishedChannel.receiveAsFlow()
 
@@ -356,27 +371,28 @@ class MainViewModel(
                 val oldPkg = activeSessionPackage
                 if (oldPkg != pkg) {
                     // Close old session if it was monitored
-                    if (oldPkg != null && userPreferences.monitoredApps.value.contains(oldPkg)) {
-                        viewModelScope.launch(Dispatchers.IO) {
-                            val file = com.hereliesaz.logkitty.data.SessionLogFileWriter.closeSession(oldPkg)
-                            if (file != null) {
-                                _sessionFinishedChannel.trySend(file)
-                            }
-                        }
-                    }
+                    if (oldPkg != null) closeSessionFor(oldPkg)
 
-                    // Open new session if it is monitored
+                    // Open new session if it is monitored. The UID is set synchronously with the
+                    // package so the writer never pairs one app's package with another's UID.
                     if (userPreferences.monitoredApps.value.contains(pkg)) {
-                        viewModelScope.launch(Dispatchers.IO) {
+                        activeSession = ActiveSession(pkg, uidFor(pkg))
+                        viewModelScope.launch(sessionLane) {
                             com.hereliesaz.logkitty.data.SessionLogFileWriter.openSession(getApplication(), pkg)
-                            activeSessionUid = uidFor(pkg)
                         }
                     } else {
-                        activeSessionUid = null
+                        activeSession = null
                     }
                     activeSessionPackage = pkg
                 }
             }
+        }
+    }
+
+    /** Closes [pkg]'s session file (no-op if none is open) and announces the finished file. */
+    private fun closeSessionFor(pkg: String) {
+        viewModelScope.launch(sessionLane) {
+            com.hereliesaz.logkitty.data.SessionLogFileWriter.closeSession(pkg)?.let { _sessionFinishedChannel.trySend(it) }
         }
     }
 
@@ -390,17 +406,15 @@ class MainViewModel(
 
     init {
         // Session log writing
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(sessionLane) {
             stateDelegate.newLinesEvent.collect { newLines ->
                 detectCrash(newLines)
-                val pkg = activeSessionPackage
-                val targetUid = activeSessionUid
-                if (pkg != null && targetUid != null) {
-                    val relevantLogs = newLines.filter { it.uid == targetUid || it.text.contains(pkg, ignoreCase = true) }
-                    for (line in relevantLogs) {
-                        com.hereliesaz.logkitty.data.SessionLogFileWriter.appendLog(pkg, line.text)
-                    }
+                val session = activeSession ?: return@collect
+                // UID match when known; otherwise fall back to the package name in the text.
+                val relevant = newLines.filter {
+                    (session.uid != null && it.uid == session.uid) || it.text.contains(session.pkg, ignoreCase = true)
                 }
+                com.hereliesaz.logkitty.data.SessionLogFileWriter.appendLines(session.pkg, relevant.map { it.text })
             }
         }
 
@@ -458,6 +472,10 @@ class MainViewModel(
         captureJob = null
         logJob = null
         unregisterForegroundReceiver()
+        // Finish any open session so its file is closed and announced; a later start reopens one.
+        activeSessionPackage?.let { closeSessionFor(it) }
+        activeSessionPackage = null
+        activeSession = null
     }
 
     private fun registerForegroundReceiver() {
@@ -690,3 +708,6 @@ class MainViewModel(
 
 /** Window in which repeated crash lines for one package count as a single crash. */
 private const val CRASH_DEBOUNCE_MS = 10_000L
+
+/** How long a failed package → UID lookup is trusted before retrying. */
+private const val UNRESOLVED_UID_TTL_MS = 30_000L

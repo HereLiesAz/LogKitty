@@ -20,7 +20,8 @@ object CrashDetector {
      */
     fun crashedPackage(text: String, uid: Int?, watched: Map<String, Int?>): String? {
         if (watched.isEmpty()) return null
-        if (text.contains("FATAL EXCEPTION") && uid != null) {
+        // Only the runtime's own header counts — an app logging the phrase itself is not a crash.
+        if (uid != null && text.contains("FATAL EXCEPTION") && text.contains("AndroidRuntime")) {
             watched.entries.firstOrNull { it.value == uid }?.let { return it.key }
         }
         val named = PROCESS_LINE.find(text)?.groupValues?.get(1)

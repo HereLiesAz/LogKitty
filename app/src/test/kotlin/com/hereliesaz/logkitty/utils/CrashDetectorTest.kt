@@ -24,4 +24,7 @@ class CrashDetectorTest {
 
     @Test fun normalDeathIgnored() = assertNull(
         CrashDetector.crashedPackage("I/ActivityManager( 1): Process com.example.app (pid 5) has died", 1000, watched))
+
+    @Test fun appLoggingPhraseIgnored() = assertNull(
+        CrashDetector.crashedPackage("I/MyApp( 1): user typed FATAL EXCEPTION", 10123, watched))
 }

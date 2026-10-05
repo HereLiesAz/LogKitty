@@ -6,8 +6,7 @@ import org.junit.Test
 
 class RegexTest {
 
-    // Matches the pattern in LogcatReader
-    private val timestampPattern = Regex("""\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}""")
+    private val timestampPattern = LogcatReader.TIMESTAMP_PATTERN
 
     @Test
     fun `test timestamp pattern matches valid logcat timestamps`() {
