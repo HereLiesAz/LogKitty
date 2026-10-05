@@ -243,3 +243,4 @@
     - [x] Context Mode ignores transit packages (launcher, System UI, crash dialog, LogKitty) so a crash doesn't retarget capture or end the session file. Note: a monitored app's session file now closes (and "Session Log Saved" fires) when the next *real* app comes to the front, not on going home.
     - [x] Buffer cleared only on an actual Root Mode switch, not on every capture start.
     - [x] Monitored-app crash opens `CrashLogActivity` (full-screen log on that app's tab).
+    - [x] Hard Context Mode filters only general tabs (System, Errors); app tabs stay on their app, and every open app tab keeps receiving its lines.

@@ -135,12 +135,16 @@ class MainViewModel(
     val rawForegroundApp: StateFlow<String?> = _rawForegroundApp
 
     // Target UIDs and Packages to filter the logcat stream
-    private val targetApps = combine(monitoredApps, _currentForegroundApp) { monitored, fg ->
+    // Includes every open app tab's package, so a tab keeps receiving its app's lines after the
+    // foreground (Context Mode) moves on.
+    // Lazy: _tabs is declared further down and would still be null during field initialization.
+    private val targetApps by lazy { combine(monitoredApps, _currentForegroundApp, _tabs) { monitored, fg, tabs ->
         val pkgs = monitored.toMutableSet()
         if (fg != null) pkgs.add(fg)
+        tabs.forEach { if (it.type == TabType.APP) it.filterValue?.let(pkgs::add) }
         val uids = pkgs.mapNotNull { uidFor(it) }.toSet()
         Pair(uids, pkgs.toSet())
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, Pair(emptySet<Int>(), emptySet<String>()))
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, Pair(emptySet<Int>(), emptySet<String>())) }
 
     // Whether log capture is paused (frozen). Runtime-only: the logcat stream keeps running but new
     // lines are dropped while paused so the view holds still. Toggled from the sheet's play/pause
@@ -265,8 +269,10 @@ class MainViewModel(
                 result = result.filter { line -> !LogTagFilter.isProhibited(line.text, input.prohibited) }
             }
 
-            // Apply Context Mode (if enabled)
-            if (input.isContextMode && input.isHardContextMode && !input.currentFgApp.isNullOrBlank()) {
+            // Apply Context Mode (if enabled) — general tabs only. An app tab is already scoped to its
+            // own app and must not be re-scoped to whatever is in the foreground.
+            if (input.isContextMode && input.isHardContextMode && !input.currentFgApp.isNullOrBlank() &&
+                input.tab.type != TabType.APP && input.tab.type != TabType.APP_STATS) {
                 val targetUid = uidFor(input.currentFgApp)
                 result = result.filter { line ->
                     if (targetUid != null && line.uid != null) line.uid == targetUid
