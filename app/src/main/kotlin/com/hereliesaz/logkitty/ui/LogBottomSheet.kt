@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -636,14 +637,19 @@ private fun ExpandedView(
                     .pointerInputHorizontalDrag(threshold = 64f, onLeft = onSwipeLeft, onRight = onSwipeRight)
             ) {
                 if (selectedTab.type == TabType.APP) {
+                    // Quick-filter chip selection, remembered per app tab.
+                    var category by androidx.compose.runtime.saveable.rememberSaveable(selectedTab.id) { mutableStateOf(LogCategory.ALL) }
+                    val appLogs = remember(displayLogs, category) {
+                        if (category == LogCategory.ALL) displayLogs else displayLogs.filter { category.matches(it.text) }
+                    }
                     ResizableSplitPane(
                         leftContent = {
                             val listState = rememberLazyListState()
                             Column(modifier = Modifier.fillMaxSize()) {
                                 // Sub-tabs here
-                                LogListSubTabs(logColors = logColors) // To be implemented fully
+                                LogListSubTabs(logColors = logColors, selected = category, onSelect = { category = it })
 
-                                if (displayLogs.isEmpty()) {
+                                if (appLogs.isEmpty()) {
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Text(stringResource(R.string.sheet_no_logs), color = Color.Gray)
                                     }
@@ -655,7 +661,7 @@ private fun ExpandedView(
                                             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
                                             modifier = Modifier.fillMaxSize()
                                         ) {
-                                            items(displayLogs, key = { it.id }) { line ->
+                                            items(appLogs, key = { it.id }) { line ->
                                                 LogRow(
                                                     line = line,
                                                     isSelected = line.id in selectedLineIds,
@@ -895,9 +901,8 @@ private fun Modifier.pointerInputHorizontalDrag(
 }
 
 @Composable
-fun LogListSubTabs(logColors: Map<LogLevel, Color>) {
-    val subTabs = listOf("All Logs", "Crashes", "Errors", "Warnings", "Network", "Memory", "ANRs")
-    var selectedSubTab by remember { mutableStateOf(subTabs.first()) }
+fun LogListSubTabs(logColors: Map<LogLevel, Color>, selected: LogCategory, onSelect: (LogCategory) -> Unit) {
+    val subTabs = LogCategory.entries
 
     LazyRow(
         modifier = Modifier
@@ -908,15 +913,15 @@ fun LogListSubTabs(logColors: Map<LogLevel, Color>) {
     ) {
         items(subTabs.size) { index ->
             val tab = subTabs[index]
-            val isSelected = selectedSubTab == tab
-            
+            val isSelected = selected == tab
+
             val baseColor = when (tab) {
-                "Crashes", "Errors" -> logColors[LogLevel.ERROR] ?: Color.Red
-                "Warnings" -> logColors[LogLevel.WARNING] ?: Color.Yellow
-                "Network" -> logColors[LogLevel.INFO] ?: Color.Cyan
-                "Memory" -> logColors[LogLevel.ASSERT] ?: Color.Magenta
-                "ANRs" -> logColors[LogLevel.ERROR]?.copy(alpha=0.7f) ?: Color(0xFFFFA500)
-                else -> MaterialTheme.colorScheme.primary
+                LogCategory.CRASHES, LogCategory.ERRORS -> logColors[LogLevel.ERROR] ?: Color.Red
+                LogCategory.WARNINGS -> logColors[LogLevel.WARNING] ?: Color.Yellow
+                LogCategory.NETWORK -> logColors[LogLevel.INFO] ?: Color.Cyan
+                LogCategory.MEMORY -> logColors[LogLevel.ASSERT] ?: Color.Magenta
+                LogCategory.ANRS -> logColors[LogLevel.ERROR]?.copy(alpha = 0.7f) ?: Color(0xFFFFA500)
+                LogCategory.ALL -> MaterialTheme.colorScheme.primary
             }
 
             val bgColor = if (isSelected) baseColor else Color.White.copy(alpha = 0.1f)
@@ -926,11 +931,11 @@ fun LogListSubTabs(logColors: Map<LogLevel, Color>) {
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
                     .background(bgColor)
-                    .clickable { selectedSubTab = tab }
+                    .selectable(selected = isSelected, role = androidx.compose.ui.semantics.Role.Tab) { onSelect(tab) }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = tab,
+                    text = tab.label,
                     color = textColor,
                     fontSize = 12.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal

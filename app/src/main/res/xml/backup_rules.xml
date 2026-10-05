@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and below. Saved session logs (files/) are deliberately excluded: logcat output can
+     contain other apps' private data. Matches data_extraction_rules.xml. -->
 <full-backup-content>
     <include domain="sharedpref" path="."/>
     <include domain="database" path="."/>
-    <include domain="file" path="."/>
-    <!-- Legacy: older versions stored a Keystore-encrypted GitHub PAT here; never back it up. -->
-    <exclude domain="sharedpref" path="logkitty_secure_prefs.xml"/>
 </full-backup-content>

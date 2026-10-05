@@ -162,6 +162,9 @@
     <!-- Notifications (overlay service) -->
     <string name="notif_channel_name">Overlay Service</string>
     <string name="notif_crash_channel_name">App crashes</string>
+    <string name="notif_session_channel_name">Saved sessions</string>
+    <string name="notif_session_saved_title">Session log saved</string>
+    <string name="notif_session_saved_text">Saved %1$s. Tap to view or share.</string>
     <string name="notif_crash_title">%1$s crashed</string>
     <string name="notif_crash_text">Tap to view the log.</string>
     <string name="notif_title">LogKitty is running</string>

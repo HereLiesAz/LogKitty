@@ -287,24 +287,8 @@ class MainViewModel(
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }
             }
 
-            // Evidence-Based Visibility: the main view only shows significant events.
-            result = result.filter { isSignificantEvent(it) }
-
             result
         }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    }
-
-    private fun isSignificantEvent(line: IndexedLogLine): Boolean {
-        val level = LogLevel.fromLine(line.text)
-        if (level == LogLevel.ERROR || level == LogLevel.WARNING || level == LogLevel.ASSERT) return true
-        val textLower = line.text.lowercase()
-        // Network calls
-        if (textLower.contains("retrofit") || textLower.contains("okhttp") || 
-            textLower.contains("socket") || textLower.contains("http") || textLower.contains("network")) return true
-        // Lifecycle events
-        if (textLower.contains("oncreate") || textLower.contains("onresume") || 
-            textLower.contains("activitymanager") || textLower.contains("onstart")) return true
-        return false
     }
 
     /** Emits [crashEvent] when [lines] carry a crash signature for a monitored app. */

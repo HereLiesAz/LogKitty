@@ -45,6 +45,29 @@ class MainApplication : Application(), ViewModelStoreOwner {
             ViewModelProvider.AndroidViewModelFactory.getInstance(this),
         )[MainViewModel::class.java]
 
+        // Enforce the "auto-delete after N days" / "max total size" settings on saved sessions.
+        com.hereliesaz.logkitty.data.LogFileCleanupWorker.schedule(this)
+        purgeLegacyGitHubData()
+    }
 
+    /**
+     * GitHub integration was removed. Wipe anything older versions stored for it: the encrypted PAT
+     * store, its Keystore key, and the repo owner/name preferences. Idempotent and cheap.
+     */
+    private fun purgeLegacyGitHubData() {
+        runCatching { deleteSharedPreferences("logkitty_secure_prefs") }
+        runCatching {
+            val ks = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (ks.containsAlias("logkitty_github_pat")) ks.deleteEntry("logkitty_github_pat")
+        }
+        runCatching {
+            getSharedPreferences("logkitty_user_prefs", MODE_PRIVATE).edit()
+                .remove("github_owner").remove("github_repo").apply()
+        }
+        // Pending GitHub run-watch jobs (WorkManager tags each request with its worker class name).
+        runCatching {
+            androidx.work.WorkManager.getInstance(this)
+                .cancelAllWorkByTag("com.hereliesaz.logkitty.work.RunWatchWorker")
+        }
     }
 }

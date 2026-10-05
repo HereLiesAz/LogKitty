@@ -118,12 +118,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Register receiver for service death
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(serviceStoppedReceiver, IntentFilter("com.hereliesaz.logkitty.ACTION_SERVICE_STOPPED"), Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(serviceStoppedReceiver, IntentFilter("com.hereliesaz.logkitty.ACTION_SERVICE_STOPPED"))
-        }
+        // Register receiver for service death (sent from LogKittyOverlayService.onDestroy).
+        androidx.core.content.ContextCompat.registerReceiver(
+            this,
+            serviceStoppedReceiver,
+            IntentFilter(com.hereliesaz.logkitty.services.LogKittyOverlayService.ACTION_SERVICE_STOPPED),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
 
         // Initial Checks
         checkPermissions()
@@ -263,9 +264,9 @@ class MainActivity : ComponentActivity() {
      */
     private fun toggleOverlayService() {
         if (isServiceRunning) {
-            val intent = Intent(this, LogKittyOverlayService::class.java)
-            intent.action = "com.hereliesaz.logkitty.STOP_SERVICE"
-            startService(intent)
+            // stopService, not a STOP intent via startService: if the service already died, a
+            // startService would resurrect it just to stop it (and trip foreground-start rules).
+            stopService(Intent(this, LogKittyOverlayService::class.java))
             isServiceRunning = false
             return
         }

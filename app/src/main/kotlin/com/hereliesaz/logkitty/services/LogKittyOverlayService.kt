@@ -92,13 +92,6 @@ class LogKittyOverlayService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
-            ACTION_OPEN_SETTINGS -> {
-                val settingsIntent = Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    putExtra("EXTRA_SHOW_SETTINGS", true)
-                }
-                startActivity(settingsIntent)
-            }
             ACTION_TOGGLE_PAUSE -> {
                 // The isPaused collector in onCreate refreshes the notification.
                 (applicationContext as MainApplication).mainViewModel.togglePause()
@@ -124,7 +117,15 @@ class LogKittyOverlayService : Service() {
         // Anything past the foreground promotion can fail (overlay setup, receiver registration);
         // a failure here must tear the service down, not leave a half-initialized foreground service.
         try {
-            if (Settings.canDrawOverlays(this)) setupOverlay()
+            // The overlay is the service's only consumer; without the permission (e.g. revoked, then a
+            // sticky restart) there's nothing to show, so don't linger as a headless capture service.
+            if (!Settings.canDrawOverlays(this)) {
+                android.util.Log.w(TAG, "Overlay permission missing; stopping service")
+                startedForeground = false
+                stopSelf()
+                return
+            }
+            setupOverlay()
 
             val viewModel = (applicationContext as MainApplication).mainViewModel
             // Each new service session starts actively logging — the app-scoped ViewModel would
@@ -195,6 +196,8 @@ class LogKittyOverlayService : Service() {
         }
         owners = null
         try { unregisterReceiver(receiver) } catch (e: Exception) { e.printStackTrace() }
+        // Let MainActivity's toggle reflect that the service is gone (crash teardown, OOM-free stop).
+        sendBroadcast(Intent(ACTION_SERVICE_STOPPED).setPackage(packageName))
         // Call super last so our cleanup runs while the service Context is still fully valid.
         super.onDestroy()
     }
@@ -299,10 +302,10 @@ class LogKittyOverlayService : Service() {
                         android.app.PendingIntent.FLAG_IMMUTABLE
                     )
 
-                    val notification = androidx.core.app.NotificationCompat.Builder(applicationContext, "logkitty_channel")
+                    val notification = androidx.core.app.NotificationCompat.Builder(applicationContext, SESSION_CHANNEL_ID)
                         .setSmallIcon(R.mipmap.ic_launcher)
-                        .setContentTitle("Session Log Saved")
-                        .setContentText("Log saved for ${file.name}. Tap to view or share.")
+                        .setContentTitle(getString(R.string.notif_session_saved_title))
+                        .setContentText(getString(R.string.notif_session_saved_text, file.name))
                         .setContentIntent(pendingIntent)
                         .setAutoCancel(true)
                         .build()
@@ -414,6 +417,9 @@ class LogKittyOverlayService : Service() {
 
     private fun createNotificationChannel() {
         getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+            NotificationChannel(SESSION_CHANNEL_ID, getString(R.string.notif_session_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        getSystemService(NotificationManager::class.java)?.createNotificationChannel(
             NotificationChannel(CRASH_CHANNEL_ID, getString(R.string.notif_crash_channel_name), NotificationManager.IMPORTANCE_HIGH)
         )
         val channel = NotificationChannel(CHANNEL_ID, getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW)
@@ -435,8 +441,13 @@ class LogKittyOverlayService : Service() {
         val openPending = PendingIntent.getActivity(this, 3, openIntent, PendingIntent.FLAG_IMMUTABLE)
         val stopIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_STOP_SERVICE }
         val stopPending = PendingIntent.getService(this, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE)
-        val settingsIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_OPEN_SETTINGS }
-        val settingsPending = PendingIntent.getService(this, 1, settingsIntent, PendingIntent.FLAG_IMMUTABLE)
+        // Straight to the activity: a notification → service → startActivity trampoline is blocked on
+        // Android 12+.
+        val settingsIntent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra("EXTRA_SHOW_SETTINGS", true)
+        }
+        val settingsPending = PendingIntent.getActivity(this, 1, settingsIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val pauseIntent = Intent(this, LogKittyOverlayService::class.java).apply { action = ACTION_TOGGLE_PAUSE }
         val pausePending = PendingIntent.getService(this, 2, pauseIntent, PendingIntent.FLAG_IMMUTABLE)
 
@@ -466,11 +477,12 @@ class LogKittyOverlayService : Service() {
         private const val CHANNEL_ID = "logkitty_overlay_channel"
         private const val SERVICE_ID = 1001
         private const val CRASH_CHANNEL_ID = "logkitty_crash_channel"
+        private const val SESSION_CHANNEL_ID = "logkitty_session_channel"
+        const val ACTION_SERVICE_STOPPED = "com.hereliesaz.logkitty.ACTION_SERVICE_STOPPED"
 
         /** Per-package id for the crash notification; [com.hereliesaz.logkitty.CrashLogActivity] cancels it. */
         fun crashNotificationId(pkg: String): Int = ("crash:" + pkg).hashCode()
         private const val ACTION_STOP_SERVICE = "com.hereliesaz.logkitty.STOP_SERVICE"
-        private const val ACTION_OPEN_SETTINGS = "com.hereliesaz.logkitty.OPEN_SETTINGS"
         private const val ACTION_TOGGLE_PAUSE = "com.hereliesaz.logkitty.TOGGLE_PAUSE"
     }
 }
