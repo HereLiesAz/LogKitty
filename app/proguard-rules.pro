@@ -12,7 +12,6 @@
 # Dynamic feature entry points instantiated reflectively by FeatureLoader
 -keep class com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl { <init>(); }
 
--keep class com.hereliesaz.logkitty.feature.github.GitHubFeatureImpl { <init>(); }
 
 # Google Play Services, Play Core, App Update, Play Feature Delivery & Fonts
 -keep class com.google.android.gms.** { *; }
@@ -37,7 +36,6 @@
 -dontwarn androidx.**
 
 # Networking (OkHttp / Okio)
--keep class okhttp3.** { *; }
 -keep class okio.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
@@ -54,7 +52,6 @@
 -keep class androidx.** { *; }
 -keep class com.hereliesaz.** { *; }
 -keep class io.github.dokar3.** { *; }
--keep class okhttp3.** { *; }
 -keep class okio.** { *; }
 -keep class com.google.** { *; }
 -keep class java.** { *; }

@@ -3,7 +3,7 @@
     <cloud-backup>
         <include domain="database" path="."/>
         <include domain="sharedpref" path="."/>
-        <!-- Never back up the GitHub PAT (Keystore-encrypted and device-bound). -->
+        <!-- Legacy: older versions stored a Keystore-encrypted GitHub PAT here; never back it up. -->
         <exclude domain="sharedpref" path="logkitty_secure_prefs.xml"/>
     </cloud-backup>
     <device-transfer>

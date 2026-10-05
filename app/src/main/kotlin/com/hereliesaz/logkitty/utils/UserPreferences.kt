@@ -39,10 +39,6 @@ data class ExportedPreferences(
     val tagColoringEnabled: Boolean = true,
     val monitoredApps: List<String> = emptyList(),
     val activeSourceFilters: List<String> = emptyList(),
-    // GitHub repo config is non-secret and safe to back up. The PAT is NOT here — it lives in the
-    // separate, backup-excluded GitHubCredentials store and is never exported.
-    val githubOwner: String = "",
-    val githubRepo: String = "",
     val autoDeleteDurationDays: Int = 7,
     val maxTotalLogSizeMegabytes: Int = 500
 )
@@ -150,13 +146,6 @@ class UserPreferences(context: Context) {
     private val _tagColoringEnabled = MutableStateFlow(prefs.getBoolean(KEY_TAG_COLORING, true))
     val tagColoringEnabled: StateFlow<Boolean> = _tagColoringEnabled.asStateFlow()
 
-    // --- Preference: GitHub repo (owner/name) ---
-    // Non-secret repo coordinates for the GitHub Actions tab. The PAT is stored separately in the
-    // backup-excluded GitHubCredentials store, never here.
-    private val _githubOwner = MutableStateFlow(prefs.getString(KEY_GITHUB_OWNER, "") ?: "")
-    val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
-    private val _githubRepo = MutableStateFlow(prefs.getString(KEY_GITHUB_REPO, "") ?: "")
-    val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
 
     // --- Preference: Auto Delete Duration ---
     // Number of days to keep session log files before auto-deleting (0 = never delete).
@@ -347,16 +336,6 @@ class UserPreferences(context: Context) {
         _tagColoringEnabled.value = enabled
     }
 
-    fun setGithubOwner(owner: String) {
-        prefs.edit().putString(KEY_GITHUB_OWNER, owner).apply()
-        _githubOwner.value = owner
-    }
-
-    fun setGithubRepo(repo: String) {
-        prefs.edit().putString(KEY_GITHUB_REPO, repo).apply()
-        _githubRepo.value = repo
-    }
-
     fun setAutoDeleteDurationDays(days: Int) {
         prefs.edit().putInt(KEY_AUTO_DELETE_DURATION_DAYS, days).apply()
         _autoDeleteDurationDays.value = days
@@ -424,8 +403,6 @@ class UserPreferences(context: Context) {
             tagColoringEnabled = _tagColoringEnabled.value,
             monitoredApps = _monitoredApps.value.toList(),
             activeSourceFilters = _activeSourceFilters.value.toList(),
-            githubOwner = _githubOwner.value,
-            githubRepo = _githubRepo.value,
             autoDeleteDurationDays = _autoDeleteDurationDays.value,
             maxTotalLogSizeMegabytes = _maxTotalLogSizeMegabytes.value
         )
@@ -472,8 +449,6 @@ class UserPreferences(context: Context) {
             prefs.edit().putStringSet(KEY_ACTIVE_SOURCE_FILTERS, sources).apply()
             _activeSourceFilters.value = sources
 
-            setGithubOwner(imported.githubOwner)
-            setGithubRepo(imported.githubRepo)
             setAutoDeleteDurationDays(imported.autoDeleteDurationDays)
             setMaxTotalLogSizeMegabytes(imported.maxTotalLogSizeMegabytes)
 
@@ -520,8 +495,6 @@ class UserPreferences(context: Context) {
         private const val KEY_TAG_COLORING = "tag_coloring_enabled"
         private const val KEY_MONITORED_APPS = "monitored_apps"
         private const val KEY_ACTIVE_SOURCE_FILTERS = "active_source_filters"
-        private const val KEY_GITHUB_OWNER = "github_owner"
-        private const val KEY_GITHUB_REPO = "github_repo"
         private const val KEY_AUTO_DELETE_DURATION_DAYS = "auto_delete_duration_days"
         private const val KEY_MAX_TOTAL_LOG_SIZE_MB = "max_total_log_size_mb"
     }

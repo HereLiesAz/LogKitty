@@ -56,8 +56,7 @@ enum class TabType {
     ERRORS,
     APP,
     APP_STATS,
-    SOURCE,
-    GITHUB
+    SOURCE
 }
 
 /**
@@ -81,8 +80,6 @@ class MainViewModel(
 
     // Repositories
     private val userPreferences = UserPreferences(application)
-    // Secure, backup-excluded store for the GitHub PAT (kept out of UserPreferences/backups).
-    private val githubCredentials = com.hereliesaz.logkitty.utils.GitHubCredentials(application)
 
     // Cache of package name -> Android UID (-1 = resolved-but-unknown). Used to filter the log
     // stream to a specific app reliably (UID is stable across process restarts, unlike PID).
@@ -175,26 +172,8 @@ class MainViewModel(
     val autoDeleteDurationDays: StateFlow<Int> = userPreferences.autoDeleteDurationDays
     val maxTotalLogSizeMegabytes: StateFlow<Int> = userPreferences.maxTotalLogSizeMegabytes
 
-    // GitHub Actions config. Repo coordinates are non-secret (UserPreferences); the PAT lives in the
-    // backup-excluded secure store. Only a boolean is exposed reactively — the decrypted secret is
-    // produced on demand via [readGithubToken] (called off the main thread by the feature panel).
-    val githubOwner: StateFlow<String> = userPreferences.githubOwner
-    val githubRepo: StateFlow<String> = userPreferences.githubRepo
-    val hasGithubToken: StateFlow<Boolean> = githubCredentials.hasToken
-    fun setGithubOwner(owner: String) = userPreferences.setGithubOwner(owner)
-    fun setGithubRepo(repo: String) = userPreferences.setGithubRepo(repo)
-
-    /** Stores/clears the PAT off the main thread (AES/GCM + Keystore work). */
-    fun setGithubToken(token: String?) {
-        viewModelScope.launch(Dispatchers.IO) { githubCredentials.setToken(token) }
-    }
-
     fun setAutoDeleteDurationDays(days: Int) = userPreferences.setAutoDeleteDurationDays(days)
     fun setMaxTotalLogSizeMegabytes(mb: Int) = userPreferences.setMaxTotalLogSizeMegabytes(mb)
-
-
-    /** Decrypts the PAT on demand. Call off the main thread (it touches the Keystore). */
-    fun readGithubToken(): String? = githubCredentials.readToken()
 
     /**
      * Per-tab "cleared" baseline. When the user clears a single tab we record the size of the
@@ -205,11 +184,8 @@ class MainViewModel(
     // Tab Management
     private val systemTab = LogTab("system", application.getString(com.hereliesaz.logkitty.R.string.tab_all), TabType.SYSTEM)
     private val errorsTab = LogTab("errors", application.getString(com.hereliesaz.logkitty.R.string.tab_errors), TabType.ERRORS)
-    // Always-present GitHub Actions tab; its content is the on-demand :feature:github panel, not the
-    // logcat stream, so it carries no log filter (see the TabType.GITHUB branch below).
-    private val githubTab = LogTab("github", application.getString(com.hereliesaz.logkitty.R.string.tab_github), TabType.GITHUB)
 
-    private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab, githubTab))
+    private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab))
     val tabs: StateFlow<List<LogTab>> = _tabs
 
     private val _selectedTab = MutableStateFlow(systemTab)
@@ -306,8 +282,6 @@ class MainViewModel(
                         result = result.filter { sourceClassifier.classify(it.uid).contains(key) }
                     }
                 }
-                // The GitHub tab isn't backed by the logcat stream; its body is the feature panel.
-                TabType.GITHUB -> result = emptyList()
             }
             if (input.userFilter.isNotBlank()) {
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }

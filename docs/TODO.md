@@ -243,3 +243,4 @@
     - [x] Buffer cleared only on an actual Root Mode switch, not on every capture start.
     - [x] Monitored-app crash opens `CrashLogActivity` (full-screen log on that app's tab).
     - [x] Hard Context Mode filters only general tabs (System, Errors); app tabs stay on their app, and every open app tab keeps receiving its lines.
+- [x] **GitHub removed (0.9.0):** `:feature:github` module, GitHub tab/screen/settings, PAT store, device sign-in, run-watch worker, crash-report upload (and the build-time `GH_TOKEN`), and the labeler workflow.

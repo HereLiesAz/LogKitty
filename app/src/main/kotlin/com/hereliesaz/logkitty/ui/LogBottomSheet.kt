@@ -141,8 +141,6 @@ fun LogBottomSheet(
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
-    val githubOwner by viewModel.githubOwner.collectAsState()
-    val githubRepo by viewModel.githubRepo.collectAsState()
 
     val currentFontFamily = remember(fontFamilyName) {
         val enumVal = try { CodingFont.valueOf(fontFamilyName) } catch (e: Exception) { CodingFont.SYSTEM }
@@ -314,9 +312,6 @@ fun LogBottomSheet(
                 selectedLineIds = emptySet()
                 isMultiSelectMode = false
             },
-            githubOwner = githubOwner,
-            githubRepo = githubRepo,
-            githubTokenProvider = { viewModel.readGithubToken() },
         )
     }
 }
@@ -415,9 +410,6 @@ private fun ExpandedView(
     onCopySelected: () -> Unit,
     onSearchLine: (IndexedLogLine) -> Unit,
     onProhibitLine: (IndexedLogLine) -> Unit,
-    githubOwner: String,
-    githubRepo: String,
-    githubTokenProvider: () -> String?,
 ) {
     val selectedIdx = remember(tabs, selectedTab) { tabs.indexOf(selectedTab).coerceAtLeast(0) }
     val tabListState = rememberLazyListState()
@@ -443,7 +435,7 @@ private fun ExpandedView(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.weight(1f)) {
-            // --- Left Column: Header (Tabs) + Content (Logs/Github/Stats) ---
+            // --- Left Column: Header (Tabs) + Content (Logs/Stats) ---
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -643,17 +635,7 @@ private fun ExpandedView(
                     .fillMaxWidth()
                     .pointerInputHorizontalDrag(threshold = 64f, onLeft = onSwipeLeft, onRight = onSwipeRight)
             ) {
-                if (selectedTab.type == TabType.GITHUB) {
-                    GitHubFeatureSlot(
-                        owner = githubOwner,
-                        repo = githubRepo,
-                        tokenProvider = githubTokenProvider,
-                        onConfigure = onSettingsClick,
-                        fontFamily = fontFamily,
-                        fontSize = fontSize,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else if (selectedTab.type == TabType.APP) {
+                if (selectedTab.type == TabType.APP) {
                     ResizableSplitPane(
                         leftContent = {
                             val listState = rememberLazyListState()

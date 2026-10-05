@@ -59,7 +59,7 @@ android {
 
     // On-demand feature modules. Delivered individually on Google Play; fused into the universal /
     // standalone APK (see each module's <dist:fusing>) for the sideloaded GitHub build.
-    dynamicFeatures += setOf(":feature:stats", ":feature:github")
+    dynamicFeatures += setOf(":feature:stats")
 
     // The in-app About/Help reader (InfoScreen) displays the project's own docs. They're copied from
     // the canonical README + docs/ into a generated assets directory at build time, so there's a
@@ -85,20 +85,6 @@ android {
 
 
 
-        // GitHub OAuth app client id for the device-flow sign-in (optional; PAT works without it).
-        // Public value (no secret in device flow); supply via local.properties/env to enable the
-        // "Sign in with GitHub" button. Blank by default → the UI shows PAT entry only.
-        val githubOauthClientId = getLocalProperty("GITHUB_OAUTH_CLIENT_ID", rootProject.projectDir)
-        buildConfigField("String", "GITHUB_OAUTH_CLIENT_ID", "\"$githubOauthClientId\"")
-
-        // Build Tools Config
-        val toolsOwner = project.findProperty("build.tools.owner") as? String ?: "HereLiesAz"
-        val toolsRepo = project.findProperty("build.tools.repo") as? String ?: "LogKitty-buildtools"
-        buildConfigField("String", "BUILD_TOOLS_OWNER", "\"$toolsOwner\"")
-        buildConfigField("String", "BUILD_TOOLS_REPO", "\"$toolsRepo\"")
-        buildConfigField("String", "GH_TOKEN", "\"${System.getenv("GH_TOKEN") ?: ""}\"")
-        buildConfigField("String", "REPO_OWNER", "\"HereLiesAz\"")
-        buildConfigField("String", "REPO_NAME", "\"LogKitty\"")
     }
 
     signingConfigs {
@@ -313,7 +299,6 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.okhttp)
 
     // Tests
     testImplementation(libs.junit)

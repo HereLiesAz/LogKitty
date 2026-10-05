@@ -47,5 +47,4 @@
 *   `CrashDetector.kt`: Pure recognizer for app-crash lines (`FATAL EXCEPTION` by UID, `AndroidRuntime: Process: <pkg>`, native tombstone `>>> <pkg> <<<`). Feeds `MainViewModel.crashEvent`.
 *   `ComposeLifecycleHelper.kt`: Critical utility for bridging the gap between an Android Service and Jetpack Compose's Lifecycle-aware components.
 *   `UserPreferences.kt`: Manages persistence of user settings (DataStore/SharedPreferences) and export/import functionality.
-*   `CrashReporter.kt`: A custom `UncaughtExceptionHandler` that captures crashes and attempts to report them (e.g., to GitHub Issues).
 

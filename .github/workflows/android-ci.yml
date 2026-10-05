@@ -9,7 +9,6 @@ name: Android CI
 #   KEYSTORE_PASSWORD        — keystore password
 #   KEY_ALIAS                — key alias inside the keystore
 #   KEY_PASSWORD             — key password
-#   GH_TOKEN                 — GitHub token with write access (defaults to GITHUB_TOKEN)
 #
 # Optional secrets (Google Services injection — skipped if template absent):
 #   GOOGLE_SERVICES_API_KEY  — Firebase/Google API key
@@ -145,7 +144,6 @@ jobs:
         id: gradle-build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}

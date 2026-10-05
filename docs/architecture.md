@@ -25,7 +25,6 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
     * **Mechanism**: Uses `ProcessBuilder` to spawn a `logcat` shell process (or `su -c logcat` if root is enabled). It features an internal heartbeat and retry loop to automatically resurrect the stream if the system kills the logcat process.
 * **`StateDelegate`**: The single source of truth for the raw log buffer. It implements batching to ensure UI performance isn't degraded by high-frequency log events.
 * **`UserPreferences`**: Handles persistence of settings (Opacity, Filters, Colors, Root mode, etc.) and supports Import/Export of these settings.
-* **`CrashReporter`**: Captures uncaught exceptions and facilitates reporting them to the development team.
 
 ## Data Flow
 
