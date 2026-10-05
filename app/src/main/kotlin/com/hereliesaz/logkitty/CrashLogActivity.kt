@@ -32,7 +32,8 @@ class CrashLogActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val viewModel = (application as MainApplication).mainViewModel
-        intent.getStringExtra(EXTRA_PACKAGE)?.let { showCrash(it) }
+        // Only on first creation — a recreate (rotation) must not undo the user's tab choice.
+        if (savedInstanceState == null) intent.getStringExtra(EXTRA_PACKAGE)?.let { showCrash(it) }
 
         setContent {
             val controller = remember { AzSheetController(initial = AzSheetDetent.FULL) }
