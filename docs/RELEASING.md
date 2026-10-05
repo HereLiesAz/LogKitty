@@ -25,16 +25,15 @@ no separate artifacts to build. You upload one `.aab`; Play generates the optimi
 
 ## Versioning
 
-- `versionName` = `major.minor.patch.build` (from `version.properties`).
-- `versionCode` = `(major*10_000 + minor*100 + patch)*100_000 + buildNumber` — `buildNumber` gets
-  its own 5-digit slot so a commit-count value (up to 99,999) never overflows into the semver digits
-  (envelope: `major` ≤ 2, `minor`/`patch` ≤ 99; stays under Android's 2,100,000,000 cap).
-- **`buildNumber` source:**
-  - **CI / Play**: pass `-PversionBuild=<n>`; we use `git rev-list --count HEAD`. The commit count
-    only ever grows, so every upload gets a strictly-increasing `versionCode` (Play rejects
-    duplicate or lower codes). `version.properties` is left untouched in this mode.
-  - **Local / Android Studio** (no override): `buildNumber` auto-increments in `version.properties`
-    on each build task — unchanged from before.
+`version.properties` follows the central **HereLiesAz/workflows** version contract:
+`versionMajor`, `versionMinor`, `versionPatch` (hand-managed) and `versionBuild`. The central release
+workflows also record the published `versionCode` / `versionName` there.
+
+- **Central release builds** decide the published pair (Play's next free `versionCode`) and pass it
+  as `-PversionCodeOverride` / `-PversionNameOverride` (plus `-PversionBuild`); those always win.
+- **Local / Android Studio**: `versionCode = (major*10_000 + minor*100 + patch)*100_000 + build`,
+  `versionName = major.minor.patch.build`, with `build` auto-incremented in the untracked
+  `.local-build-number`.
 
 ## Build a signed AAB locally
 
@@ -46,38 +45,35 @@ export KEYSTORE_PASSWORD=…
 export KEY_ALIAS=…
 export KEY_PASSWORD=…
 
-# versionCode from commit count (matches CI); omit -PversionBuild for the local auto-increment.
-./gradlew bundleRelease -PversionBuild=$(git rev-list --count HEAD)
+./gradlew bundleRelease
 # Output: app/build/outputs/bundle/release/app-release.aab
 ```
 
 > Never commit a keystore or secrets. There is no `keystore.properties` in this repo — signing is
 > env-injected, and CI reconstructs the keystore from secrets at runtime.
 
-To produce a single installable APK from the bundle (what the GitHub release uses), see the
-`build-and-release.yml` workflow's bundletool `--mode=universal` step.
+The GitHub release APK is built by the central Android GitHub Release workflow (see below).
 
-## Publish via CI
+## Publish via CI (central workflows)
 
-Workflow: **`.github/workflows/play-publish.yml`** — `workflow_dispatch` (Actions → "Publish to
-Google Play" → Run workflow). Inputs:
+LogKitty uses the same build and publishing workflows as the other HereLiesAz Android apps. They run
+in **HereLiesAz/workflows**; this repo keeps only the entry points, which the central sync turns into
+trackers (one short job that points at the commit status carrying the central result):
 
-| Input | Default | Meaning |
+| Entry point | Central implementation | What it does |
 | --- | --- | --- |
-| `track` | `internal` | `internal` / `alpha` / `beta` / `production` |
-| `status` | `draft` | `draft` (review in console before going live) / `completed` |
-| `publish` | `false` | **off = build + upload the `.aab` as a CI artifact only** (dry run, never touches Play) |
+| `.github/workflows/play-publish.yml` — "Publish to Google Play" | `android-play-release.yml` | Signed `bundleRelease`, R8 mapping upload, Play tracks chosen at dispatch (`track`, `status`, `publish`) |
+| `.github/workflows/android-release-apk.yml` — "Compile and Release APK" | `android-github-release.yml` | Signed release APK published to the grouped GitHub Release |
 
-It builds a signed `bundleRelease` with the commit-count versionCode, uploads the `.aab` artifact,
-and — only when `publish` is on — pushes to Play with `r0adkll/upload-google-play@v1` (including the
-R8 `mapping.txt` for crash deobfuscation).
+LogKitty's profile (signing mode, tracks-from-inputs, app name) lives in the central
+`scripts/semantic_catalog.py`. Run either from Actions → *Run workflow*; results appear as a commit
+status named after the entry point's path.
 
-`build-and-release.yml` is unchanged in purpose: it still produces the `.aab` + a fused universal APK
-for the **GitHub** release channel.
+`android-ci.yml` stays local by design (CI always runs in its own repository).
 
 ## Required repository secrets
 
-**Signing** (already used by `build-and-release.yml`):
+**Signing** (used by the central release workflows):
 
 | Secret | Purpose |
 | --- | --- |

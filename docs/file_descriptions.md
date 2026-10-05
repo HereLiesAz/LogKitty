@@ -5,7 +5,7 @@
 *   `build.gradle.kts`: Project-level build configuration.
 *   `settings.gradle.kts`: Module inclusion settings.
 *   `gradle.properties`: Gradle build properties.
-*   `version.properties`: Source of truth for project versioning. Holds `major`/`minor`/`patch` (and a base `build`). Builds never rewrite it: CI passes the commit count and local builds count in the untracked `.local-build-number`.
+*   `version.properties`: Source of truth for project versioning. Central version contract keys (`versionMajor`/`versionMinor`/`versionPatch`/`versionBuild`); the central release workflows record the published pair here. Local builds count in the untracked `.local-build-number`.
 *   `get_version.sh`: Script to extract version info (major.minor.patch.build).
 *   `lint-baseline.xml`: Baseline file for lint warnings.
 *   `proguard-rules.pro`: ProGuard/R8 configuration rules.

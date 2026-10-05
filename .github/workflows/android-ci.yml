@@ -181,9 +181,9 @@ jobs:
         id: release_vars
         run: |
           # Same keys and build number Gradle uses (see app/build.gradle.kts).
-          MAJOR=$(grep '^major=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          MINOR=$(grep '^minor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          PATCH=$(grep '^patch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          MAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          MINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          PATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
           BUILD_NUMBER=$(git rev-list --count HEAD)
           VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
           TAG_NAME="latest-debug-v${MAJOR}.${MINOR}"

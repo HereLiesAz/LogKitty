@@ -12,10 +12,10 @@ get_prop() {
     grep "^$1=" "$FILE" | cut -d'=' -f2 | tr -d '[:space:]'
 }
 
-MAJOR=$(get_prop major)
-MINOR=$(get_prop minor)
-PATCH=$(get_prop patch)
-BUILD=$(get_prop build)
+MAJOR=$(get_prop versionMajor)
+MINOR=$(get_prop versionMinor)
+PATCH=$(get_prop versionPatch)
+BUILD=$(get_prop versionBuild)
 
 if [ -z "$BUILD" ]; then
   echo "$MAJOR.$MINOR.$PATCH"
