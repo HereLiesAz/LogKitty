@@ -26,6 +26,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -141,6 +144,8 @@ fun LogBottomSheet(
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val tagColoringEnabled by viewModel.tagColoringEnabled.collectAsState()
     val isPaused by viewModel.isPaused.collectAsState()
+    val isContextMode by viewModel.isContextModeEnabled.collectAsState()
+    val contextSegments by viewModel.contextSegments.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
 
     val currentFontFamily = remember(fontFamilyName) {
@@ -313,6 +318,12 @@ fun LogBottomSheet(
                 selectedLineIds = emptySet()
                 isMultiSelectMode = false
             },
+            // Context Mode sections only apply to the general tabs; app tabs are already one app.
+            contextSegments = if (isContextMode && selectedTab.type != TabType.APP) contextSegments else emptyList(),
+            onCopySegment = { lines ->
+                clipboardManager.setText(AnnotatedString(lines.joinToString("\n") { it.text }))
+            },
+            onDeleteSegment = { viewModel.deleteContextSegment(it) },
         )
     }
 }
@@ -411,6 +422,9 @@ private fun ExpandedView(
     onCopySelected: () -> Unit,
     onSearchLine: (IndexedLogLine) -> Unit,
     onProhibitLine: (IndexedLogLine) -> Unit,
+    contextSegments: List<ContextSegment> = emptyList(),
+    onCopySegment: (List<IndexedLogLine>) -> Unit = {},
+    onDeleteSegment: (Long) -> Unit = {},
 ) {
     val selectedIdx = remember(tabs, selectedTab) { tabs.indexOf(selectedTab).coerceAtLeast(0) }
     val tabListState = rememberLazyListState()
@@ -728,7 +742,7 @@ private fun ExpandedView(
                             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(displayLogs, key = { it.id }) { line ->
+                            val logRow: @Composable (IndexedLogLine) -> Unit = { line ->
                                 LogRow(
                                     line = line,
                                     isSelected = line.id in selectedLineIds,
@@ -746,6 +760,26 @@ private fun ExpandedView(
                                     },
                                     onLongClick = { onLongPressLine(line.id) }
                                 )
+                            }
+                            if (contextSegments.isEmpty()) {
+                                items(displayLogs, key = { it.id }) { line -> logRow(line) }
+                            } else {
+                                // Context Mode: one section per app visited, each with its own header.
+                                // In reverseLayout the list draws bottom-up, so the header is emitted
+                                // after its lines to still sit visually above them.
+                                for ((segment, lines) in ContextSegments.group(displayLogs, contextSegments)) {
+                                    val header: @Composable () -> Unit = {
+                                        ContextSegmentHeader(
+                                            pkg = segment.pkg,
+                                            lineCount = lines.size,
+                                            onCopy = { onCopySegment(lines) },
+                                            onDelete = { onDeleteSegment(segment.startId) },
+                                        )
+                                    }
+                                    if (!isLogReversed) item(key = "seg_${segment.startId}") { header() }
+                                    items(lines, key = { it.id }) { line -> logRow(line) }
+                                    if (isLogReversed) item(key = "seg_${segment.startId}") { header() }
+                                }
                             }
                         }
                         Box(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
@@ -941,6 +975,42 @@ fun LogListSubTabs(logColors: Map<LogLevel, Color>, selected: LogCategory, onSel
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                 )
             }
+        }
+    }
+}
+
+/** Header for one Context Mode section: the app, its line count, and per-section Copy / Delete. */
+@Composable
+private fun ContextSegmentHeader(pkg: String, lineCount: Int, onCopy: () -> Unit, onDelete: () -> Unit) {
+    val context = LocalContext.current
+    val label = remember(pkg) {
+        runCatching {
+            val pm = context.packageManager
+            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        }.getOrDefault(pkg)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 2.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .padding(start = 8.dp)
+            .semantics(mergeDescendants = true) { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                pluralStringResource(R.plurals.context_segment_lines, lineCount, lineCount),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
+        IconButton(onClick = onCopy, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.ContentCopy, stringResource(R.string.cd_copy_segment, label), modifier = Modifier.size(18.dp))
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.DeleteSweep, stringResource(R.string.cd_delete_segment, label), modifier = Modifier.size(18.dp))
         }
     }
 }

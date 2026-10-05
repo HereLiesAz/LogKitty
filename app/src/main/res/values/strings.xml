@@ -124,6 +124,12 @@
     <string name="cd_resume_logging">Resume logging</string>
     <string name="cd_pause_logging">Pause logging</string>
     <string name="cd_clear_logs">Clear logs</string>
+    <plurals name="context_segment_lines">
+        <item quantity="one">%1$d line</item>
+        <item quantity="other">%1$d lines</item>
+    </plurals>
+    <string name="cd_copy_segment">Copy %1$s log</string>
+    <string name="cd_delete_segment">Delete %1$s log</string>
     <string name="cd_close">Close</string>
     <string name="cd_copy_selected">Copy selected</string>
     <string name="cd_search_google">Search Google</string>
