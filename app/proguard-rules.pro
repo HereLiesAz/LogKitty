@@ -1,73 +1,43 @@
-# Preserve critical metadata for reflection, serialization, coroutines, and stack traces
+# R8 rules for LogKitty.
+#
+# Keep only what is reached by name at runtime. Everything else is shrunk, optimized and obfuscated;
+# libraries (Kotlin, coroutines, AndroidX/Compose, WorkManager, Play services, kotlinx.serialization)
+# ship their own consumer rules. Blanket package keeps (kotlin.**, androidx.**, com.google.**, …)
+# used to sit here and left Play's DEX optimization / obfuscation / shrinking scores at ~11%.
+
+# Stack traces: keep line numbers, hide the original file names.
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Preserve line numbers for stack traces
--keepattributes SourceFile,LineNumberTable
-
-# Keep all project application code and feature modules
--keep class com.hereliesaz.** { *; }
--keepclassmembers class com.hereliesaz.** { *; }
--keep interface com.hereliesaz.** { *; }
-
-# Dynamic feature entry points instantiated reflectively by FeatureLoader
+# Dynamic feature entry point, instantiated by name in core FeatureLoader (FeatureModules.STATS_IMPL).
+# The StatsFeature interface itself is kept by core/consumer-rules.pro.
 -keep class com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl { <init>(); }
 
-
-# Google Play Services, Play Core, App Update, Play Feature Delivery & Fonts
--keep class com.google.android.gms.** { *; }
--keepclassmembers class com.google.android.gms.** { *; }
--dontwarn com.google.android.gms.**
-
--keep class com.google.android.play.** { *; }
--keepclassmembers class com.google.android.play.** { *; }
--dontwarn com.google.android.play.**
-
-# Kotlin Language, Coroutines, and Serialization
--keep class kotlin.** { *; }
--keep class kotlin.jvm.internal.** { *; }
--keep class kotlinx.coroutines.** { *; }
--keep class kotlinx.serialization.** { *; }
--keepclassmembers class * {
-    @kotlinx.serialization.Serializable *;
-}
-
-# AndroidX Architecture Components, Compose, WorkManager, and Navigation
--keep class androidx.** { *; }
--dontwarn androidx.**
-
-# Networking (OkHttp / Okio)
--keep class okio.** { *; }
--dontwarn okhttp3.**
--dontwarn okio.**
-
-# Same failure mode, different library: com.google.android.play:app-update ships NO consumer
-# proguard rules at all (its AAR has no proguard.txt), yet AppUpdateManager's IPC with the Play
-# Store app (checkForAppUpdate(), called on every launch from MainActivity.onCreate) relies on
-# obfuscated com.google.android.play.core.** classes only reachable through the library's own
-# reflection/Binder callback plumbing. Without an explicit keep, R8 strips them .
--keep class com.google.android.play.core.** { *; }
--dontwarn com.google.android.play.core.**
--keep class kotlin.** { *; }
--keep class kotlinx.** { *; }
--keep class androidx.** { *; }
--keep class com.hereliesaz.** { *; }
--keep class io.github.dokar3.** { *; }
--keep class okio.** { *; }
--keep class com.google.** { *; }
--keep class java.** { *; }
--keep class javax.** { *; }
--keep class org.** { *; }
--keep class sun.** { *; }
--keep class com.sun.** { *; }
-# UI Overlay & Sheet Libraries (Dokar3 & AzNavRail)
--keep class com.dokar3.** { *; }
--keep class dokar3.** { *; }
--keep class io.github.dokar3.** { *; }
--keep class dokar.sheets.** { *; }
--keep class com.hereliesaz.aznavrail.** { *; }
-
-# Keep enum methods for reflection and serialization lookup
+# Enums parsed from stored names (CodingFont, LogColorScheme, LogLevel via valueOf).
 -keepclassmembers enum * {
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
+
+# Exported/imported settings JSON (kotlinx.serialization). The plugin generates the serializer and
+# the library ships the generic rules; keep the companion lookup for this class explicitly.
+-keepclassmembers class com.hereliesaz.logkitty.utils.ExportedPreferences {
+    *** Companion;
+}
+-keepclasseswithmembers class com.hereliesaz.logkitty.utils.ExportedPreferences {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# com.google.android.play:app-update ships NO consumer rules, yet AppUpdateManager's IPC with the
+# Play Store (checkForAppUpdate(), every launch) reaches com.google.android.play.core.** only through
+# the library's own reflection/Binder callbacks. Without this keep R8 strips them.
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
+
+# AzNavRail's overlay sheet host drives WindowManager / accessibility callbacks; the library ships
+# no consumer rules, so keep it whole rather than risk a stripped callback.
+-keep class com.hereliesaz.aznavrail.** { *; }
+
+# Optional transitive references with no runtime use.
+-dontwarn okhttp3.**
+-dontwarn okio.**
