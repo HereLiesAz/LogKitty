@@ -19,8 +19,9 @@ name: Android CI
 #   CUSTOM_API_KEY           — placeholder; rename and replicate as needed
 
 on:
+  # main only: other branches are covered by their pull request run (no duplicate CI per push).
   push:
-    branches: [ "**" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -63,7 +64,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
-          dependency-graph: generate-submit-and-upload
+          dependency-graph: disabled  # GitHub's automatic Gradle dependency submission covers this
 
       - name: Run unit tests
         run: |

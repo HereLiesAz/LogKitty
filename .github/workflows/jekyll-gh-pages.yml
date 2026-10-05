@@ -5,6 +5,7 @@ on:
   # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
+    paths: ["docs/**"]   # the site is built from docs/; app changes don't redeploy it
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
