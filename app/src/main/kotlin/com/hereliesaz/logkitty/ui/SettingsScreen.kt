@@ -80,7 +80,6 @@ import com.hereliesaz.logkitty.core.feature.FeatureLoader
 import com.hereliesaz.logkitty.core.feature.FeatureModules
 import com.hereliesaz.logkitty.feature.FeatureInstallStatus
 import com.hereliesaz.logkitty.feature.rememberFeatureInstall
-import com.hereliesaz.logkitty.utils.GitHubDeviceAuth
 import kotlinx.coroutines.Job
 import com.hereliesaz.logkitty.ui.theme.CodingFont
 import com.hereliesaz.logkitty.utils.LogSources
@@ -149,9 +148,6 @@ private fun SettingsMainScreen(
     val prohibitedCount by viewModel.prohibitedTags.collectAsState()
     val monitoredApps by viewModel.monitoredApps.collectAsState()
     val activeSourceFilters by viewModel.activeSourceFilters.collectAsState()
-    val githubOwner by viewModel.githubOwner.collectAsState(initial = "")
-    val githubRepo by viewModel.githubRepo.collectAsState(initial = "")
-    val hasGithubToken by viewModel.hasGithubToken.collectAsState(initial = false)
     val autoDeleteDurationDays by viewModel.autoDeleteDurationDays.collectAsState()
     val maxTotalLogSizeMegabytes by viewModel.maxTotalLogSizeMegabytes.collectAsState()
 
@@ -573,148 +569,6 @@ private fun SettingsMainScreen(
                     shape = AzButtonShape.RECTANGLE,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 )
-            }
-
-            SettingsCard(stringResource(R.string.settings_section_github)) {
-            Text(
-                stringResource(R.string.settings_github_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            // Local edit state, seeded from the persisted values; the PAT field is never seeded with
-            // the secret — saving writes it to the secure store and the field is cleared.
-            var ownerField by remember(githubOwner) { mutableStateOf(githubOwner) }
-            var repoField by remember(githubRepo) { mutableStateOf(githubRepo) }
-            var tokenField by remember { mutableStateOf("") }
-            var showToken by remember { mutableStateOf(false) }
-            // OAuth device-flow state (only used when an OAuth client id is configured).
-            val githubAuthScope = rememberCoroutineScope()
-            var deviceCode by remember { mutableStateOf<GitHubDeviceAuth.DeviceCode?>(null) }
-            var authJob by remember { mutableStateOf<Job?>(null) }
-            OutlinedTextField(
-                value = ownerField,
-                onValueChange = { ownerField = it },
-                label = { Text(stringResource(R.string.github_owner_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            OutlinedTextField(
-                value = repoField,
-                onValueChange = { repoField = it },
-                label = { Text(stringResource(R.string.github_repo_label)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            OutlinedTextField(
-                value = tokenField,
-                onValueChange = { tokenField = it },
-                label = { Text(stringResource(R.string.github_token_label)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    TextButton(onClick = { showToken = !showToken }) {
-                        Text(stringResource(if (showToken) R.string.github_hide else R.string.github_show))
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            Text(
-                stringResource(if (hasGithubToken) R.string.github_token_saved else R.string.github_token_none),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            AzButton(
-                onClick = {
-                    viewModel.setGithubOwner(ownerField.trim())
-                    viewModel.setGithubRepo(repoField.trim())
-                    if (tokenField.isNotBlank()) {
-                        viewModel.setGithubToken(tokenField)
-                        tokenField = ""
-                        showToken = false
-                    }
-                    Toast.makeText(context, context.getString(R.string.toast_github_saved), Toast.LENGTH_SHORT).show()
-                },
-                text = stringResource(R.string.github_save),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-            AzButton(
-                onClick = {
-                    viewModel.setGithubToken(null)
-                    tokenField = ""
-                    Toast.makeText(context, context.getString(R.string.toast_github_token_cleared), Toast.LENGTH_SHORT).show()
-                },
-                text = stringResource(R.string.github_clear_token),
-                shape = AzButtonShape.RECTANGLE,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            )
-
-            // OAuth device-flow sign-in — only when a client id is configured at build time.
-            val oauthClientId = BuildConfig.GITHUB_OAUTH_CLIENT_ID
-            if (oauthClientId.isNotBlank()) {
-                AzButton(
-                    onClick = {
-                        // Ignore taps while a request/poll is already running (avoids overlapping jobs).
-                        if (authJob?.isActive == true) return@AzButton
-                        authJob = githubAuthScope.launch {
-                            val dc = GitHubDeviceAuth.requestDeviceCode(oauthClientId)
-                            if (dc == null) {
-                                Toast.makeText(context, context.getString(R.string.toast_github_signin_failed), Toast.LENGTH_SHORT).show()
-                                return@launch
-                            }
-                            deviceCode = dc
-                            runCatching {
-                                context.startActivity(
-                                    android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(dc.verificationUri))
-                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                                )
-                            }
-                            val token = GitHubDeviceAuth.pollForToken(oauthClientId, dc)
-                            deviceCode = null
-                            if (token != null) {
-                                viewModel.setGithubToken(token)
-                                Toast.makeText(context, context.getString(R.string.toast_github_signed_in), Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, context.getString(R.string.toast_github_signin_failed), Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    text = stringResource(R.string.github_oauth_signin),
-                    shape = AzButtonShape.RECTANGLE,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                )
-            }
-            deviceCode?.let { dc ->
-                AlertDialog(
-                    onDismissRequest = { authJob?.cancel(); deviceCode = null },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(dc.verificationUri))
-                                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                                )
-                            }
-                        }) { Text(stringResource(R.string.github_oauth_open)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { authJob?.cancel(); deviceCode = null }) { Text(stringResource(R.string.cancel)) }
-                    },
-                    title = { Text(stringResource(R.string.github_oauth_title)) },
-                    text = {
-                        Column {
-                            Text(stringResource(R.string.github_oauth_instructions, dc.verificationUri))
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(dc.userCode, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(stringResource(R.string.github_oauth_waiting), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    },
-                )
-            }
             }
 
             SettingsCard(stringResource(R.string.settings_section_data)) {

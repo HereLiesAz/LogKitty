@@ -56,8 +56,7 @@ enum class TabType {
     ERRORS,
     APP,
     APP_STATS,
-    SOURCE,
-    GITHUB
+    SOURCE
 }
 
 /**
@@ -81,20 +80,22 @@ class MainViewModel(
 
     // Repositories
     private val userPreferences = UserPreferences(application)
-    val billingManager = com.hereliesaz.logkitty.billing.BillingManager(application)
-    // Secure, backup-excluded store for the GitHub PAT (kept out of UserPreferences/backups).
-    private val githubCredentials = com.hereliesaz.logkitty.utils.GitHubCredentials(application)
 
     // Cache of package name -> Android UID (-1 = resolved-but-unknown). Used to filter the log
     // stream to a specific app reliably (UID is stable across process restarts, unlike PID).
-    private val appUidCache = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    // A failed lookup is cached only briefly, so an app installed later resolves.
+    private val appUidCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, Long>>()
 
     private fun uidFor(pkg: String): Int? {
-        appUidCache[pkg]?.let { return it.takeIf { v -> v >= 0 } }
+        val now = android.os.SystemClock.elapsedRealtime()
+        appUidCache[pkg]?.let { (uid, at) ->
+            if (uid >= 0) return uid
+            if (now - at < UNRESOLVED_UID_TTL_MS) return null
+        }
         val resolved = try {
             getApplication<Application>().packageManager.getApplicationInfo(pkg, 0).uid
         } catch (e: Exception) { -1 }
-        appUidCache[pkg] = resolved
+        appUidCache[pkg] = resolved to now
         return resolved.takeIf { it >= 0 }
     }
 
@@ -130,13 +131,22 @@ class MainViewModel(
     private val _currentForegroundApp = MutableStateFlow<String?>(null)
     val currentForegroundApp: StateFlow<String?> = _currentForegroundApp
 
+    // Unfiltered foreground package, including transit packages (launcher, System UI, crash dialog).
+    private val _rawForegroundApp = MutableStateFlow<String?>(null)
+    val rawForegroundApp: StateFlow<String?> = _rawForegroundApp
+
     // Target UIDs and Packages to filter the logcat stream
-    private val targetApps = combine(monitoredApps, _currentForegroundApp) { monitored, fg ->
+    // Includes every open app tab's package, so a tab keeps receiving its app's lines after the
+    // foreground (Context Mode) moves on.
+    // Lazy: _tabs is declared further down and would still be null during field initialization.
+    private val targetApps by lazy { combine(monitoredApps, _currentForegroundApp, _tabs) { monitored, fg, tabs ->
         val pkgs = monitored.toMutableSet()
         if (fg != null) pkgs.add(fg)
+        tabs.forEach { if (it.type == TabType.APP) it.filterValue?.let(pkgs::add) }
         val uids = pkgs.mapNotNull { uidFor(it) }.toSet()
         Pair(uids, pkgs.toSet())
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, Pair(emptySet<Int>(), emptySet<String>()))
+    }.flowOn(Dispatchers.IO) // uidFor may hit PackageManager; keep it off the main thread
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Pair(emptySet<Int>(), emptySet<String>())) }
 
     // Whether log capture is paused (frozen). Runtime-only: the logcat stream keeps running but new
     // lines are dropped while paused so the view holds still. Toggled from the sheet's play/pause
@@ -168,26 +178,8 @@ class MainViewModel(
     val autoDeleteDurationDays: StateFlow<Int> = userPreferences.autoDeleteDurationDays
     val maxTotalLogSizeMegabytes: StateFlow<Int> = userPreferences.maxTotalLogSizeMegabytes
 
-    // GitHub Actions config. Repo coordinates are non-secret (UserPreferences); the PAT lives in the
-    // backup-excluded secure store. Only a boolean is exposed reactively — the decrypted secret is
-    // produced on demand via [readGithubToken] (called off the main thread by the feature panel).
-    val githubOwner: StateFlow<String> = userPreferences.githubOwner
-    val githubRepo: StateFlow<String> = userPreferences.githubRepo
-    val hasGithubToken: StateFlow<Boolean> = githubCredentials.hasToken
-    fun setGithubOwner(owner: String) = userPreferences.setGithubOwner(owner)
-    fun setGithubRepo(repo: String) = userPreferences.setGithubRepo(repo)
-
-    /** Stores/clears the PAT off the main thread (AES/GCM + Keystore work). */
-    fun setGithubToken(token: String?) {
-        viewModelScope.launch(Dispatchers.IO) { githubCredentials.setToken(token) }
-    }
-
     fun setAutoDeleteDurationDays(days: Int) = userPreferences.setAutoDeleteDurationDays(days)
     fun setMaxTotalLogSizeMegabytes(mb: Int) = userPreferences.setMaxTotalLogSizeMegabytes(mb)
-
-
-    /** Decrypts the PAT on demand. Call off the main thread (it touches the Keystore). */
-    fun readGithubToken(): String? = githubCredentials.readToken()
 
     /**
      * Per-tab "cleared" baseline. When the user clears a single tab we record the size of the
@@ -198,11 +190,8 @@ class MainViewModel(
     // Tab Management
     private val systemTab = LogTab("system", application.getString(com.hereliesaz.logkitty.R.string.tab_all), TabType.SYSTEM)
     private val errorsTab = LogTab("errors", application.getString(com.hereliesaz.logkitty.R.string.tab_errors), TabType.ERRORS)
-    // Always-present GitHub Actions tab; its content is the on-demand :feature:github panel, not the
-    // logcat stream, so it carries no log filter (see the TabType.GITHUB branch below).
-    private val githubTab = LogTab("github", application.getString(com.hereliesaz.logkitty.R.string.tab_github), TabType.GITHUB)
 
-    private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab, githubTab))
+    private val _tabs = MutableStateFlow(listOf(systemTab, errorsTab))
     val tabs: StateFlow<List<LogTab>> = _tabs
 
     private val _selectedTab = MutableStateFlow(systemTab)
@@ -261,8 +250,10 @@ class MainViewModel(
                 result = result.filter { line -> !LogTagFilter.isProhibited(line.text, input.prohibited) }
             }
 
-            // Apply Context Mode (if enabled)
-            if (input.isContextMode && input.isHardContextMode && !input.currentFgApp.isNullOrBlank()) {
+            // Apply Context Mode (if enabled) — general tabs only. An app tab is already scoped to its
+            // own app and must not be re-scoped to whatever is in the foreground.
+            if (input.isContextMode && input.isHardContextMode && !input.currentFgApp.isNullOrBlank() &&
+                input.tab.type != TabType.APP && input.tab.type != TabType.APP_STATS) {
                 val targetUid = uidFor(input.currentFgApp)
                 result = result.filter { line ->
                     if (targetUid != null && line.uid != null) line.uid == targetUid
@@ -297,31 +288,33 @@ class MainViewModel(
                         result = result.filter { sourceClassifier.classify(it.uid).contains(key) }
                     }
                 }
-                // The GitHub tab isn't backed by the logcat stream; its body is the feature panel.
-                TabType.GITHUB -> result = emptyList()
             }
             if (input.userFilter.isNotBlank()) {
                 result = result.filter { it.text.contains(input.userFilter, ignoreCase = true) }
             }
 
-            // Evidence-Based Visibility: the main view only shows significant events.
-            result = result.filter { isSignificantEvent(it) }
-
             result
         }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
 
-    private fun isSignificantEvent(line: IndexedLogLine): Boolean {
-        val level = LogLevel.fromLine(line.text)
-        if (level == LogLevel.ERROR || level == LogLevel.WARNING || level == LogLevel.ASSERT) return true
-        val textLower = line.text.lowercase()
-        // Network calls
-        if (textLower.contains("retrofit") || textLower.contains("okhttp") || 
-            textLower.contains("socket") || textLower.contains("http") || textLower.contains("network")) return true
-        // Lifecycle events
-        if (textLower.contains("oncreate") || textLower.contains("onresume") || 
-            textLower.contains("activitymanager") || textLower.contains("onstart")) return true
-        return false
+    /** Emits [crashEvent] when [lines] carry a crash signature for a monitored app. */
+    private fun detectCrash(lines: List<IndexedLogLine>) {
+        val monitored = monitoredApps.value
+        if (monitored.isEmpty()) return
+        val watched = monitored.associateWith { uidFor(it) }
+        for (line in lines) {
+            val pkg = com.hereliesaz.logkitty.utils.CrashDetector.crashedPackage(line.text, line.uid, watched) ?: continue
+            val now = System.currentTimeMillis()
+            val last = lastCrashAt[pkg]
+            if (last != null && now - last < CRASH_DEBOUNCE_MS) continue
+            lastCrashAt[pkg] = now
+            _crashChannel.trySend(pkg)
+        }
+    }
+
+    /** Selects [pkg]'s pinned app tab, if present (used when surfacing a crash). */
+    fun selectAppTab(pkg: String) {
+        _tabs.value.firstOrNull { it.id == "app_logs_$pkg" }?.let { _selectedTab.value = it }
     }
 
     /**
@@ -331,10 +324,27 @@ class MainViewModel(
         .map { list -> list.map { it.text } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private var activeSessionPackage: String? = null
-    private var activeSessionUid: Int? = null
+    /** The monitored app whose session file is open, with its UID (null if unresolved). */
+    private data class ActiveSession(val pkg: String, val uid: Int?)
+
+    // Written on the main thread (receiver / stopCapture), read by the session writer on IO.
+    @Volatile private var activeSessionPackage: String? = null
+    @Volatile private var activeSession: ActiveSession? = null
+
+    // Session open/close/append run strictly in order on one lane, so a quick A→B→A switch can't
+    // open before the previous close finishes (openSession would refuse and the file be lost).
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val sessionLane = Dispatchers.IO.limitedParallelism(1)
     private val _sessionFinishedChannel = kotlinx.coroutines.channels.Channel<java.io.File>(kotlinx.coroutines.channels.Channel.BUFFERED)
     val sessionFinishedEvent = _sessionFinishedChannel.receiveAsFlow()
+
+    // Package of a monitored app that just crashed (see CrashDetector). The overlay service opens
+    // CrashLogActivity in response — the overlay itself is disabled on the launcher a crash lands on.
+    private val _crashChannel = kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    val crashEvent = _crashChannel.receiveAsFlow()
+    // Last crash report time per package: one crash emits several matching lines (Java header +
+    // Process line, or a whole tombstone), so repeats within CRASH_DEBOUNCE_MS are collapsed.
+    private val lastCrashAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     private val _attentionColor = MutableStateFlow<androidx.compose.ui.graphics.Color?>(null)
     val attentionColor = _attentionColor.asStateFlow()
@@ -345,38 +355,44 @@ class MainViewModel(
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AccessibilityActions.ACTION_FOREGROUND_APP_CHANGED) {
                 val pkg = intent.getStringExtra(AccessibilityActions.EXTRA_PACKAGE_NAME)
-                _currentForegroundApp.value = pkg
+                // Raw value (launcher included) — the overlay uses it to step aside on the home screen.
+                _rawForegroundApp.value = pkg
 
-                // Automatically add a tab for the current app if desired.
-                if (!pkg.isNullOrBlank()) {
-                    addAppTab(pkg)
-                }
+                // Context follows real apps only. Launcher / System UI / crash dialog / LogKitty keep
+                // the previous app as the target so its logs (including a crash) aren't dropped at
+                // ingest, hidden by Hard Context Mode, or cut off from its session file.
+                val ownPkg = context?.packageName ?: getApplication<Application>().packageName
+                if (pkg == null || AccessibilityActions.isTransitPackage(pkg, ownPkg)) return
+                _currentForegroundApp.value = pkg
+                // Automatically add a tab for the current app.
+                addAppTab(pkg)
 
                 // Session Management
                 val oldPkg = activeSessionPackage
                 if (oldPkg != pkg) {
                     // Close old session if it was monitored
-                    if (oldPkg != null && userPreferences.monitoredApps.value.contains(oldPkg)) {
-                        viewModelScope.launch(Dispatchers.IO) {
-                            val file = com.hereliesaz.logkitty.data.SessionLogFileWriter.closeSession(oldPkg)
-                            if (file != null) {
-                                _sessionFinishedChannel.trySend(file)
-                            }
-                        }
-                    }
+                    if (oldPkg != null) closeSessionFor(oldPkg)
 
-                    // Open new session if it is monitored
-                    if (pkg != null && userPreferences.monitoredApps.value.contains(pkg)) {
-                        viewModelScope.launch(Dispatchers.IO) {
+                    // Open new session if it is monitored. The UID is set synchronously with the
+                    // package so the writer never pairs one app's package with another's UID.
+                    if (userPreferences.monitoredApps.value.contains(pkg)) {
+                        activeSession = ActiveSession(pkg, uidFor(pkg))
+                        viewModelScope.launch(sessionLane) {
                             com.hereliesaz.logkitty.data.SessionLogFileWriter.openSession(getApplication(), pkg)
-                            activeSessionUid = uidFor(pkg)
                         }
                     } else {
-                        activeSessionUid = null
+                        activeSession = null
                     }
                     activeSessionPackage = pkg
                 }
             }
+        }
+    }
+
+    /** Closes [pkg]'s session file (no-op if none is open) and announces the finished file. */
+    private fun closeSessionFor(pkg: String) {
+        viewModelScope.launch(sessionLane) {
+            com.hereliesaz.logkitty.data.SessionLogFileWriter.closeSession(pkg)?.let { _sessionFinishedChannel.trySend(it) }
         }
     }
 
@@ -390,16 +406,19 @@ class MainViewModel(
 
     init {
         // Session log writing
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(sessionLane) {
             stateDelegate.newLinesEvent.collect { newLines ->
-                val pkg = activeSessionPackage
-                val targetUid = activeSessionUid
-                if (pkg != null && targetUid != null) {
-                    val relevantLogs = newLines.filter { it.uid == targetUid || it.text.contains(pkg, ignoreCase = true) }
-                    for (line in relevantLogs) {
-                        com.hereliesaz.logkitty.data.SessionLogFileWriter.appendLog(pkg, line.text)
-                    }
+                detectCrash(newLines)
+                val session = activeSession ?: return@collect
+                // UID match when known; otherwise fall back to the package name in the text.
+                val relevant = newLines.filter {
+                    (session.uid != null && it.uid == session.uid) || it.text.contains(session.pkg, ignoreCase = true)
                 }
+                if (relevant.isEmpty()) return@collect
+                // activeSession is set before its queued openSession runs; open here if needed so the
+                // first lines of a session aren't dropped (openSession is a no-op when already open).
+                com.hereliesaz.logkitty.data.SessionLogFileWriter.openSession(getApplication(), session.pkg)
+                com.hereliesaz.logkitty.data.SessionLogFileWriter.appendLines(session.pkg, relevant.map { it.text })
             }
         }
 
@@ -435,9 +454,13 @@ class MainViewModel(
         registerForegroundReceiver()
         // Observe Root Mode toggle: when it changes, restart the reader with the new privileges.
         captureJob = viewModelScope.launch {
+            var previousRoot: Boolean? = null
             isRootEnabled.collect { useRoot ->
                 logJob?.cancel() // Stop existing reader
-                stateDelegate.clearLog() // Clear old logs (optional, but cleaner)
+                // Clear only on an actual Root Mode switch. Clearing on every (re)start wiped the
+                // buffer whenever the overlay service was recreated — e.g. right after a crash.
+                if (previousRoot != null && previousRoot != useRoot) stateDelegate.clearLog()
+                previousRoot = useRoot
                 logJob = launch {
                     LogcatReader.observe(useRoot).collect {
                         if (!_isPaused.value) stateDelegate.appendSystemLog(it)
@@ -453,6 +476,10 @@ class MainViewModel(
         captureJob = null
         logJob = null
         unregisterForegroundReceiver()
+        // Finish any open session so its file is closed and announced; a later start reopens one.
+        activeSessionPackage?.let { closeSessionFor(it) }
+        activeSessionPackage = null
+        activeSession = null
     }
 
     private fun registerForegroundReceiver() {
@@ -682,3 +709,9 @@ class MainViewModel(
         userPreferences.setColorScheme(scheme)
     }
 }
+
+/** Window in which repeated crash lines for one package count as a single crash. */
+private const val CRASH_DEBOUNCE_MS = 10_000L
+
+/** How long a failed package → UID lookup is trusted before retrying. */
+private const val UNRESOLVED_UID_TTL_MS = 30_000L

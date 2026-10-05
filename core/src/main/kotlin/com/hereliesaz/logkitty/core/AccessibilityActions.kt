@@ -10,12 +10,8 @@ package com.hereliesaz.logkitty.core
  */
 object AccessibilityActions {
     const val ACTION_FOREGROUND_APP_CHANGED = "com.hereliesaz.logkitty.FOREGROUND_APP_CHANGED"
-    const val ACTION_COLLAPSE_OVERLAY = "com.hereliesaz.logkitty.COLLAPSE_OVERLAY"
 
     const val EXTRA_PACKAGE_NAME = "PACKAGE_NAME"
-    const val EXTRA_REASON = "reason"
-    const val REASON_HOME = "home"
-    const val REASON_RECENTS = "recents"
 
     /** Resolved launcher package, cached by the foreground monitor so home is detected reliably. */
     @Volatile
@@ -29,5 +25,20 @@ object AccessibilityActions {
             pkg == "com.android.launcher" ||
             pkg == "com.android.launcher3" ||
             pkg.contains("launcher", ignoreCase = true)
+    }
+
+    /**
+     * Packages that take the foreground *between* apps rather than being the app under inspection:
+     * the launcher, System UI, the `android` system package (crash / ANR dialogs), and LogKitty
+     * itself ([ownPackage]). Context Mode stays locked on the last real app while one of these is
+     * on top — otherwise a crash (crash dialog → home) or opening LogKitty to read the log would
+     * retarget the stream and drop / hide the crashed app's lines.
+     */
+    fun isTransitPackage(pkg: String?, ownPackage: String?): Boolean {
+        if (pkg.isNullOrBlank()) return true
+        return pkg == ownPackage ||
+            pkg == "android" ||
+            pkg == "com.android.systemui" ||
+            isLauncherPackage(pkg)
     }
 }

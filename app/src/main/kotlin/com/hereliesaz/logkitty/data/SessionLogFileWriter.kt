@@ -46,11 +46,15 @@ object SessionLogFileWriter {
         }
     }
 
-    suspend fun appendLog(packageName: String, logLine: String) = withContext(Dispatchers.IO) {
+    /** Appends [lines] with a single flush (per-line flushing can't keep up with log bursts). */
+    suspend fun appendLines(packageName: String, lines: List<String>) = withContext(Dispatchers.IO) {
+        if (lines.isEmpty()) return@withContext
         val session = openSessions[packageName] ?: return@withContext
         try {
-            session.writer.write(logLine)
-            session.writer.newLine()
+            for (line in lines) {
+                session.writer.write(line)
+                session.writer.newLine()
+            }
             session.writer.flush()
         } catch (e: IOException) {
             Log.e(TAG, "Failed to write to session log file for $packageName", e)
