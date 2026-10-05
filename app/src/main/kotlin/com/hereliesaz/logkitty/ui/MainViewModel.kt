@@ -212,16 +212,61 @@ class MainViewModel(
         val marks: Map<String, Long>,
         val isContextMode: Boolean,
         val isHardContextMode: Boolean,
-        val currentFgApp: String?
+        val currentFgApp: String?,
+        val segments: List<ContextSegment> = emptyList(),
+        val deletedSegments: Map<Long, Long> = emptyMap(),
     )
+
+    private data class ContextInputs(
+        val enabled: Boolean,
+        val hard: Boolean,
+        val fg: String?,
+        val segments: List<ContextSegment>,
+        val deleted: Map<Long, Long>,
+    )
+
+    // Context Mode history: one segment per app visited, in order. Switching apps starts a new segment
+    // instead of re-filtering (and so visibly clearing) the log; each segment can be copied or deleted
+    // on its own from the general tabs.
+    private val _contextSegments = MutableStateFlow<List<ContextSegment>>(emptyList())
+    val contextSegments: StateFlow<List<ContextSegment>> = _contextSegments
+    // Deleted segments: segment startId → highest log id deleted. Deleting the current app's segment
+    // removes what's there now; lines it logs afterwards still appear.
+    private val _deletedSegments = MutableStateFlow<Map<Long, Long>>(emptyMap())
+
+    /** Removes one Context Mode segment's lines (up to now) from the general tabs. */
+    fun deleteContextSegment(startId: Long) {
+        val upTo = stateDelegate.currentMaxId
+        _deletedSegments.update { it + (startId to upTo) }
+    }
+
+    /**
+     * Starts a Context Mode segment for [pkg]. The start is backdated to the first of the app's lines
+     * among the most recent ones, because an app logs its launch before its foreground event arrives;
+     * otherwise those launch lines would land in (and be filtered out of) the previous app's segment.
+     */
+    private fun startContextSegment(pkg: String) {
+        val logs = stateDelegate.systemLog.value
+        val prevStart = _contextSegments.value.lastOrNull()?.startId ?: Long.MIN_VALUE
+        val uid = uidFor(pkg)
+        val recent = logs.takeLast(LAUNCH_LOOKBACK_LINES).filter { it.id > prevStart }
+        val firstOwn = recent.firstOrNull { line ->
+            (uid != null && line.uid == uid) || line.text.contains(pkg, ignoreCase = true)
+        }?.id
+        val startId = firstOwn ?: (stateDelegate.currentMaxId + 1)
+        _contextSegments.update { ContextSegments.append(it, pkg, startId, logs.firstOrNull()?.id) }
+        // Forget deletions for segments that were trimmed away.
+        val live = _contextSegments.value.map { it.startId }.toSet()
+        _deletedSegments.update { d -> d.filterKeys { it in live } }
+    }
 
     /**
      * Indexed, filtered view of the log stream for the current tab.
      * Each entry preserves its global id so the UI can stably select / copy / prohibit it.
      */
     val filteredIndexedLog: StateFlow<List<IndexedLogLine>> = run {
-        val contextInputs = combine(isContextModeEnabled, isHardContextMode, _currentForegroundApp) { ctx, hard, fg ->
-            Triple(ctx, hard, fg)
+        val contextInputs = combine(isContextModeEnabled, isHardContextMode, _currentForegroundApp, _contextSegments, _deletedSegments) { ctx, hard, fg, segs, del ->
+            ContextInputs(ctx, hard, fg, segs, del)
         }
         val filterSettings = combine(customFilter, prohibitedTags, activeLogLevels, _tabClearMarks) { f, p, l, m ->
             FilterSettings(f, p, l, m)
@@ -233,9 +278,11 @@ class MainViewModel(
                 prohibited = fs.prohibited,
                 levels = fs.levels,
                 marks = fs.marks,
-                isContextMode = ci.first,
-                isHardContextMode = ci.second,
-                currentFgApp = ci.third
+                isContextMode = ci.enabled,
+                isHardContextMode = ci.hard,
+                currentFgApp = ci.fg,
+                segments = ci.segments,
+                deletedSegments = ci.deleted,
             )
         }
         combine(stateDelegate.systemLog, inputs) { logs, input ->
@@ -252,8 +299,21 @@ class MainViewModel(
 
             // Apply Context Mode (if enabled) — general tabs only. An app tab is already scoped to its
             // own app and must not be re-scoped to whatever is in the foreground.
-            if (input.isContextMode && input.isHardContextMode && !input.currentFgApp.isNullOrBlank() &&
-                input.tab.type != TabType.APP && input.tab.type != TabType.APP_STATS) {
+            val generalTab = input.tab.type != TabType.APP && input.tab.type != TabType.APP_STATS
+            if (input.isContextMode && generalTab && input.segments.isNotEmpty()) {
+                // Each line is judged against the app of the segment it was logged in, so earlier apps'
+                // lines stay put when the foreground changes. Hard mode keeps only that app's lines.
+                val uids = HashMap<String, Int?>()
+                result = result.filter { line ->
+                    val seg = ContextSegments.segmentFor(input.segments, line.id) ?: return@filter true
+                    val deletedUpTo = input.deletedSegments[seg.startId]
+                    if (deletedUpTo != null && line.id <= deletedUpTo) return@filter false
+                    if (!input.isHardContextMode) return@filter true
+                    val uid = uids.getOrPut(seg.pkg) { uidFor(seg.pkg) }
+                    if (uid != null && line.uid != null) line.uid == uid
+                    else line.text.contains(seg.pkg, ignoreCase = true)
+                }
+            } else if (input.isContextMode && input.isHardContextMode && !input.currentFgApp.isNullOrBlank() && generalTab) {
                 val targetUid = uidFor(input.currentFgApp)
                 result = result.filter { line ->
                     if (targetUid != null && line.uid != null) line.uid == targetUid
@@ -364,6 +424,7 @@ class MainViewModel(
                 val ownPkg = context?.packageName ?: getApplication<Application>().packageName
                 if (pkg == null || AccessibilityActions.isTransitPackage(pkg, ownPkg)) return
                 _currentForegroundApp.value = pkg
+                if (isContextModeEnabled.value) startContextSegment(pkg)
                 // Automatically add a tab for the current app.
                 addAppTab(pkg)
 
@@ -426,6 +487,19 @@ class MainViewModel(
         // Collected on IO because syncMonitoredTabs resolves app labels/UIDs via PackageManager.
         viewModelScope.launch(Dispatchers.IO) {
             userPreferences.monitoredApps.collect { syncMonitoredTabs(it) }
+        }
+
+        // Context Mode sections only mean something while the mode is on: turning it off drops them,
+        // turning it on starts one for the app already in front (no stale segment spanning the gap).
+        viewModelScope.launch {
+            isContextModeEnabled.collect { enabled ->
+                if (!enabled) {
+                    _contextSegments.value = emptyList()
+                    _deletedSegments.value = emptyMap()
+                } else {
+                    _currentForegroundApp.value?.let { startContextSegment(it) }
+                }
+            }
         }
 
         // Keep the per-source tabs in sync with the user's "Log sources" choices.
@@ -623,6 +697,8 @@ class MainViewModel(
     fun clearLog() {
         stateDelegate.clearLog()
         _tabClearMarks.value = emptyMap()
+        _contextSegments.value = emptyList()
+        _deletedSegments.value = emptyMap()
     }
 
     fun setTagColoringEnabled(enabled: Boolean) {
@@ -715,3 +791,6 @@ private const val CRASH_DEBOUNCE_MS = 10_000L
 
 /** How long a failed package → UID lookup is trusted before retrying. */
 private const val UNRESOLVED_UID_TTL_MS = 30_000L
+
+/** How far back (in lines) a new Context Mode segment looks for the app's own launch lines. */
+private const val LAUNCH_LOOKBACK_LINES = 300
