@@ -25,7 +25,11 @@ import java.util.concurrent.atomic.AtomicLong
  * `null` for lines without a recognizable UID prefix (e.g. reader warnings or stack-trace
  * continuation lines).
  */
-data class IndexedLogLine(val id: Long, val text: String, val uid: Int? = null)
+/**
+ * One buffered log line. [target] marks lines belonging to a watched/foreground/open-tab app; when
+ * the buffer is full, non-target lines are evicted first so those apps keep their history.
+ */
+data class IndexedLogLine(val id: Long, val text: String, val uid: Int? = null, val target: Boolean = true)
 
 /**
  * [StateDelegate] is the single source of truth for the raw log data.
@@ -53,7 +57,7 @@ class StateDelegate(
         private const val BATCH_INTERVAL_MS = 100L
 
         /** Anchors the start of a standard `-v time` line: `MM-DD HH:MM:SS.mmm`. */
-        private val TIMESTAMP_ANCHOR = Regex("""\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}""")
+        private val TIMESTAMP_ANCHOR = com.hereliesaz.logkitty.utils.LogcatReader.TIMESTAMP_PATTERN
 
         /** App-UID name form printed by some devices' `-v uid`, e.g. `u0_a123`. */
         private val APP_UID_NAME = Regex("""^u(\d+)_a(\d+)$""")
@@ -142,7 +146,15 @@ class StateDelegate(
                     result = logChannel.tryReceive()
                 }
                 if (buffer.isNotEmpty()) {
-                    processLogBatch(buffer)
+                    // One bad batch must not kill the only consumer (the channel would then grow
+                    // without bound and the log would freeze).
+                    try {
+                        processLogBatch(buffer)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        android.util.Log.e("StateDelegate", "Dropping a log batch that failed to process", e)
+                    }
                     buffer.clear()
                 }
             }
@@ -174,11 +186,11 @@ class StateDelegate(
                             val isTarget = if (uids.isNotEmpty() || pkgs.isNotEmpty()) {
                                 if (uid != null && uids.contains(uid)) true
                                 else pkgs.any { pkg -> parsed.text.contains(pkg, ignoreCase = true) }
-                            } else true // If no targets specified, keep all (or should we drop? Let's keep all for safety if no targets)
+                            } else true
 
-                            if (isTarget) {
-                                systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), parsed.text, uid))
-                            }
+                            // Every line is kept (System/Errors/source tabs need them); the target
+                            // flag only decides eviction order in appendCapped.
+                            systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), parsed.text, uid, isTarget))
                         }
                     }
                 }
@@ -199,7 +211,7 @@ class StateDelegate(
         return false
     }
 
-    private val _newLinesChannel = kotlinx.coroutines.channels.Channel<List<IndexedLogLine>>(kotlinx.coroutines.channels.Channel.BUFFERED)
+    private val _newLinesChannel = kotlinx.coroutines.channels.Channel<List<IndexedLogLine>>(kotlinx.coroutines.channels.Channel.UNLIMITED)
     val newLinesEvent = _newLinesChannel.receiveAsFlow()
 
     private val _systemLog = MutableStateFlow<List<IndexedLogLine>>(emptyList())
@@ -221,23 +233,7 @@ class StateDelegate(
     }
 
     private fun MutableStateFlow<List<IndexedLogLine>>.appendCapped(lines: List<IndexedLogLine>) {
-        this.update { current ->
-            val totalSize = current.size + lines.size
-            if (totalSize <= maxLogSize) {
-                current + lines
-            } else {
-                val keepFromCurrent = maxLogSize - lines.size
-                if (keepFromCurrent <= 0) {
-                    lines.takeLast(maxLogSize)
-                } else {
-                    val result = java.util.ArrayList<IndexedLogLine>(maxLogSize)
-                    val start = current.size - keepFromCurrent
-                    for (i in start until current.size) result.add(current[i])
-                    result.addAll(lines)
-                    result
-                }
-            }
-        }
+        this.update { current -> Capping.capped(current, lines, maxLogSize) }
     }
 
     /**
@@ -245,5 +241,33 @@ class StateDelegate(
      */
     fun clearLog() {
         _systemLog.value = emptyList()
+    }
+
+    internal object Capping {
+        /**
+         * Appends [lines] to [current], keeping at most [max] entries. Over the cap, the oldest
+         * non-target lines go first; only then the oldest target lines. Order is preserved.
+         */
+        internal fun capped(current: List<IndexedLogLine>, lines: List<IndexedLogLine>, max: Int): List<IndexedLogLine> {
+            val total = current.size + lines.size
+            if (total <= max) return current + lines
+            if (lines.size >= max) return lines.takeLast(max)
+            var excess = total - max
+            // Pass 1: mark the oldest non-target lines in `current` for eviction.
+            val drop = BooleanArray(current.size)
+            for (i in current.indices) {
+                if (excess == 0) break
+                if (!current[i].target) { drop[i] = true; excess-- }
+            }
+            // Pass 2: still over → evict the oldest remaining lines regardless of target.
+            for (i in current.indices) {
+                if (excess == 0) break
+                if (!drop[i]) { drop[i] = true; excess-- }
+            }
+            val result = ArrayList<IndexedLogLine>(max)
+            for (i in current.indices) if (!drop[i]) result.add(current[i])
+            result.addAll(lines)
+            return result
+        }
     }
 }

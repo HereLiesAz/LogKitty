@@ -39,10 +39,6 @@ data class ExportedPreferences(
     val tagColoringEnabled: Boolean = true,
     val monitoredApps: List<String> = emptyList(),
     val activeSourceFilters: List<String> = emptyList(),
-    // GitHub repo config is non-secret and safe to back up. The PAT is NOT here — it lives in the
-    // separate, backup-excluded GitHubCredentials store and is never exported.
-    val githubOwner: String = "",
-    val githubRepo: String = "",
     val autoDeleteDurationDays: Int = 7,
     val maxTotalLogSizeMegabytes: Int = 500
 )
@@ -150,13 +146,6 @@ class UserPreferences(context: Context) {
     private val _tagColoringEnabled = MutableStateFlow(prefs.getBoolean(KEY_TAG_COLORING, true))
     val tagColoringEnabled: StateFlow<Boolean> = _tagColoringEnabled.asStateFlow()
 
-    // --- Preference: GitHub repo (owner/name) ---
-    // Non-secret repo coordinates for the GitHub Actions tab. The PAT is stored separately in the
-    // backup-excluded GitHubCredentials store, never here.
-    private val _githubOwner = MutableStateFlow(prefs.getString(KEY_GITHUB_OWNER, "") ?: "")
-    val githubOwner: StateFlow<String> = _githubOwner.asStateFlow()
-    private val _githubRepo = MutableStateFlow(prefs.getString(KEY_GITHUB_REPO, "") ?: "")
-    val githubRepo: StateFlow<String> = _githubRepo.asStateFlow()
 
     // --- Preference: Auto Delete Duration ---
     // Number of days to keep session log files before auto-deleting (0 = never delete).
@@ -211,6 +200,7 @@ class UserPreferences(context: Context) {
         _bufferSize.value = size
     }
 
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun toggleLogLevel(levelName: String, enabled: Boolean) {
         val current = _activeLogLevels.value.toMutableSet()
         if (enabled) current.add(levelName) else current.remove(levelName)
@@ -246,6 +236,7 @@ class UserPreferences(context: Context) {
     /**
      * Adds a tag to the prohibited list.
      */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun addProhibitedTag(tag: String) {
         val current = _prohibitedTags.value.toMutableSet()
         current.add(tag)
@@ -256,6 +247,7 @@ class UserPreferences(context: Context) {
     /**
      * Removes a tag from the prohibited list.
      */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun removeProhibitedTag(tag: String) {
         val current = _prohibitedTags.value.toMutableSet()
         current.remove(tag)
@@ -264,6 +256,7 @@ class UserPreferences(context: Context) {
     }
 
     /** Pins a package for a dedicated app-specific log tab. */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun addMonitoredApp(packageName: String) {
         if (packageName.isBlank()) return
         val current = _monitoredApps.value.toMutableSet()
@@ -274,6 +267,7 @@ class UserPreferences(context: Context) {
     }
 
     /** Unpins a previously monitored package. */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun removeMonitoredApp(packageName: String) {
         val current = _monitoredApps.value.toMutableSet()
         if (current.remove(packageName)) {
@@ -283,6 +277,7 @@ class UserPreferences(context: Context) {
     }
 
     /** Enables/disables a log-source filter tab (key from `LogSources`). */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun setSourceFilterEnabled(key: String, enabled: Boolean) {
         val current = _activeSourceFilters.value.toMutableSet()
         if (enabled) current.add(key) else current.remove(key)
@@ -294,6 +289,7 @@ class UserPreferences(context: Context) {
      * Customizes the color for a specific log level. Switches the scheme to CUSTOM so further
      * scheme changes don't silently overwrite the user's overrides.
      */
+    @Synchronized // read-modify-write: callers on different threads must not lose updates
     fun setLogColor(level: LogLevel, color: Color) {
         val current = _logColors.value.toMutableMap()
         current[level] = color
@@ -345,16 +341,6 @@ class UserPreferences(context: Context) {
     fun setTagColoringEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_TAG_COLORING, enabled).apply()
         _tagColoringEnabled.value = enabled
-    }
-
-    fun setGithubOwner(owner: String) {
-        prefs.edit().putString(KEY_GITHUB_OWNER, owner).apply()
-        _githubOwner.value = owner
-    }
-
-    fun setGithubRepo(repo: String) {
-        prefs.edit().putString(KEY_GITHUB_REPO, repo).apply()
-        _githubRepo.value = repo
     }
 
     fun setAutoDeleteDurationDays(days: Int) {
@@ -424,8 +410,6 @@ class UserPreferences(context: Context) {
             tagColoringEnabled = _tagColoringEnabled.value,
             monitoredApps = _monitoredApps.value.toList(),
             activeSourceFilters = _activeSourceFilters.value.toList(),
-            githubOwner = _githubOwner.value,
-            githubRepo = _githubRepo.value,
             autoDeleteDurationDays = _autoDeleteDurationDays.value,
             maxTotalLogSizeMegabytes = _maxTotalLogSizeMegabytes.value
         )
@@ -446,14 +430,15 @@ class UserPreferences(context: Context) {
             setHardContextMode(imported.isHardContextMode)
             setThemeMode(imported.themeMode)
             setCustomFilter(imported.customFilter)
-            setOverlayOpacity(imported.overlayOpacity)
+            // Imported files are user-supplied: clamp numbers to the ranges Settings offers.
+            setOverlayOpacity(imported.overlayOpacity.coerceIn(0.1f, 1.0f))
             setBackgroundColor(imported.backgroundColor)
-            setFontSize(imported.fontSize)
+            setFontSize(imported.fontSize.coerceIn(8, 24))
             setFontFamily(imported.fontFamily)
             setRootEnabled(imported.isRootEnabled)
             setLogReversed(imported.isLogReversed)
             setShowTimestamp(imported.showTimestamp)
-            setBufferSize(imported.bufferSize)
+            setBufferSize(imported.bufferSize.coerceIn(1000, 10000))
             setTagColoringEnabled(imported.tagColoringEnabled)
 
             val levels = imported.activeLogLevels.toMutableSet()
@@ -472,10 +457,8 @@ class UserPreferences(context: Context) {
             prefs.edit().putStringSet(KEY_ACTIVE_SOURCE_FILTERS, sources).apply()
             _activeSourceFilters.value = sources
 
-            setGithubOwner(imported.githubOwner)
-            setGithubRepo(imported.githubRepo)
-            setAutoDeleteDurationDays(imported.autoDeleteDurationDays)
-            setMaxTotalLogSizeMegabytes(imported.maxTotalLogSizeMegabytes)
+            setAutoDeleteDurationDays(imported.autoDeleteDurationDays.coerceIn(0, 365))
+            setMaxTotalLogSizeMegabytes(imported.maxTotalLogSizeMegabytes.coerceIn(0, 10_000))
 
             val scheme = try { LogColorScheme.valueOf(imported.colorScheme) } catch (e: Exception) { LogColorScheme.MATERIAL }
 
@@ -520,8 +503,6 @@ class UserPreferences(context: Context) {
         private const val KEY_TAG_COLORING = "tag_coloring_enabled"
         private const val KEY_MONITORED_APPS = "monitored_apps"
         private const val KEY_ACTIVE_SOURCE_FILTERS = "active_source_filters"
-        private const val KEY_GITHUB_OWNER = "github_owner"
-        private const val KEY_GITHUB_REPO = "github_repo"
         private const val KEY_AUTO_DELETE_DURATION_DAYS = "auto_delete_duration_days"
         private const val KEY_MAX_TOTAL_LOG_SIZE_MB = "max_total_log_size_mb"
     }

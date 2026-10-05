@@ -7,11 +7,8 @@ package com.hereliesaz.logkitty.core.feature
  */
 object FeatureModules {
     const val STATS = "stats"
-    const val GITHUB = "github"
 
     const val STATS_IMPL = "com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl"
-
-    const val GITHUB_IMPL = "com.hereliesaz.logkitty.feature.github.GitHubFeatureImpl"
 }
 
 /**
@@ -29,7 +26,12 @@ object FeatureLoader {
     @Suppress("UNCHECKED_CAST")
     fun <T> load(className: String, context: android.content.Context): T? = try {
         context.classLoader.loadClass(className).getDeclaredConstructor().newInstance() as T
+    } catch (e: ClassNotFoundException) {
+        null // Module not installed (yet) — expected.
     } catch (e: Throwable) {
+        // Anything else (interface mismatch, missing split dependency) is a real bug, not an
+        // install glitch; log it so it isn't mistaken for "not installed".
+        android.util.Log.e("FeatureLoader", "Failed to load $className", e)
         null
     }
 }

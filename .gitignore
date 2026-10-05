@@ -33,3 +33,6 @@ gha-creds-*.json
 /app/release/app-release.aab
 /.artifacts/acb8b43e-a581-4d64-80b7-9619cece1f54/implementation_plan.artifact.md
 /.artifacts/5e754053-0cf1-4571-a01e-ae5744d8a6ed/implementation_plan.artifact.md
+
+# Local auto-incrementing build counter (see app/build.gradle.kts)
+.local-build-number

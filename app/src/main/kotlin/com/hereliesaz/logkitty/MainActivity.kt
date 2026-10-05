@@ -43,7 +43,6 @@ import com.google.android.play.core.install.model.UpdateAvailability
 import com.hereliesaz.aznavrail.AzButton
 import com.hereliesaz.aznavrail.model.AzButtonShape
 import com.hereliesaz.logkitty.services.LogKittyOverlayService
-import com.hereliesaz.logkitty.ui.GitHubScreen
 import com.hereliesaz.logkitty.ui.AnalyzerDashboardScreen
 import com.hereliesaz.logkitty.ui.SettingsScreen
 import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
@@ -75,7 +74,6 @@ class MainActivity : ComponentActivity() {
 
     // UI State for Navigation
     private var showSettings by mutableStateOf(false)
-    private var showGitHub by mutableStateOf(false)
 
     // Activity Result Launcher for the "Display Over Other Apps" system settings screen.
     private val overlayPermissionLauncher = registerForActivityResult(
@@ -120,12 +118,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Register receiver for service death
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(serviceStoppedReceiver, IntentFilter("com.hereliesaz.logkitty.ACTION_SERVICE_STOPPED"), Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(serviceStoppedReceiver, IntentFilter("com.hereliesaz.logkitty.ACTION_SERVICE_STOPPED"))
-        }
+        // Register receiver for service death (sent from LogKittyOverlayService.onDestroy).
+        androidx.core.content.ContextCompat.registerReceiver(
+            this,
+            serviceStoppedReceiver,
+            IntentFilter(com.hereliesaz.logkitty.services.LogKittyOverlayService.ACTION_SERVICE_STOPPED),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
 
         // Initial Checks
         checkPermissions()
@@ -162,7 +161,7 @@ class MainActivity : ComponentActivity() {
                     val viewModel = (application as MainApplication).mainViewModel
                     // One persistent banner anchored to the bottom of every in-app screen. Composed
                     // once here, outside the navigation `when`, so the same AdView instance survives
-                    // dashboard <-> Settings <-> GitHub navigation instead of reloading per screen.
+                    // dashboard <-> Settings navigation instead of reloading per screen.
                     Column(modifier = Modifier.fillMaxSize()) {
                         Box(modifier = Modifier.weight(1f)) {
                             when {
@@ -171,15 +170,6 @@ class MainActivity : ComponentActivity() {
                                     SettingsScreen(
                                         onBack = { showSettings = false },
                                         viewModel = viewModel
-                                    )
-                                showGitHub ->
-                                    // Full-screen GitHub Actions (same panel the overlay tab hosts).
-                                    GitHubScreen(
-                                        viewModel = viewModel,
-                                        onBack = { showGitHub = false },
-                                        // Keep showGitHub=true: the when checks showSettings first, so Settings
-                                        // shows on top and backing out of it returns here, not the dashboard.
-                                        onConfigure = { showSettings = true },
                                     )
                                 else -> {
                                     // Show the Main Dashboard / Permission Wizard.
@@ -197,15 +187,13 @@ class MainActivity : ComponentActivity() {
                                             onCompleteUpdate = { appUpdateManager.completeUpdate() },
                                             onGrantOverlay = { requestOverlayPermission() },
                                             onToggleService = { toggleOverlayService() },
-                                            onOpenSettings = { showSettings = true },
-                                            onOpenGitHub = { showGitHub = true }
+                                            onOpenSettings = { showSettings = true }
                                         )
                                     } else {
                                         AnalyzerDashboardScreen(
                                             isServiceRunning = isServiceRunning,
                                             onToggleService = { toggleOverlayService() },
                                             onOpenSettings = { showSettings = true },
-                                            onOpenGitHub = { showGitHub = true },
                                             viewModel = viewModel
                                         )
                                     }
@@ -276,9 +264,9 @@ class MainActivity : ComponentActivity() {
      */
     private fun toggleOverlayService() {
         if (isServiceRunning) {
-            val intent = Intent(this, LogKittyOverlayService::class.java)
-            intent.action = "com.hereliesaz.logkitty.STOP_SERVICE"
-            startService(intent)
+            // stopService, not a STOP intent via startService: if the service already died, a
+            // startService would resurrect it just to stop it (and trip foreground-start rules).
+            stopService(Intent(this, LogKittyOverlayService::class.java))
             isServiceRunning = false
             return
         }
@@ -371,8 +359,7 @@ fun MainScreenContent(
     onCompleteUpdate: () -> Unit,
     onGrantOverlay: () -> Unit,
     onToggleService: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenGitHub: () -> Unit
+    onOpenSettings: () -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
@@ -474,8 +461,6 @@ fun MainScreenContent(
             }
             Spacer(modifier = Modifier.height(16.dp))
             AzButton(onClick = onOpenSettings, text = stringResource(R.string.settings), modifier = Modifier.fillMaxWidth().height(56.dp), shape = AzButtonShape.RECTANGLE)
-            Spacer(modifier = Modifier.height(8.dp))
-            AzButton(onClick = onOpenGitHub, text = stringResource(R.string.main_open_github), modifier = Modifier.fillMaxWidth().height(56.dp), shape = AzButtonShape.RECTANGLE)
         }
     }
 }

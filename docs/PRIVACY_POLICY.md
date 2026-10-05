@@ -55,7 +55,7 @@ server (there is no LogKitty server).
 | `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_SPECIAL_USE` | Keep the log capture running with a persistent notification. |
 | `POST_NOTIFICATIONS` | Show the persistent silent control notification. |
 | `PACKAGE_USAGE_STATS` | Detect the foreground app for context filtering; read per‑app network usage in the Developer Stats module. |
-| `INTERNET` | Required by the components below (fonts, GitHub Actions, optional crash reporting). |
+| `INTERNET` | Required by the components below (fonts, on-demand modules, app updates). |
 
 
 You can review the live grant status of these permissions in
@@ -66,7 +66,6 @@ You can review the live grant status of these permissions in
 LogKitty itself does not upload your logs. Data leaves the device only in these
 cases:
 
-
 ### Fonts (Google Fonts)
 
 Code fonts are fetched on demand from Google's downloadable‑fonts provider. When
@@ -74,19 +73,10 @@ a font is requested, the request is handled by Google Play services and is
 subject to Google's privacy policy (linked above). No LogKitty user data is
 attached to these requests.
 
-### GitHub Actions (optional, only if you configure it)
-
-If you use the optional GitHub Actions feature, the app talks to the **GitHub
-REST API** (`api.github.com`) to show workflow runs, jobs, and logs for the
-repository you configure. To do this you provide a Personal Access Token (PAT),
-which is stored **encrypted on your device** (Android Keystore, AES/GCM) in a
-backup‑excluded store — it is never included in settings backups/exports and is
-sent only to GitHub to authenticate your own requests.
-
 ### On‑demand feature modules
 
-Developer Stats and GitHub Actions ship as optional modules downloaded
-from **Google Play** the first time you use them. Fetching a module is a request
+Developer Stats ships as an optional module downloaded
+from **Google Play** the first time you use it. Fetching a module is a request
 to Google Play, governed by Google's privacy policy (linked above).
 
 ### Saving or sharing logs (only when you choose to)
@@ -94,16 +84,6 @@ to Google Play, governed by Google's privacy policy (linked above).
 If you explicitly **save**, **copy**, or **export** logs or preferences, that
 content goes wherever you send it (a file you pick, the clipboard, or another
 app you share to). This only happens on your action.
-
-### Crash reports (optional, build‑dependent)
-
-Some builds can file a crash report to the project's issue tracker to help fix
-bugs. A report contains the **exception type and message, the stack trace, and
-basic device metadata** (Android version, SDK level, device manufacturer and
-model) — it does **not** include logcat or any of the log content you were
-viewing. The report is stored locally and only uploaded if the build was
-configured with a reporting token; if it is not configured, no crash data is
-sent.
 
 ## Data retention
 
