@@ -45,11 +45,6 @@ This guide covers how to build, install, and configure LogKitty for development.
 
 ## Environment Configuration
 
-### GitHub Integration (Crash Reporting)
-The app can report crashes to GitHub Issues. To enable this, set the following environment variable during build time (or in your `local.properties`):
-
-*   `GH_TOKEN`: A GitHub Personal Access Token with repo permissions.
-
 ### Google Fonts
 To use Google Fonts, you need an API key.
 *   `FONTS_API_KEY`: Add this to `local.properties` if you want to modify font providers.

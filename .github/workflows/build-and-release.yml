@@ -143,6 +143,8 @@ jobs:
           BT_VERSION=1.17.2
           curl -fsSL -o bundletool.jar \
             "https://github.com/google/bundletool/releases/download/${BT_VERSION}/bundletool-all-${BT_VERSION}.jar"
+          # Pin the jar: update this hash together with BT_VERSION.
+          echo "2d4ad908faea64047c1cc9cb747e6aa667c6ab192e09607bd16b67246a8cd6ae  bundletool.jar" | sha256sum -c -
 
           AAB=$(find app/build/outputs/bundle -name "*.aab" | head -n 1)
           if [ -z "$AAB" ]; then echo "Error: no .aab produced!"; exit 1; fi
@@ -208,22 +210,16 @@ jobs:
       # RELEASE STEPS (Only run on PUSH, not Pull Requests)
       # ------------------------------------------------------------------
       - name: Prepare Release Variables
-        if: success() && github.event_name == 'push'
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: release_vars
         run: |
           export BUILD_NUMBER=$(git rev-list --count HEAD)
 
           # Extract version info from properties file
-          MAJOR=$(grep 'major=' version.properties | cut -d'=' -f2)
-          MINOR=$(grep 'minor=' version.properties | cut -d'=' -f2)
-
-          # Calculate Patch version programmatically based on commits since Minor update
-          MINOR_COMMIT=$(git blame -L '/minor=/',+1 version.properties | awk '{print $1}' | tr -d '^')
-          if [ -n "$MINOR_COMMIT" ]; then
-            PATCH=$(git rev-list --count $MINOR_COMMIT..HEAD)
-          else
-            PATCH=$(grep 'patch=' version.properties | cut -d'=' -f2)
-          fi
+          # Same keys Gradle reads, anchored so they can't match other keys.
+          MAJOR=$(grep '^major=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          MINOR=$(grep '^minor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          PATCH=$(grep '^patch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
 
           VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
 
@@ -258,7 +254,7 @@ jobs:
           echo "APK_FILE=$TARGET_NAME" >> $GITHUB_ENV
 
       - name: Publish Release
-        if: success() && github.event_name == 'push'
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

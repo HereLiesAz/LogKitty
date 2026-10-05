@@ -4,6 +4,9 @@ Run through this before publishing a LogKitty release. See **[RELEASING.md](RELE
 build/signing/publish mechanics; this is the human checklist around them.
 
 ## One-time Google Play setup (first release only)
+
+> Automated Play upload is not wired up yet; the service-account steps prepare for it. Until then, upload the `.aab` from the release by hand.
+
 - [ ] Create a **Google Cloud service account** + JSON key; add it as the `PLAY_SERVICE_ACCOUNT_JSON`
       repo secret.
 - [ ] In **Play Console → Users & permissions**, invite the service account and grant release access
