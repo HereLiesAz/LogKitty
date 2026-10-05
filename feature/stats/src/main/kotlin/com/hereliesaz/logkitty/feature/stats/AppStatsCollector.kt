@@ -237,9 +237,13 @@ class AppStatsCollector(private val context: Context) {
 
     private fun buildBatchScript(pkg: String): String {
         val p = shellEscape(pkg)
+        // Fallback for apps running only `pkg:service` processes. Anchored so it can't match the
+        // `su`/`sh` running this very script (whose cmdline contains the package) or a package that
+        // merely starts with this one (com.foo vs com.foo.pro); dots are escaped for the regex.
+        val procPattern = shellEscape("^" + pkg.replace(".", "\\.") + "(:|${'$'})")
         return """
             PIDS=${'$'}(pidof $p 2>/dev/null)
-            if [ -z "${'$'}PIDS" ]; then PIDS=${'$'}(pgrep -f $p 2>/dev/null); fi
+            if [ -z "${'$'}PIDS" ]; then PIDS=${'$'}(pgrep -f $procPattern 2>/dev/null); fi
             echo "@@PIDS@@"; echo "${'$'}PIDS"
             echo "@@CPU@@"; head -n 1 /proc/stat 2>/dev/null
             echo "@@GPUPCT@@"; cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null

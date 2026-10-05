@@ -9,7 +9,6 @@ name: Android CI
 #   KEYSTORE_PASSWORD        — keystore password
 #   KEY_ALIAS                — key alias inside the keystore
 #   KEY_PASSWORD             — key password
-#   GH_TOKEN                 — GitHub token with write access (defaults to GITHUB_TOKEN)
 #
 # Optional secrets (Google Services injection — skipped if template absent):
 #   GOOGLE_SERVICES_API_KEY  — Firebase/Google API key
@@ -70,6 +69,9 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew test --continue --build-cache --no-daemon --stacktrace
+
+      - name: Run lint
+        run: ./gradlew :app:lintDebug --build-cache --no-daemon
 
       - name: Upload test reports
         if: always()
@@ -145,14 +147,13 @@ jobs:
         id: gradle-build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           KEYSTORE_FILE: ${{ github.workspace }}/app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set +e
-          ./gradlew assembleDebug --build-cache --no-daemon > build.log 2>&1
+          ./gradlew assembleDebug -PversionBuild=$(git rev-list --count HEAD) --build-cache --no-daemon > build.log 2>&1
           EXIT_CODE=$?
           echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
           cat build.log
@@ -176,13 +177,14 @@ jobs:
             });
 
       - name: Prepare Release Variables
-        if: success() && github.event_name == 'push'
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: release_vars
         run: |
-          MAJOR=$(grep '^versionMajor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          MINOR=$(grep '^versionMinor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          PATCH=$(grep '^versionPatch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
-          BUILD_NUMBER=$(grep '^versionBuild=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          # Same keys and build number Gradle uses (see app/build.gradle.kts).
+          MAJOR=$(grep '^major=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          MINOR=$(grep '^minor=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          PATCH=$(grep '^patch=' version.properties | cut -d'=' -f2 | tr -d '\r ')
+          BUILD_NUMBER=$(git rev-list --count HEAD)
           VERSION_NAME="$MAJOR.$MINOR.$PATCH.$BUILD_NUMBER"
           TAG_NAME="latest-debug-v${MAJOR}.${MINOR}"
           if [ -f "settings.gradle.kts" ]; then
@@ -207,7 +209,7 @@ jobs:
           cd build_tools_package && zip -r ../build-tools.zip . && cd ..
 
       - name: Publish Release
-        if: success() && github.event_name == 'push'
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

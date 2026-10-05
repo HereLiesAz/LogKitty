@@ -12,9 +12,8 @@
 # Dynamic feature entry points instantiated reflectively by FeatureLoader
 -keep class com.hereliesaz.logkitty.feature.stats.StatsFeatureImpl { <init>(); }
 
--keep class com.hereliesaz.logkitty.feature.github.GitHubFeatureImpl { <init>(); }
 
-# Google Play Services, Play Core, App Update, Play Feature Delivery, Fonts & Billing
+# Google Play Services, Play Core, App Update, Play Feature Delivery & Fonts
 -keep class com.google.android.gms.** { *; }
 -keepclassmembers class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
@@ -22,10 +21,6 @@
 -keep class com.google.android.play.** { *; }
 -keepclassmembers class com.google.android.play.** { *; }
 -dontwarn com.google.android.play.**
-
--keep class com.android.billingclient.api.** { *; }
--keepclassmembers class com.android.billingclient.api.** { *; }
--dontwarn com.android.billingclient.api.**
 
 # Kotlin Language, Coroutines, and Serialization
 -keep class kotlin.** { *; }
@@ -41,7 +36,6 @@
 -dontwarn androidx.**
 
 # Networking (OkHttp / Okio)
--keep class okhttp3.** { *; }
 -keep class okio.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
@@ -50,8 +44,7 @@
 # proguard rules at all (its AAR has no proguard.txt), yet AppUpdateManager's IPC with the Play
 # Store app (checkForAppUpdate(), called on every launch from MainActivity.onCreate) relies on
 # obfuscated com.google.android.play.core.** classes only reachable through the library's own
-# reflection/Binder callback plumbing. Without an explicit keep, R8 strips them the same way it
-# stripped Billing's proto-lite classes above.
+# reflection/Binder callback plumbing. Without an explicit keep, R8 strips them .
 -keep class com.google.android.play.core.** { *; }
 -dontwarn com.google.android.play.core.**
 -keep class kotlin.** { *; }
@@ -59,7 +52,6 @@
 -keep class androidx.** { *; }
 -keep class com.hereliesaz.** { *; }
 -keep class io.github.dokar3.** { *; }
--keep class okhttp3.** { *; }
 -keep class okio.** { *; }
 -keep class com.google.** { *; }
 -keep class java.** { *; }
