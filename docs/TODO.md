@@ -43,7 +43,7 @@
         - [ ] Add a "Copy Command" button to the dialog.
         - [ ] Implement the "Copy Command" button logic to copy the string to the system clipboard.
 
-- [ ] **Implement Service Accessibility Check**
+- [x] ~~**Implement Service Accessibility Check**~~ — obsolete: the accessibility service was removed (Context Mode uses Usage Access / root).
     - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/MainActivity.kt`.
     - [ ] Create a new private method named `checkAccessibilityPermission()`.
     - [ ] Inside the method, get the `AccessibilityManager` system service.
@@ -137,8 +137,8 @@
 ### 3.1 Service-Side Filtering
 - [x] **Implement Package Blocklist** — done in the consumer instead of the (since-removed) accessibility service: `AccessibilityActions.isTransitPackage` (launcher, `com.android.systemui`, `android` crash/ANR dialogs, LogKitty itself) keeps Context Mode on the last real app, so a crash no longer retargets the stream and drops the crashed app's log.
 
-- [ ] **Debounce Broadcasts**
-    - [ ] Open `app/src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyAccessibilityService.kt`.
+- [x] ~~**Debounce Broadcasts**~~ — obsolete: `ForegroundAppMonitor` polls every 1.5 s and only broadcasts on change.
+    - [ ] ~~Open `LogKittyAccessibilityService.kt`.~~
     - [ ] Add a private variable `lastBroadcastTime` initialized to `0L`.
     - [ ] Inside `onAccessibilityEvent`, get `System.currentTimeMillis()`.
     - [ ] Add check: `if (currentTime - lastBroadcastTime < 300) return`.
@@ -244,3 +244,4 @@
     - [x] Monitored-app crash opens `CrashLogActivity` (full-screen log on that app's tab).
     - [x] Hard Context Mode filters only general tabs (System, Errors); app tabs stay on their app, and every open app tab keeps receiving its lines.
 - [x] **GitHub removed (0.9.0):** `:feature:github` module, GitHub tab/screen/settings, PAT store, device sign-in, run-watch worker, crash-report upload (and the build-time `GH_TOKEN`), and the labeler workflow.
+- [x] **Audit fixes (0.9.0):** log pipeline (no ingest drops, ordered sessions, scoped root cleanup, uid-format downgrade only on rejection), service/notification fixes, working sub-tab filters, feature-install states, scheduled log cleanup, backup exclusions, CI gating to `main` + version alignment + lint step, local build counter moved out of `version.properties`.

@@ -22,6 +22,9 @@ import java.io.IOException
 object LogcatReader {
 
     /** Matches a standard logcat timestamp (`MM-DD HH:MM:SS.mmm`). Shared with StateDelegate. */
+    /** Text logcat prints when it rejects its arguments (e.g. an unsupported `-v uid`). */
+    private val REJECTION_HINTS = listOf("unknown", "invalid", "unrecognized", "usage:", "format")
+
     internal val TIMESTAMP_PATTERN = Regex("""\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\.\d{3}""")
 
     /**
@@ -75,7 +78,8 @@ object LogcatReader {
                     while (currentCoroutineContext().isActive && line != null) {
                         if (!sawValidLog) {
                             if (TIMESTAMP_PATTERN.containsMatchIn(line)) sawValidLog = true
-                            else if (line.isNotBlank() && !line.startsWith("-")) sawOtherOutput = true
+                            // Only logcat's own complaints count — not a stray `su`/Magisk banner.
+                            else if (REJECTION_HINTS.any { line.contains(it, ignoreCase = true) }) sawOtherOutput = true
                         }
                         emit(line)
                         line = reader.readLine()

@@ -29,28 +29,25 @@ val minor = versionProps.getProperty("minor")?.toIntOrNull() ?: 0
 val patch = versionProps.getProperty("patch")?.toIntOrNull() ?: 0
 
 // versionCode source. CI passes `-PversionBuild=$(git rev-list --count HEAD)` so every Play upload
-// gets a strictly-increasing code (commit count only ever grows). When the override is absent (local
-// builds, Android Studio) we keep the previous behavior: auto-increment a counter in
-// version.properties on each build task.
+// gets a strictly-increasing code (commit count only ever grows). Local builds (CLI, Android Studio)
+// auto-increment a counter on each artifact-producing task. The counter lives in the untracked
+// `.local-build-number` — not version.properties — so builds never dirty a tracked file.
 val versionBuildOverride = project.findProperty("versionBuild")?.toString()?.toIntOrNull()
-var buildNumber = versionBuildOverride ?: (versionProps.getProperty("build")?.toIntOrNull() ?: 0)
+val localBuildFile = rootProject.file(".local-build-number")
+val committedBuild = versionProps.getProperty("build")?.toIntOrNull() ?: 0
+var buildNumber = versionBuildOverride
+    ?: maxOf(committedBuild, localBuildFile.takeIf { it.exists() }?.readText()?.trim()?.toIntOrNull() ?: 0)
 
-// Automatic build-number increment: bump on every build that produces an artifact, regardless of
-// environment (CLI, Android Studio, CI) or which build task is invoked. This runs at configuration
-// time so the new number flows into versionCode/versionName below. Writing version.properties also
-// invalidates the configuration cache, so the next build re-runs this block and increments again.
 val isBuildTask = gradle.startParameter.taskNames.any { taskName ->
     val name = taskName.substringAfterLast(':').lowercase()
     name.startsWith("assemble") || name.startsWith("bundle") ||
         name.startsWith("install") || name.startsWith("package") || name == "build"
 }
 
-// Only auto-increment/persist locally; when an explicit -PversionBuild override is supplied (CI),
-// use it verbatim and leave version.properties untouched.
+// Only auto-increment locally; an explicit -PversionBuild override (CI) is used verbatim.
 if (versionBuildOverride == null && isBuildTask) {
     buildNumber++
-    versionProps.setProperty("build", buildNumber.toString())
-    versionPropsFile.writer().use { versionProps.store(it, null) }
+    localBuildFile.writeText(buildNumber.toString())
 }
 
 android {
@@ -81,7 +78,10 @@ android {
         // Inject API Key
         val apiKey = getLocalProperty("FONTS_API_KEY", rootProject.projectDir)
         buildConfigField("String", "FONTS_API_KEY", "\"$apiKey\"")
-        manifestPlaceholders["FONTS_API_KEY"] = apiKey // THIS WAS THE MISSING LINE
+        manifestPlaceholders["FONTS_API_KEY"] = apiKey
+        if (apiKey.isBlank()) {
+            logger.warn("FONTS_API_KEY is not set (local.properties or env); downloadable code fonts may not load.")
+        }
 
 
 
@@ -109,7 +109,10 @@ android {
             // signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Without KEYSTORE_FILE the release config has no store; fall back to the debug key
+            // (what the release workflow's warning promises) instead of failing validation.
+            signingConfig = if (System.getenv("KEYSTORE_FILE") != null) signingConfigs.getByName("release")
+                else signingConfigs.getByName("debug")
             isMinifyEnabled = true
             // Strip unused resources alongside R8 code shrinking. Resources referenced only across
             // module boundaries (the dynamic-feature dist:title strings) are protected by

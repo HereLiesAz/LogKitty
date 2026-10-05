@@ -10,5 +10,6 @@
 ## Components
 *   `MainActivity`: Launcher.
 *   `CrashLogActivity`: Non-exported, own task affinity, excluded from recents. Started from the overlay service on a monitored-app crash (background start allowed via `SYSTEM_ALERT_WINDOW`).
-*   `IdeazOverlayService`: `foregroundServiceType="specialUse"`.
-*   `IdeazAccessibilityService`: Accessibility service configuration.
+*   `FileSaverActivity`: Non-exported, translucent; runs the system "save as" picker.
+*   `.services.LogKittyOverlayService`: Non-exported, `foregroundServiceType="specialUse"`.
+*   `androidx.core.content.FileProvider`: Non-exported; shares saved session logs (`files/logs/`).

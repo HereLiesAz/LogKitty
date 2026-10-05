@@ -4,4 +4,6 @@
 <full-backup-content>
     <include domain="sharedpref" path="."/>
     <include domain="database" path="."/>
+    <!-- Legacy GitHub token store (purged on launch); never let an old copy leave the device. -->
+    <exclude domain="sharedpref" path="logkitty_secure_prefs.xml"/>
 </full-backup-content>

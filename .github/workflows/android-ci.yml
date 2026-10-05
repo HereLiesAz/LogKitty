@@ -70,6 +70,9 @@ jobs:
           chmod +x gradlew
           ./gradlew test --continue --build-cache --no-daemon --stacktrace
 
+      - name: Run lint
+        run: ./gradlew :app:lintDebug --build-cache --no-daemon
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4

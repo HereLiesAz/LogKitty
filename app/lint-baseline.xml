@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 9.2.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.1)" variant="all" version="9.2.1">
+<issues format="6" by="lint 9.3.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.3.1)" variant="all" version="9.3.1">
 
     <issue
-        id="InternalInsetResource"
-        message="Using internal inset dimension resource `navigation_bar_height` is not supported"
-        errorLine1="                val resId = resources.getIdentifier(&quot;navigation_bar_height&quot;, &quot;dimen&quot;, &quot;android&quot;)"
-        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyOverlayService.kt"
-            line="210"
-            column="29"/>
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/MainViewModel.kt"
+            line="612"
+            column="15"/>
     </issue>
 
     <issue
@@ -19,7 +19,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/AppPickerDialog.kt"
-            line="93"
+            line="91"
             column="20"/>
     </issue>
 
@@ -30,14 +30,14 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/AndroidManifest.xml"
-            line="48"
+            line="53"
             column="13"/>
     </issue>
 
     <issue
         id="AndroidGradlePluginVersion"
-        message="A newer version of Gradle than 9.5.1 is available: 9.6.0"
-        errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.5.1-bin.zip"
+        message="A newer version of Gradle than 9.6.1 is available: 9.8.0"
+        errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.6.1-bin.zip"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="../gradle/wrapper/gradle-wrapper.properties"
@@ -46,109 +46,197 @@
     </issue>
 
     <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 9.3.1 is available: 9.4.1. (There is also a newer version of 9.3.𝑥 available, if upgrading to 9.4.1 is difficult: 9.3.3)"
+        errorLine1="agp = &quot;9.3.1&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.dynamic-feature than 9.3.1 is available: 9.4.1. (There is also a newer version of 9.3.𝑥 available, if upgrading to 9.4.1 is difficult: 9.3.3)"
+        errorLine1="agp = &quot;9.3.1&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.library than 9.3.1 is available: 9.4.1. (There is also a newer version of 9.3.𝑥 available, if upgrading to 9.4.1 is difficult: 9.3.3)"
+        errorLine1="agp = &quot;9.3.1&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose.ui:ui-text-google-fonts than 1.11.1 is available: 1.11.3"
+        message="A newer version of androidx.compose.ui:ui-text-google-fonts than 1.11.1 is available: 1.12.1"
         errorLine1="    implementation(&quot;androidx.compose.ui:ui-text-google-fonts:1.11.1&quot;)"
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="267"
+            line="296"
             column="20"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.work:work-runtime than 2.9.1 is available: 2.11.2"
-        errorLine1="    implementation(&quot;androidx.work:work-runtime:2.9.1&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="277"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.10.0 is available: 2.11.0"
-        errorLine1="lifecycleRuntimeKtx = &quot;2.10.0&quot;"
-        errorLine2="                      ~~~~~~~~">
+        message="A newer version of androidx.core:core-ktx than 1.19.0 is available: 1.19.1"
+        errorLine1="coreKtx = &quot;1.19.0&quot;"
+        errorLine2="          ~~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="12"
-            column="23"/>
+            line="5"
+            column="11"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.10.0 is available: 2.11.0"
-        errorLine1="lifecycleRuntimeKtx = &quot;2.10.0&quot;"
-        errorLine2="                      ~~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="12"
-            column="23"/>
-    </issue>
-
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2026.05.01 is available: 2026.06.00"
-        errorLine1="composeBom = &quot;2026.05.01&quot;"
+        message="A newer version of androidx.compose:compose-bom than 2026.06.01 is available: 2026.09.00"
+        errorLine1="composeBom = &quot;2026.06.01&quot;"
         errorLine2="             ~~~~~~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="15"
+            line="14"
             column="14"/>
     </issue>
 
     <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.squareup.okhttp3:okhttp than 5.3.2 is available: 5.4.0"
-        errorLine1="okhttp = &quot;5.3.2&quot;"
-        errorLine2="         ~~~~~~~">
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.9.8 is available: 2.10.2"
+        errorLine1="navigationCompose = &quot;2.9.8&quot;"
+        errorLine2="                    ~~~~~~~">
         <location
             file="../gradle/libs.versions.toml"
-            line="19"
+            line="17"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.android.tools:r8 than 9.2.23 is available: 9.4.28"
+        errorLine1="r8 = &quot;9.2.23&quot;"
+        errorLine2="     ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="24"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.11.2 is available: 2.12.0"
+        errorLine1="workRuntimeKtx = &quot;2.11.2&quot;"
+        errorLine2="                 ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="27"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.android than 2.4.10 is available: 2.4.20"
+        errorLine1="kotlin = &quot;2.4.10&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="13"
             column="10"/>
     </issue>
 
     <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.4.10 is available: 2.4.20"
+        errorLine1="kotlin = &quot;2.4.10&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="13"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.serialization than 2.4.10 is available: 2.4.20"
+        errorLine1="kotlin = &quot;2.4.10&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="13"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of uk.uuid.slf4j:slf4j-android than 2.0.17-0 is available: 2.0.20-0"
+        errorLine1="slf4jAndroid = &quot;2.0.17-0&quot;"
+        errorLine2="               ~~~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="19"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.slf4j:slf4j-api than 2.0.18 is available: 2.0.20"
+        errorLine1="slf4jApi = &quot;2.0.18&quot;"
+        errorLine2="           ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="20"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.slf4j:slf4j-simple than 2.0.18 is available: 2.0.20"
+        errorLine1="slf4jSimple = &quot;2.0.18&quot;"
+        errorLine2="              ~~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="21"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.github.dokar3:sheets-m3 than 0.7.5 is available: 0.7.6"
+        errorLine1="dokar3Sheets = &quot;0.7.5&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="../gradle/libs.versions.toml"
+            line="22"
+            column="16"/>
+    </issue>
+
+    <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
         errorLine1="                    Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show()"
         errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="175"
+            line="185"
             column="45"/>
     </issue>
 
     <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
         errorLine1="            Toast.makeText(context, context.getString(R.string.toast_prefs_exported), Toast.LENGTH_SHORT).show()"
         errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="209"
-            column="37"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="        }.onFailure { Toast.makeText(context, context.getString(R.string.toast_export_failed, it.message), Toast.LENGTH_LONG).show() }"
-        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="210"
-            column="47"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="            Toast.makeText(context, context.getString(if (ok) R.string.toast_prefs_imported else R.string.toast_invalid_file), Toast.LENGTH_SHORT).show()"
-        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
             line="219"
@@ -157,8 +245,8 @@
 
     <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="        }.onFailure { Toast.makeText(context, context.getString(R.string.toast_import_failed, it.message), Toast.LENGTH_LONG).show() }"
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
+        errorLine1="        }.onFailure { Toast.makeText(context, context.getString(R.string.toast_export_failed, it.message), Toast.LENGTH_LONG).show() }"
         errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
@@ -168,79 +256,90 @@
 
     <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="                    Toast.makeText(context, context.getString(R.string.toast_github_saved), Toast.LENGTH_SHORT).show()"
-        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
+        errorLine1="            Toast.makeText(context, context.getString(if (ok) R.string.toast_prefs_imported else R.string.toast_invalid_file), Toast.LENGTH_SHORT).show()"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="584"
-            column="45"/>
+            line="229"
+            column="37"/>
     </issue>
 
     <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="                    Toast.makeText(context, context.getString(R.string.toast_github_token_cleared), Toast.LENGTH_SHORT).show()"
-        errorLine2="                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
+        errorLine1="        }.onFailure { Toast.makeText(context, context.getString(R.string.toast_import_failed, it.message), Toast.LENGTH_LONG).show() }"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="594"
-            column="45"/>
+            line="230"
+            column="47"/>
     </issue>
 
     <issue
         id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="                                Toast.makeText(context, context.getString(R.string.toast_github_signin_failed), Toast.LENGTH_SHORT).show()"
-        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="611"
-            column="57"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="                                Toast.makeText(context, context.getString(R.string.toast_github_signed_in), Toast.LENGTH_SHORT).show()"
-        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="625"
-            column="57"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
-        errorLine1="                                Toast.makeText(context, context.getString(R.string.toast_github_signin_failed), Toast.LENGTH_SHORT).show()"
-        errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="627"
-            column="57"/>
-    </issue>
-
-    <issue
-        id="LocalContextGetResourceValueCall"
-        message="Querying resource values using LocalContext.current"
+        message="Querying resource values using LocalContext.current is not configuration-aware and may return stale values if the Configuration changes"
         errorLine1="                        Toast.makeText(context, context.getString(R.string.toast_copied_to_clipboard), Toast.LENGTH_SHORT).show()"
         errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="682"
+            line="642"
             column="49"/>
     </issue>
 
     <issue
-        id="DiscouragedApi"
-        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
-        errorLine1="                val resId = resources.getIdentifier(&quot;navigation_bar_height&quot;, &quot;dimen&quot;, &quot;android&quot;)"
-        errorLine2="                                      ~~~~~~~~~~~~~">
+        id="PrivateResource"
+        message="Overriding `@array/com_google_android_gms_fonts_certs` which is marked as private in androidx.compose.ui:ui-text-google-fonts:1.12.0-beta01. If deliberate, use tools:override=&quot;true&quot;, otherwise pick a different name."
+        errorLine1="    &lt;array name=&quot;com_google_android_gms_fonts_certs&quot;>"
+        errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyOverlayService.kt"
-            line="210"
-            column="39"/>
+            file="src/main/res/values/font_certs.xml"
+            line="3"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@array/com_google_android_gms_fonts_certs_dev` is marked as private in androidx.compose.ui:ui-text-google-fonts:1.12.0-beta01"
+        errorLine1="        &lt;item>@array/com_google_android_gms_fonts_certs_dev&lt;/item>"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="4"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@array/com_google_android_gms_fonts_certs_prod` is marked as private in androidx.compose.ui:ui-text-google-fonts:1.12.0-beta01"
+        errorLine1="        &lt;item>@array/com_google_android_gms_fonts_certs_prod&lt;/item>"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="5"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="Overriding `@array/com_google_android_gms_fonts_certs_dev` which is marked as private in androidx.compose.ui:ui-text-google-fonts:1.12.0-beta01. If deliberate, use tools:override=&quot;true&quot;, otherwise pick a different name."
+        errorLine1="    &lt;string-array name=&quot;com_google_android_gms_fonts_certs_dev&quot;>"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="7"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="Overriding `@array/com_google_android_gms_fonts_certs_prod` which is marked as private in androidx.compose.ui:ui-text-google-fonts:1.12.0-beta01. If deliberate, use tools:override=&quot;true&quot;, otherwise pick a different name."
+        errorLine1="    &lt;string-array name=&quot;com_google_android_gms_fonts_certs_prod&quot;>"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/font_certs.xml"
+            line="12"
+            column="25"/>
     </issue>
 
     <issue
@@ -536,7 +635,18 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="51"
+            line="50"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;days&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;settings_days&quot;>%1$d days&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="71"
             column="5"/>
     </issue>
 
@@ -547,30 +657,8 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="115"
+            line="121"
             column="5"/>
-    </issue>
-
-    <issue
-        id="ObsoleteSdkInt"
-        message="Unnecessary; `SDK_INT` is always >= 30"
-        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {"
-        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyOverlayService.kt"
-            line="204"
-            column="17"/>
-    </issue>
-
-    <issue
-        id="ObsoleteSdkInt"
-        message="Unnecessary; `SDK_INT` is always >= 30"
-        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/services/LogKittyOverlayService.kt"
-            line="330"
-            column="13"/>
     </issue>
 
     <issue
@@ -591,7 +679,7 @@
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/MainActivity.kt"
-            line="253"
+            line="289"
             column="17"/>
     </issue>
 
@@ -600,6 +688,72 @@
         message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 30. Merge all the resources in this folder into `mipmap-anydpi`.">
         <location
             file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="FrequentlyChangingValue"
+        message="Reading a value annotated with @FrequentlyChangingValue inside composition"
+        errorLine1="                                                visible = listState.firstVisibleItemIndex > 10,"
+        errorLine2="                                                                    ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/LogBottomSheet.kt"
+            line="687"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="FrequentlyChangingValue"
+        message="Reading a value annotated with @FrequentlyChangingValue inside composition"
+        errorLine1="                                visible = listState.firstVisibleItemIndex > 10,"
+        errorLine2="                                                    ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/LogBottomSheet.kt"
+            line="753"
+            column="53"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var ramUsedPercent by remember { mutableStateOf(0f) }"
+        errorLine2="                                     ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/AnalyzerDashboardScreen.kt"
+            line="66"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var storageUsedPercent by remember { mutableStateOf(0f) }"
+        errorLine2="                                         ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/AnalyzerDashboardScreen.kt"
+            line="68"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var batteryLevel by remember { mutableStateOf(0) }"
+        errorLine2="                                   ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/AnalyzerDashboardScreen.kt"
+            line="71"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var batteryTemp by remember { mutableStateOf(0f) }"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/AnalyzerDashboardScreen.kt"
+            line="72"
+            column="35"/>
     </issue>
 
     <issue
@@ -637,46 +791,13 @@
 
     <issue
         id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="            var retryTrigger by remember { mutableStateOf(0) }"
-        errorLine2="                                           ~~~~~~~~~~~~~~">
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var splitFraction by remember { mutableStateOf(initialSplitFraction.coerceIn(0.1f, 0.9f)) }"
+        errorLine2="                                    ~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/GitHubFeatureSlot.kt"
-            line="62"
-            column="44"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var refresh by remember { mutableStateOf(0) }"
-        errorLine2="                              ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/feature/github/GitHubPanel.kt"
-            line="85"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var refresh by remember { mutableStateOf(0) }"
-        errorLine2="                              ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/feature/github/GitHubPanel.kt"
-            line="127"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var refresh by remember { mutableStateOf(0) }"
-        errorLine2="                              ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/feature/github/GitHubPanel.kt"
-            line="164"
-            column="31"/>
+            file="src/main/kotlin/com/hereliesaz/logkitty/ui/ResizableSplitPane.kt"
+            line="24"
+            column="37"/>
     </issue>
 
     <issue
@@ -873,7 +994,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="37"
+            line="36"
             column="13"/>
     </issue>
 
@@ -884,7 +1005,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="44"
+            line="43"
             column="13"/>
     </issue>
 
@@ -895,7 +1016,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="48"
+            line="47"
             column="13"/>
     </issue>
 
@@ -906,7 +1027,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="59"
+            line="58"
             column="13"/>
     </issue>
 
@@ -917,7 +1038,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="64"
+            line="63"
             column="13"/>
     </issue>
 
@@ -928,18 +1049,51 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="68"
+            line="67"
             column="13"/>
     </issue>
 
     <issue
         id="UnusedResources"
-        message="The resource `R.string.settings_section_backup` appears to be unused"
-        errorLine1="    &lt;string name=&quot;settings_section_backup&quot;>Backup&lt;/string>"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        message="The resource `R.string.stats_toggle_logs` appears to be unused"
+        errorLine1="    &lt;string name=&quot;stats_toggle_logs&quot;>Logs&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="70"
+            line="132"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.stats_toggle_stats` appears to be unused"
+        errorLine1="    &lt;string name=&quot;stats_toggle_stats&quot;>Stats&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="133"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.settings_section_about` appears to be unused"
+        errorLine1="    &lt;string name=&quot;settings_section_about&quot;>About &amp;amp; Help&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="180"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.settings_about_desc` appears to be unused"
+        errorLine1="    &lt;string name=&quot;settings_about_desc&quot;>Read the project info, privacy policy, and permissions.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="181"
             column="13"/>
     </issue>
 
@@ -1007,34 +1161,12 @@
 
     <issue
         id="UseKtx"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="        prefs.edit().putString(KEY_TOKEN, encrypted).apply()"
-        errorLine2="        ~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/utils/GitHubCredentials.kt"
-            line="67"
-            column="9"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="        prefs.edit().remove(KEY_TOKEN).apply()"
-        errorLine2="        ~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/utils/GitHubCredentials.kt"
-            line="72"
-            column="9"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
         message="Use the KTX extension function `String.toUri` instead?"
         errorLine1="                    android.net.Uri.parse(&quot;https://www.google.com/search?q=$query&quot;)).apply {"
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/LogBottomSheet.kt"
-            line="234"
+            line="304"
             column="21"/>
     </issue>
 
@@ -1045,30 +1177,19 @@
         errorLine2="                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/MainActivity.kt"
-            line="222"
+            line="258"
             column="72"/>
     </issue>
 
     <issue
         id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                                    android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(dc.verificationUri))"
-        errorLine2="                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            getSharedPreferences(&quot;logkitty_user_prefs&quot;, MODE_PRIVATE).edit()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="617"
-            column="96"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                                    android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(dc.verificationUri))"
-        errorLine2="                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="643"
-            column="96"/>
+            file="src/main/kotlin/com/hereliesaz/logkitty/MainApplication.kt"
+            line="64"
+            column="13"/>
     </issue>
 
     <issue
@@ -1078,7 +1199,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="743"
+            line="707"
             column="29"/>
     </issue>
 
@@ -1089,7 +1210,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="754"
+            line="718"
             column="29"/>
     </issue>
 
@@ -1100,7 +1221,7 @@
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="765"
+            line="729"
             column="29"/>
     </issue>
 
@@ -1111,7 +1232,7 @@
         errorLine2="                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/ui/SettingsScreen.kt"
-            line="839"
+            line="803"
             column="18"/>
     </issue>
 
@@ -1122,7 +1243,29 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="157"
+            line="169"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putBoolean(KEY_IS_HARD_CONTEXT_MODE, enabled).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
+            line="174"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(KEY_THEME_MODE, mode).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
+            line="179"
             column="9"/>
     </issue>
 
@@ -1133,7 +1276,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="162"
+            line="184"
             column="9"/>
     </issue>
 
@@ -1144,7 +1287,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="167"
+            line="189"
             column="9"/>
     </issue>
 
@@ -1155,7 +1298,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="172"
+            line="194"
             column="9"/>
     </issue>
 
@@ -1166,7 +1309,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="177"
+            line="199"
             column="9"/>
     </issue>
 
@@ -1177,7 +1320,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="184"
+            line="207"
             column="9"/>
     </issue>
 
@@ -1188,7 +1331,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="189"
+            line="212"
             column="9"/>
     </issue>
 
@@ -1199,7 +1342,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="194"
+            line="217"
             column="9"/>
     </issue>
 
@@ -1210,7 +1353,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="199"
+            line="222"
             column="9"/>
     </issue>
 
@@ -1221,7 +1364,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="204"
+            line="227"
             column="9"/>
     </issue>
 
@@ -1232,7 +1375,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="209"
+            line="232"
             column="9"/>
     </issue>
 
@@ -1243,7 +1386,7 @@
         errorLine2="            ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="238"
+            line="264"
             column="13"/>
     </issue>
 
@@ -1254,7 +1397,7 @@
         errorLine2="            ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="247"
+            line="274"
             column="13"/>
     </issue>
 
@@ -1265,7 +1408,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="256"
+            line="284"
             column="9"/>
     </issue>
 
@@ -1276,7 +1419,7 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="268"
+            line="297"
             column="9"/>
     </issue>
 
@@ -1287,29 +1430,29 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="313"
+            line="342"
             column="9"/>
     </issue>
 
     <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="        prefs.edit().putString(KEY_GITHUB_OWNER, owner).apply()"
+        errorLine1="        prefs.edit().putInt(KEY_AUTO_DELETE_DURATION_DAYS, days).apply()"
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="318"
+            line="347"
             column="9"/>
     </issue>
 
     <issue
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="        prefs.edit().putString(KEY_GITHUB_REPO, repo).apply()"
+        errorLine1="        prefs.edit().putInt(KEY_MAX_TOTAL_LOG_SIZE_MB, mb).apply()"
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="323"
+            line="352"
             column="9"/>
     </issue>
 
@@ -1320,30 +1463,8 @@
         errorLine2="        ~~~~~~~~~~~~">
         <location
             file="src/main/kotlin/com/hereliesaz/logkitty/utils/UserPreferences.kt"
-            line="334"
+            line="363"
             column="9"/>
-    </issue>
-
-    <issue
-        id="UseTomlInstead"
-        message="Use version catalog instead"
-        errorLine1="    implementation(&quot;androidx.compose.foundation:foundation&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="36"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="UseTomlInstead"
-        message="Use version catalog instead"
-        errorLine1="    implementation(&quot;androidx.compose.foundation:foundation&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="39"
-            column="20"/>
     </issue>
 
     <issue
@@ -1353,18 +1474,7 @@
         errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="build.gradle.kts"
-            line="267"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="UseTomlInstead"
-        message="Use version catalog instead"
-        errorLine1="    implementation(&quot;androidx.work:work-runtime:2.9.1&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="277"
+            line="296"
             column="20"/>
     </issue>
 

@@ -5,7 +5,7 @@
 *   `build.gradle.kts`: Project-level build configuration.
 *   `settings.gradle.kts`: Module inclusion settings.
 *   `gradle.properties`: Gradle build properties.
-*   `version.properties`: Source of truth for project versioning. The `build` field is automatically incremented by `app/build.gradle.kts` during build tasks.
+*   `version.properties`: Source of truth for project versioning. Holds `major`/`minor`/`patch` (and a base `build`). Builds never rewrite it: CI passes the commit count and local builds count in the untracked `.local-build-number`.
 *   `get_version.sh`: Script to extract version info (major.minor.patch.build).
 *   `lint-baseline.xml`: Baseline file for lint warnings.
 *   `proguard-rules.pro`: ProGuard/R8 configuration rules.
@@ -20,10 +20,11 @@
 
 ### services/
 *   `LogKittyOverlayService.kt`: The core service. Manages the system overlay window, handles window resizing/pass-through logic, and hosts the Compose UI.
-*   `LogKittyAccessibilityService.kt`: Background service that detects `TYPE_WINDOW_STATE_CHANGED` events to identify the foreground package for context-aware filtering.
+*   `ForegroundAppMonitor.kt`: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground app and broadcasts changes for Context Mode.
 
 ### ui/
 *   `LogBottomSheet.kt`: The primary UI composable. Custom 4-detent overlay (HIDDEN shows one line, PEEK the last four, HALF/FULL the full list) with tab row, gesture zones, and selectable log items. Forces `fontScale = 1` on log lines so the rendered line height always matches the detent strip sizing regardless of the device's system font setting.
+*   `LogCategory.kt`: The app tab's quick-filter chips (Crashes, Errors, Warnings, Network, Memory, ANRs) as text/level predicates.
 *   `AnalyzerDashboardScreen.kt`: The main home screen dashboard of the app. Displays detailed device and app statistics (RAM, Storage, CPU, Battery, OS information) with custom Compose progress animations and a scrollable list of persisted log files.
 *   `SheetController.kt`: Shared state holder for the active detent — consumed by both the Compose UI (for animation) and the hosting Service (for window sizing).
 *   `MainViewModel.kt`: The central logic controller. Bridges the `LogcatReader` data, `UserPreferences`, and the UI. Handles per-tab clearing, side-swipe tab navigation, and pinned per-app tabs filtered reliably by the app's UID.

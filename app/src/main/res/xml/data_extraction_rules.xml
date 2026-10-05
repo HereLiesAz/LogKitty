@@ -5,9 +5,13 @@
     <cloud-backup>
         <include domain="database" path="."/>
         <include domain="sharedpref" path="."/>
+        <!-- Legacy GitHub token store (purged on launch); never let an old copy leave the device. -->
+        <exclude domain="sharedpref" path="logkitty_secure_prefs.xml"/>
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="."/>
         <include domain="sharedpref" path="."/>
+        <!-- Legacy GitHub token store (purged on launch); never let an old copy leave the device. -->
+        <exclude domain="sharedpref" path="logkitty_secure_prefs.xml"/>
     </device-transfer>
 </data-extraction-rules>

@@ -87,7 +87,7 @@ for the **GitHub** release channel.
 | `KEY_ALIAS` | key alias |
 | `KEY_PASSWORD` | private-key password (if the key is encrypted) |
 
-**Play publishing** (new):
+**Play publishing** (planned — no workflow uses this yet; upload the `.aab` manually):
 
 | Secret | Purpose |
 | --- | --- |

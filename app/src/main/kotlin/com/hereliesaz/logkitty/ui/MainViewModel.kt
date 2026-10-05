@@ -414,6 +414,10 @@ class MainViewModel(
                 val relevant = newLines.filter {
                     (session.uid != null && it.uid == session.uid) || it.text.contains(session.pkg, ignoreCase = true)
                 }
+                if (relevant.isEmpty()) return@collect
+                // activeSession is set before its queued openSession runs; open here if needed so the
+                // first lines of a session aren't dropped (openSession is a no-op when already open).
+                com.hereliesaz.logkitty.data.SessionLogFileWriter.openSession(getApplication(), session.pkg)
                 com.hereliesaz.logkitty.data.SessionLogFileWriter.appendLines(session.pkg, relevant.map { it.text })
             }
         }
