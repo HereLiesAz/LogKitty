@@ -1,0 +1,12 @@
+# LogKitty: built, signed and published by HereLiesAz/workflows (.github/workflows/android-github-release.yml):
+# a GitHub Release with the signed universal APK (built from the bundle, so :feature:stats is fused in).
+# This file is the trigger contract; the central sync replaces it with a tracker.
+name: Android GitHub Release
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  hand-off:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "LogKitty's Android GitHub Release runs centrally in HereLiesAz/workflows."
