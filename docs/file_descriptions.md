@@ -20,6 +20,7 @@
 
 ### services/
 *   `LogKittyOverlayService.kt`: The core service. Manages the system overlay window, handles window resizing/pass-through logic, and hosts the Compose UI.
+*   `DebugAppMonitor.kt`: Polls `debug_app` (Developer options → Select debug app) for Follow Debug App and opens that app's tab.
 *   `ForegroundAppMonitor.kt`: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground app and broadcasts changes for Context Mode.
 
 ### privilege/

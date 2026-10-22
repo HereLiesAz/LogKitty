@@ -21,7 +21,7 @@ locally and are never uploaded by the app. See [PRIVACY_POLICY.md](PRIVACY_POLIC
 
 | Permission | Type | Why LogKitty needs it | Data handling |
 | --- | --- | --- | --- |
-| `DUMP` | development (ADB, Shizuku or root) | Query system services via `dumpsys` without root. | Read on-device; never uploaded. |
+| `DUMP` | development (ADB, Shizuku or root) | Query system services via `dumpsys` without root (e.g. the selected debug app). | Read on-device; never uploaded. |
 | `READ_LOGS` | signature / privileged (ADB or root) | The core feature: read the system log (logcat) so it can be displayed. | Read on-device, shown in the overlay; never uploaded by the app. |
 | `SYSTEM_ALERT_WINDOW` | special (user grant) | Draw the floating log overlay on top of other apps so you can read logs while using the app being debugged. | None. |
 | `FOREGROUND_SERVICE` | normal | Run the log-capture/overlay as a foreground service so it keeps working while you use other apps. | None. |

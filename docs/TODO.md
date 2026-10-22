@@ -4,6 +4,9 @@
 - [x] Shizuku backend: one-tap self-grant of READ_LOGS / DUMP / usage access, with automatic relaunch (`am force-stop` + `am start` from the privileged shell).
 - [x] Root: enabling Root Access also self-grants the same permissions.
 
+## 0.2 v0.11 — Follow Debug App (DONE)
+- [x] Settings toggle that tracks Developer options → Select debug app and opens/selects its tab (`DebugAppMonitor`).
+
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
 - [x] ~~Google Play Billing / `AdsState`~~ — removed in 0.9.0 (gated nothing).
 - [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).

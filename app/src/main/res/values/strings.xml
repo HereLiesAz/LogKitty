@@ -32,8 +32,6 @@
     <string name="shizuku_status_unsupported">version too old</string>
     <string name="shizuku_status_no_permission">needs approval</string>
     <string name="shizuku_status_ready">ready</string>
-    <string name="perm_dump">Read system state (dumpsys)</string>
-    <string name="perm_why_dump">Optional: lets LogKitty query system services without root, e.g. to find the app selected in Developer options → Select debug app. Granted via ADB, Shizuku or root.</string>
     <string name="main_ready_to_purr">Ready to Purr</string>
     <string name="main_stop_service">Stop Service</string>
     <string name="main_start_service">Start Service</string>
@@ -68,6 +66,8 @@
     <string name="accessibility_disclosure_body">Context Mode uses Usage Access so LogKitty can detect which app is currently in the foreground. LogKitty uses this only to automatically filter the log to the app you\'re using and to get out of the way when you\'re on the home screen.\n\nIt does not read screen contents, the text you type, passwords, or any personal data, and this information never leaves your device. To turn Context Mode on, you\'ll be taken to the Usage Access settings to enable LogKitty. (On rooted devices this works without any grant.)</string>
     <string name="accessibility_disclosure_agree">Agree &amp; open settings</string>
     <string name="context_mode_usage_disabled_warning">Usage Access is off — Context Mode won\'t work until you grant it.</string>
+    <string name="settings_follow_debug_app">Follow Debug App</string>
+    <string name="settings_follow_debug_app_desc">Opens a tab for the app chosen in Developer options → Select debug app. Root reads it reliably; without root, Android 12+ may hide it.</string>
     <string name="settings_root_access">Root Access</string>
     <string name="settings_reverse_log_order">Reverse Log Order</string>
     <string name="settings_section_app_monitoring">App Monitoring</string>
@@ -223,6 +223,7 @@
     <string name="perm_foreground_service_special">Foreground service (special use)</string>
     <string name="perm_system_alert_window">Display over other apps</string>
     <string name="perm_read_logs">Read system logs</string>
+    <string name="perm_dump">Read system state (dumpsys)</string>
     <string name="perm_query_all_packages">Query installed apps</string>
 
     <!-- Per-permission justification popup -->
@@ -234,6 +235,7 @@
     <string name="perm_why_foreground_service">Lets LogKitty run the log-capture overlay as a foreground service so it keeps working while you use other apps.</string>
     <string name="perm_why_foreground_service_special">Declares the foreground service\'s special use: a persistent on-screen log overlay for real-time debugging while you interact with other apps.</string>
     <string name="perm_why_system_alert_window">Lets LogKitty draw its floating log overlay on top of other apps so you can read logs without leaving the app you\'re debugging.</string>
+    <string name="perm_why_dump">Optional: lets LogKitty query system services without root, e.g. to find the app selected in Developer options → Select debug app. Granted via ADB, Shizuku or root.</string>
     <string name="perm_why_read_logs">The core of the app: reads the system log (logcat) so it can be displayed. Granted via ADB or root; it can\'t be granted from a normal prompt.</string>
     <string name="perm_why_query_all_packages">Lets you pick any installed app to monitor and labels each log line with its source app and category. Used on your device only.</string>
 </resources>
