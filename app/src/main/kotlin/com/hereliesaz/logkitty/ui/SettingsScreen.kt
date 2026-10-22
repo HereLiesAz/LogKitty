@@ -136,6 +136,7 @@ private fun SettingsMainScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val isContextMode by viewModel.isContextModeEnabled.collectAsState()
     val isHardContextMode by viewModel.isHardContextMode.collectAsState()
+    val isFollowDebugApp by viewModel.isFollowDebugApp.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
@@ -232,6 +233,31 @@ private fun SettingsMainScreen(
                 showSymbolPicker = false
                 symbolTarget = it
                 symbolLauncher.launch(arrayOf("*/*"))
+            }
+        )
+    }
+
+    // Mapping import: pick the app first, then the mapping.txt for it.
+    // Saveable: the activity may be recreated while the document picker is open.
+    var showMappingPicker by remember { mutableStateOf(false) }
+    var mappingTarget by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val mappingLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        val pkg = mappingTarget
+        mappingTarget = null
+        if (uri != null && pkg != null) {
+            val appContext = context.applicationContext
+            viewModel.importMapping(pkg, uri) { ok ->
+                Toast.makeText(appContext, if (ok) R.string.toast_mapping_imported else R.string.toast_mapping_invalid, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    if (showMappingPicker) {
+        AppPickerDialog(
+            onDismiss = { showMappingPicker = false },
+            onAppSelected = {
+                showMappingPicker = false
+                mappingTarget = it
+                mappingLauncher.launch(arrayOf("text/plain", "application/octet-stream", "*/*"))
             }
         )
     }
@@ -548,9 +574,23 @@ private fun SettingsMainScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text(stringResource(R.string.settings_follow_debug_app), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_follow_debug_app_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = isFollowDebugApp, onCheckedChange = { viewModel.setFollowDebugApp(it) })
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(stringResource(R.string.settings_root_access), style = MaterialTheme.typography.bodyLarge)
                     Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
                 }
+
+                ShizukuRow()
 
                 Text(
                     stringResource(R.string.settings_app_monitoring_desc),
@@ -593,6 +633,40 @@ private fun SettingsMainScreen(
                 AzButton(
                     onClick = { showAppPicker = true },
                     text = stringResource(R.string.settings_add_app_to_monitor),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+            }
+
+            SettingsCard(stringResource(R.string.settings_section_deobfuscation)) {
+                val mappedApps by viewModel.mappedApps.collectAsState()
+                Text(
+                    stringResource(R.string.settings_deobfuscation_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                mappedApps.sorted().forEach { pkg ->
+                    val label by produceState(initialValue = pkg, pkg) {
+                        value = withContext(Dispatchers.IO) { appLabel(context, pkg) }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                            Text(pkg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { viewModel.removeMapping(pkg) }) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove_mapping, pkg))
+                        }
+                    }
+                }
+                AzButton(
+                    onClick = { showMappingPicker = true },
+                    text = stringResource(R.string.settings_add_mapping),
                     shape = AzButtonShape.RECTANGLE,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 )
@@ -923,6 +997,7 @@ private fun permissionJustification(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_why_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_why_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_why_read_logs
+        "android.permission.DUMP" -> R.string.perm_why_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_why_query_all_packages
         else -> 0
     }
@@ -940,6 +1015,7 @@ private fun permissionLabel(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_read_logs
+        "android.permission.DUMP" -> R.string.perm_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_query_all_packages
         else -> 0
     }
@@ -1089,5 +1165,54 @@ private fun SourceFilterGroup(
             )
             Text(LogSources.label(key), style = MaterialTheme.typography.bodyLarge)
         }
+    }
+}
+
+/**
+ * Shizuku status + one-tap self-grant. When READ_LOGS was missing, the grant relaunches LogKitty
+ * into a fresh process (see PrivilegeGranter). Status refreshes on resume, since Shizuku can be
+ * started while this screen is open.
+ */
+@Composable
+private fun ShizukuRow() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf(com.hereliesaz.logkitty.privilege.ShizukuShell.status()) }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                scope.launch { status = com.hereliesaz.logkitty.privilege.ShizukuShell.awaitStatus() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val label = stringResource(
+            when (status) {
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.NOT_RUNNING -> R.string.shizuku_status_not_running
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.UNSUPPORTED -> R.string.shizuku_status_unsupported
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.NO_PERMISSION -> R.string.shizuku_status_no_permission
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.READY -> R.string.shizuku_status_ready
+            }
+        )
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+            Text(stringResource(R.string.settings_shizuku), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.settings_shizuku_desc, label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = {
+            scope.launch {
+                val result = com.hereliesaz.logkitty.privilege.PrivilegeGranter.grant(context, com.hereliesaz.logkitty.privilege.PrivilegeGranter.Backend.SHIZUKU)
+                status = com.hereliesaz.logkitty.privilege.ShizukuShell.status()
+                val message = if (result.restarting) R.string.privilege_restarting
+                    else com.hereliesaz.logkitty.privilege.ShizukuShell.failureMessage(status)
+                message?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
+            }
+        }) { Text(stringResource(R.string.settings_shizuku_grant)) }
     }
 }

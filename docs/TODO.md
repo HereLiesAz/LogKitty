@@ -4,6 +4,14 @@
 - [x] Native symbolication from per-app `.so`/`.so.dbg`/`native-debug-symbols.zip` (function names; no DWARF line numbers, names stay mangled).
 - [x] Root: save full symbolicated tombstones of monitored apps.
 - [x] Fold long stack traces in the log list.
+## 0.4 v0.13 — Deobfuscation (DONE)
+- [x] Per-app R8/ProGuard mapping import; stack traces retraced live (inline frames expanded, merged classes, exception names restored). Not supported: R8 outline / rewriteFrame metadata.
+## 0.3 v0.12 — Privileged Access (DONE)
+- [x] Shizuku backend: one-tap self-grant of READ_LOGS / DUMP / usage access, with automatic relaunch (`am force-stop` + `am start` from the privileged shell).
+- [x] Root: enabling Root Access also self-grants the same permissions.
+
+## 0.2 v0.11 — Follow Debug App (DONE)
+- [x] Settings toggle that tracks Developer options → Select debug app and opens/selects its tab (`DebugAppMonitor`).
 
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
 - [x] ~~Google Play Billing / `AdsState`~~ — removed in 0.9.0 (gated nothing).

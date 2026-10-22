@@ -41,3 +41,8 @@
 # Optional transitive references with no runtime use.
 -dontwarn okhttp3.**
 -dontwarn okio.**
+
+# Shizuku: ShizukuShell reaches the private Shizuku.newProcess reflectively; keep its name/signature.
+-keepclassmembers class rikka.shizuku.Shizuku {
+    private static rikka.shizuku.ShizukuRemoteProcess newProcess(java.lang.String[], java.lang.String[], java.lang.String);
+}
