@@ -3,6 +3,7 @@
 ##| Permission | Reason | Status |
 | :--- | :--- | :--- |
 | `SYSTEM_ALERT_WINDOW` | Core feature: Required to draw the logcat overlay UI on top of other apps. | Essential. Requested on first launch. |
+| `DUMP` | Optional: lets non-root code run `dumpsys` (Follow Debug App fallback). | Development permission; ADB/Shizuku/root `pm grant` only. |
 | `READ_LOGS` | Core feature: Required to read the system logcat buffer. | Essential. Requires ADB grant by the user (`adb shell pm grant...`). |
 | `FOREGROUND_SERVICE` | Core feature: Required to keep the service running in the background while the UI is visible. | Essential. Automatically granted at install. |
 | `FOREGROUND_SERVICE_SPECIAL_USE` | Modern Android: Specific type for our service, required by Android 14+. | Essential. Automatically granted at install. |

@@ -10,7 +10,7 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
 * **`ForegroundAppMonitor`**: Run by the overlay service while Context Mode is on.
     * **Responsibility**: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground package and broadcasts changes. Transit packages (launcher, System UI, crash dialog, LogKitty) never become the context target.
 * **`DebugAppMonitor`**: Run by the overlay service while Follow Debug App is on.
-    * **Responsibility**: Polls `Settings.Global.debug_app` (non-root; may be refused on Android 12+) or `settings get global debug_app` (root) and opens/selects that app's tab on change.
+    * **Responsibility**: Polls `Settings.Global.debug_app` (non-root; may be refused on Android 12+, then falls back to `dumpsys activity processes` when `DUMP` is granted) or `settings get global debug_app` (root) and opens/selects that app's tab on change.
 
 ### 2. UI Layer (View)
 * **`LogBottomSheet`**: The primary UI. A pure Jetpack Compose component that renders the log stream, tabs, and control surfaces.

@@ -1,6 +1,7 @@
 package com.hereliesaz.logkitty.services
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.provider.Settings
 import com.hereliesaz.logkitty.core.shell.RootShell
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,8 @@ import kotlinx.coroutines.withContext
  * so LogKitty can follow it automatically.
  *
  * - **Non-root**: reads the setting directly. `debug_app` is a hidden key, so Android 12+ may refuse
- *   it to apps targeting S+; the read is wrapped and simply yields nothing in that case.
+ *   it to apps targeting S+. Then, if `DUMP` has been granted (ADB, Shizuku or root self-grant), it
+ *   falls back to `dumpsys activity processes`, which prints `mDebugApp=`.
  * - **Root**: `settings get global debug_app`, which always works.
  *
  * Polls rather than registering a ContentObserver: an observer on a hidden key is subject to the
@@ -38,8 +40,16 @@ class DebugAppMonitor(context: Context) {
         }
     }
 
-    private fun directDebugApp(): String? =
+    private suspend fun directDebugApp(): String? =
         runCatching { Settings.Global.getString(appContext.contentResolver, KEY_DEBUG_APP) }.getOrNull()
+            ?: dumpsysDebugApp()
+
+    private suspend fun dumpsysDebugApp(): String? {
+        if (appContext.checkSelfPermission(android.Manifest.permission.DUMP) != PackageManager.PERMISSION_GRANTED) return null
+        val output = RootShell.run("dumpsys activity processes | grep mDebugApp", useRoot = false, timeoutMs = 3000)
+            ?: return null
+        return DEBUG_APP_LINE.find(output)?.groupValues?.get(1)
+    }
 
     private suspend fun rootDebugApp(): String? =
         RootShell.run("settings get global $KEY_DEBUG_APP", useRoot = true, timeoutMs = 3000)
@@ -48,5 +58,7 @@ class DebugAppMonitor(context: Context) {
     private companion object {
         const val POLL_INTERVAL_MS = 2000L
         const val KEY_DEBUG_APP = "debug_app"
+        // Line looks like: `  mDebugApp=com.example mDebugTransient=false mWaitForDebugger=false`
+        val DEBUG_APP_LINE = Regex("""mDebugApp=([a-zA-Z][a-zA-Z0-9_.]*)""")
     }
 }

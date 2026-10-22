@@ -875,6 +875,7 @@ private fun permissionJustification(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_why_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_why_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_why_read_logs
+        "android.permission.DUMP" -> R.string.perm_why_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_why_query_all_packages
         else -> 0
     }
@@ -892,6 +893,7 @@ private fun permissionLabel(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_read_logs
+        "android.permission.DUMP" -> R.string.perm_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_query_all_packages
         else -> 0
     }
