@@ -37,6 +37,8 @@ import kotlinx.coroutines.launch
 import android.widget.Toast
 import com.hereliesaz.logkitty.privilege.PrivilegeGranter
 import com.hereliesaz.logkitty.privilege.ShizukuShell
+import com.hereliesaz.logkitty.update.UpdateChecker
+import com.hereliesaz.logkitty.update.UpdateDialog
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.InstallStateUpdatedListener
@@ -61,6 +63,12 @@ import com.hereliesaz.logkitty.ui.theme.LogKittyTheme
  * It manages the [SettingsScreen] flow and provides instructions for ADB permissions.
  */
 class MainActivity : ComponentActivity() {
+
+    private companion object {
+        const val UPDATE_PREFS = "updates"
+        const val KEY_SKIPPED_VERSION = "skipped_version"
+    }
+
 
     // UI State for Permission Status
     private var isOverlayGranted by mutableStateOf(false)
@@ -98,6 +106,8 @@ class MainActivity : ComponentActivity() {
     // Only does anything for Play-installed builds; on sideloaded/GitHub builds no update is found.
     private val appUpdateManager by lazy { AppUpdateManagerFactory.create(this) }
     private var updateReadyToInstall by mutableStateOf(false)
+    // An update found for this install (Play or GitHub, see UpdateChecker) that the user should be sent to.
+    private var availableUpdate by mutableStateOf<UpdateChecker.Result.Available?>(null)
     private val installStateListener = InstallStateUpdatedListener { state ->
         // Bind the prompt to the download status so it clears if the update is canceled or fails,
         // rather than latching on once and showing a stale "Restart" card.
@@ -136,8 +146,8 @@ class MainActivity : ComponentActivity() {
         // Attempt to gain root access silently if available (for "Root Mode").
         requestRootAccess()
 
-        // Offer a flexible in-app update if Play has a newer build.
-        checkForAppUpdate()
+        // Play installs: offer a flexible in-app update. Other installs (GitHub APK): check GitHub Releases.
+        if (UpdateChecker.source(this) == UpdateChecker.Source.PLAY) checkForAppUpdate() else checkGitHubUpdate()
 
         // Handle intent arguments (e.g., opening directly to Settings from the Notification).
         if (intent?.getBooleanExtra("EXTRA_SHOW_SETTINGS", false) == true) {
@@ -146,6 +156,13 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             LogKittyTheme {
+                availableUpdate?.let { update ->
+                    UpdateDialog(
+                        update = update,
+                        onOpen = { UpdateChecker.open(this@MainActivity, update); availableUpdate = null },
+                        onDismiss = { dismissUpdate(update) },
+                    )
+                }
                 val lifecycle = LocalLifecycleOwner.current.lifecycle
 
                 // Observe lifecycle to re-check status when user returns to the app (e.g., after granting permissions).
@@ -344,17 +361,32 @@ class MainActivity : ComponentActivity() {
         appUpdateManager.registerListener(installStateListener)
         appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
             updateReadyToInstall = info.installStatus() == InstallStatus.DOWNLOADED
-            if (!updateReadyToInstall &&
-                info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE &&
-                info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE)
-            ) {
-                runCatching {
+            if (!updateReadyToInstall && info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
+                val started = info.isUpdateTypeAllowed(AppUpdateType.FLEXIBLE) && runCatching {
                     appUpdateManager.startUpdateFlowForResult(
                         info, appUpdateLauncher, AppUpdateOptions.defaultOptions(AppUpdateType.FLEXIBLE),
                     )
-                }
+                }.getOrDefault(false)
+                // No in-app flow possible: send the user to the Play listing instead.
+                if (!started) availableUpdate = UpdateChecker.Result.Available(
+                    UpdateChecker.Source.PLAY, null, "https://play.google.com/store/apps/details?id=$packageName"
+                )
             }
         }
+    }
+
+    /** Sideloaded installs: prompt once per new GitHub release (dismissing skips that version). */
+    private fun checkGitHubUpdate() {
+        lifecycleScope.launch {
+            val result = UpdateChecker.check(this@MainActivity) as? UpdateChecker.Result.Available ?: return@launch
+            val prefs = getSharedPreferences(UPDATE_PREFS, MODE_PRIVATE)
+            if (prefs.getString(KEY_SKIPPED_VERSION, null) != result.version) availableUpdate = result
+        }
+    }
+
+    private fun dismissUpdate(update: UpdateChecker.Result.Available) {
+        getSharedPreferences(UPDATE_PREFS, MODE_PRIVATE).edit().putString(KEY_SKIPPED_VERSION, update.version).apply()
+        availableUpdate = null
     }
 
     override fun onResume() {

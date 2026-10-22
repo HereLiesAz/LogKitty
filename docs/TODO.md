@@ -1,5 +1,8 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0.6 v0.15 — Update Checks (DONE)
+- [x] Install-source-aware update check: Google Play (in-app update / store listing) or GitHub Releases (release page), on launch and from Settings.
+
 ## 0.5 v0.14 — Native Crashes (DONE)
 - [x] Native symbolication from per-app `.so`/`.so.dbg`/`native-debug-symbols.zip` (function names; no DWARF line numbers, names stay mangled).
 - [x] Root: save full symbolicated tombstones of monitored apps.

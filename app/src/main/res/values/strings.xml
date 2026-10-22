@@ -84,6 +84,17 @@
     <string name="toast_mapping_invalid">That file isn\'t an R8/ProGuard mapping.</string>
     <string name="settings_follow_debug_app">Follow Debug App</string>
     <string name="settings_follow_debug_app_desc">Opens a tab for the app chosen in Developer options → Select debug app. Root reads it reliably; without root, Android 12+ may hide it.</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_version">LogKitty %1$s is available on %2$s.</string>
+    <string name="update_available_no_version">A newer LogKitty is available on %1$s.</string>
+    <string name="update_source_play">Google Play</string>
+    <string name="update_source_github">GitHub</string>
+    <string name="update_open">Open %1$s</string>
+    <string name="update_later">Later</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">LogKitty %1$s is up to date.</string>
+    <string name="update_check_failed">Couldn\'t check for updates. Try again later.</string>
     <string name="settings_root_access">Root Access</string>
     <string name="settings_reverse_log_order">Reverse Log Order</string>
     <string name="settings_section_app_monitoring">App Monitoring</string>
