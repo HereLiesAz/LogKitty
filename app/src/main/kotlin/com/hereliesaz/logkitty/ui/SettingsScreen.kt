@@ -822,10 +822,37 @@ private fun SettingsFooter(context: android.content.Context) {
         runCatching { context.startActivity(intent) }
             .onFailure { Toast.makeText(context, context.getString(R.string.toast_no_app_to_handle), Toast.LENGTH_SHORT).show() }
     }
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var update by remember { mutableStateOf<com.hereliesaz.logkitty.update.UpdateChecker.Result.Available?>(null) }
+    update?.let { found ->
+        com.hereliesaz.logkitty.update.UpdateDialog(
+            update = found,
+            onOpen = { com.hereliesaz.logkitty.update.UpdateChecker.open(context, found); update = null },
+            onDismiss = { update = null },
+        )
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Manual check: the same source logic as the launch-time check (Play vs GitHub by installer).
+        TextButton(
+            enabled = !checking,
+            onClick = {
+                checking = true
+                scope.launch {
+                    when (val result = com.hereliesaz.logkitty.update.UpdateChecker.check(context)) {
+                        is com.hereliesaz.logkitty.update.UpdateChecker.Result.Available -> update = result
+                        com.hereliesaz.logkitty.update.UpdateChecker.Result.UpToDate ->
+                            Toast.makeText(context, context.getString(R.string.update_up_to_date, BuildConfig.VERSION_NAME), Toast.LENGTH_SHORT).show()
+                        is com.hereliesaz.logkitty.update.UpdateChecker.Result.Failed ->
+                            Toast.makeText(context, R.string.update_check_failed, Toast.LENGTH_SHORT).show()
+                    }
+                    checking = false
+                }
+            }
+        ) { Text(stringResource(if (checking) R.string.update_checking else R.string.update_check)) }
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
