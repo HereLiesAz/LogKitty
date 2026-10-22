@@ -45,7 +45,7 @@ class MappingStore(context: Context, scope: CoroutineScope) {
                 ?: return@withContext false
             val parsed = tmp.bufferedReader().use { MappingFile.parse(it) }
             if (parsed.size == 0) { tmp.delete(); return@withContext false }
-            tmp.renameTo(target)
+            if (!tmp.renameTo(target)) { tmp.delete(); return@withContext false }
             loaded[pkg] = parsed
             _packages.value = loaded.keys.toSet()
             true
@@ -65,7 +65,8 @@ class MappingStore(context: Context, scope: CoroutineScope) {
     /** Retraced replacement lines for a log line from [uid], or null to keep the line as is. */
     fun retrace(uid: Int?, line: String): List<String>? {
         if (loaded.isEmpty() || uid == null) return null
-        val pkgs = uidPackages.getOrPut(uid) { app.packageManager.getPackagesForUid(uid) ?: emptyArray() }
+        // Empty lookups aren't cached: a transient miss must not disable retracing for the session.
+        val pkgs = uidPackages[uid] ?: app.packageManager.getPackagesForUid(uid)?.also { uidPackages[uid] = it } ?: return null
         for (pkg in pkgs) {
             val mapping = loaded[pkg] ?: continue
             Retracer.retrace(line, mapping)?.let { return it }
@@ -75,7 +76,8 @@ class MappingStore(context: Context, scope: CoroutineScope) {
 
     private fun load(pkg: String, file: File) {
         runCatching { file.bufferedReader().use { MappingFile.parse(it) } }
-            .onSuccess { loaded[pkg] = it; _packages.value = loaded.keys.toSet() }
+            // putIfAbsent: an import that finished first holds the newer mapping.
+            .onSuccess { loaded.putIfAbsent(pkg, it); _packages.value = loaded.keys.toSet() }
             .onFailure { Log.w(TAG, "Could not parse mapping for $pkg", it) }
     }
 

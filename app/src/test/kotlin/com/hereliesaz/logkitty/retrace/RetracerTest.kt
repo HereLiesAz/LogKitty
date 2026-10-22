@@ -21,6 +21,10 @@ class RetracerTest {
         com.example.app.util.Checks -> a.b:
         # {"id":"sourceFile","fileName":"Checks.kt"}
         com.example.app.BadThing -> a.c:
+        com.example.app.MergedA -> a.d:
+            1:2:void fromA():3:4 -> a
+        com.example.app.MergedB -> a.d:  
+            3:3:void fromB():9:9 -> b
         """.trimIndent().reader().buffered()
     )
 
@@ -54,6 +58,32 @@ class RetracerTest {
         assertEquals(
             listOf(header + "Caused by: com.example.app.BadThing: boom"),
             Retracer.retrace(header + "Caused by: a.c: boom", mapping)
+        )
+    }
+
+    @Test fun linelessFrameOnRangedMethodDoesNotInventFrames() {
+        assertEquals(
+            listOf(header + "\tat com.example.app.MainActivity.onClick|require(MainActivity.kt)"),
+            Retracer.retrace(header + "\tat a.a.b(Unknown Source)", mapping)
+        )
+    }
+
+    @Test fun mergedClassesPickTheOwningClass() {
+        assertEquals(
+            listOf(header + "\tat com.example.app.MergedB.fromB(SourceFile:9)"),
+            Retracer.retrace(header + "\tat a.d.b(SourceFile:3)", mapping)
+        )
+    }
+
+    @Test fun classNamesInOrdinaryMessagesAreLeftAlone() {
+        assertNull(Retracer.retrace(header + "Skipping a.c: not found", mapping))
+        assertNull(Retracer.retrace(header + "loaded config a.c", mapping))
+    }
+
+    @Test fun throwableMessageClassNamesAreRestored() {
+        assertEquals(
+            listOf(header + "java.lang.ClassCastException: com.example.app.BadThing cannot be cast to com.example.app.util.Checks"),
+            Retracer.retrace(header + "java.lang.ClassCastException: a.c cannot be cast to a.b", mapping)
         )
     }
 

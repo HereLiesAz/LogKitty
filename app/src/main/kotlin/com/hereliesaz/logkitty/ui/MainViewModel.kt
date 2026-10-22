@@ -112,7 +112,10 @@ class MainViewModel(
     // R8/ProGuard mappings: obfuscated stack-trace lines are retraced as they arrive.
     private val mappingStore by lazy { com.hereliesaz.logkitty.retrace.MappingStore(application, viewModelScope) }
     val mappedApps: StateFlow<Set<String>> get() = mappingStore.packages
-    suspend fun importMapping(pkg: String, uri: android.net.Uri): Boolean = mappingStore.import(pkg, uri)
+    /** Imports on [viewModelScope] so leaving Settings can't abort a large copy; [onDone] runs on main. */
+    fun importMapping(pkg: String, uri: android.net.Uri, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(mappingStore.import(pkg, uri)) }
+    }
     fun removeMapping(pkg: String) = mappingStore.remove(pkg)
     fun removeMonitoredApp(pkg: String) = userPreferences.removeMonitoredApp(pkg)
 

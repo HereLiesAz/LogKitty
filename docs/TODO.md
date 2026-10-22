@@ -1,7 +1,7 @@
 # TODO Roadmap & Tactical Implementation Plan
 
 ## 0.4 v0.13 — Deobfuscation (DONE)
-- [x] Per-app R8/ProGuard mapping import; stack traces retraced live (inline frames expanded, exception names restored).
+- [x] Per-app R8/ProGuard mapping import; stack traces retraced live (inline frames expanded, merged classes, exception names restored). Not supported: R8 outline / rewriteFrame metadata.
 
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
 - [x] ~~Google Play Billing / `AdsState`~~ — removed in 0.9.0 (gated nothing).

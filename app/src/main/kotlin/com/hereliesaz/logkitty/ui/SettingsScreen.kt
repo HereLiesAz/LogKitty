@@ -210,15 +210,17 @@ private fun SettingsMainScreen(
     }
 
     // Mapping import: pick the app first, then the mapping.txt for it.
-    val scope = rememberCoroutineScope()
+    // Saveable: the activity may be recreated while the document picker is open.
     var showMappingPicker by remember { mutableStateOf(false) }
-    var mappingTarget by remember { mutableStateOf<String?>(null) }
+    var mappingTarget by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     val mappingLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         val pkg = mappingTarget
         mappingTarget = null
-        if (uri != null && pkg != null) scope.launch {
-            val ok = viewModel.importMapping(pkg, uri)
-            Toast.makeText(context, if (ok) R.string.toast_mapping_imported else R.string.toast_mapping_invalid, Toast.LENGTH_SHORT).show()
+        if (uri != null && pkg != null) {
+            val appContext = context.applicationContext
+            viewModel.importMapping(pkg, uri) { ok ->
+                Toast.makeText(appContext, if (ok) R.string.toast_mapping_imported else R.string.toast_mapping_invalid, Toast.LENGTH_SHORT).show()
+            }
         }
     }
     if (showMappingPicker) {

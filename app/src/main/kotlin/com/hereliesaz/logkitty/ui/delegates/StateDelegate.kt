@@ -199,7 +199,9 @@ class StateDelegate(
                             // flag only decides eviction order in appendCapped.
                             val texts = lineTransformer?.invoke(uid, parsed.text) ?: listOf(parsed.text)
                             texts.forEach { text ->
-                                systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), text, uid, isTarget))
+                                // Rewritten lines may now name a target package; re-check for eviction order.
+                                val target = isTarget || (text !== parsed.text && pkgs.any { text.contains(it, ignoreCase = true) })
+                                systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), text, uid, target))
                             }
                         }
                     }

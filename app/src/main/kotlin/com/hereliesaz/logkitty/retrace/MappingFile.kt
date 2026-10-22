@@ -9,9 +9,13 @@ import java.io.BufferedReader
  * (R8's `# {"id":"sourceFile",...}` metadata), and method mappings with their line ranges. Fields
  * are skipped. Member entries keep file order, which R8 uses to encode inline chains (innermost
  * frame first) for a shared obfuscated line range.
+ *
+ * Several original classes can share one obfuscated name (R8 class merging), so each obfuscated
+ * name maps to a list. Not supported: member-level R8 metadata (`outline`, `outlineCallsite`,
+ * `rewriteFrame`, `residualsignature`) — outlined frames stay as printed.
  */
 class MappingFile private constructor(
-    private val classes: Map<String, ClassMapping>,
+    private val classes: Map<String, List<ClassMapping>>,
     private val byOriginal: Map<String, ClassMapping>,
 ) {
 
@@ -42,7 +46,8 @@ class MappingFile private constructor(
 
     val size get() = classes.size
 
-    fun classFor(obfuscated: String): ClassMapping? = classes[obfuscated]
+    /** All original classes R8 renamed (or merged) into [obfuscated]. */
+    fun classesFor(obfuscated: String): List<ClassMapping> = classes[obfuscated].orEmpty()
 
     /** Source file for an original class name, if the mapping recorded one. */
     fun sourceFileFor(original: String): String? =
@@ -56,10 +61,11 @@ class MappingFile private constructor(
         private val SOURCE_FILE = Regex(""""id"\s*:\s*"sourceFile".*"fileName"\s*:\s*"([^"]+)"""")
 
         fun parse(reader: BufferedReader): MappingFile {
-            val classes = HashMap<String, ClassMapping>()
+            val classes = HashMap<String, MutableList<ClassMapping>>()
             val byOriginal = HashMap<String, ClassMapping>()
             var current: ClassMapping? = null
-            reader.forEachLine { line ->
+            reader.forEachLine { raw ->
+                val line = raw.trimEnd() // tolerate CRLF / trailing spaces
                 when {
                     line.isBlank() -> Unit
                     line.trimStart().startsWith("#") -> {
@@ -72,14 +78,15 @@ class MappingFile private constructor(
                     !line[0].isWhitespace() -> {
                         current = CLASS_LINE.matchEntire(line)?.let { m ->
                             ClassMapping(m.groupValues[1], m.groupValues[2]).also {
-                                classes[it.obfuscated] = it
+                                classes.getOrPut(it.obfuscated) { ArrayList(1) }.add(it)
                                 byOriginal[it.original] = it
                             }
                         }
                     }
                     else -> {
                         val cls = current ?: return@forEachLine
-                        val m = METHOD_LINE.matchEntire(line) ?: return@forEachLine // field or unknown
+                        if ('(' !in line) return@forEachLine // field: skip without the regex cost
+                        val m = METHOD_LINE.matchEntire(line) ?: return@forEachLine
                         val g = m.groupValues
                         val qualified = g[3]
                         val dot = qualified.lastIndexOf('.')
