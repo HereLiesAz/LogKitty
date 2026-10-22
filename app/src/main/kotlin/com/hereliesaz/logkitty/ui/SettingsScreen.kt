@@ -209,6 +209,29 @@ private fun SettingsMainScreen(
         )
     }
 
+    // Mapping import: pick the app first, then the mapping.txt for it.
+    val scope = rememberCoroutineScope()
+    var showMappingPicker by remember { mutableStateOf(false) }
+    var mappingTarget by remember { mutableStateOf<String?>(null) }
+    val mappingLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        val pkg = mappingTarget
+        mappingTarget = null
+        if (uri != null && pkg != null) scope.launch {
+            val ok = viewModel.importMapping(pkg, uri)
+            Toast.makeText(context, if (ok) R.string.toast_mapping_imported else R.string.toast_mapping_invalid, Toast.LENGTH_SHORT).show()
+        }
+    }
+    if (showMappingPicker) {
+        AppPickerDialog(
+            onDismiss = { showMappingPicker = false },
+            onAppSelected = {
+                showMappingPicker = false
+                mappingTarget = it
+                mappingLauncher.launch(arrayOf("text/plain", "application/octet-stream", "*/*"))
+            }
+        )
+    }
+
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
@@ -566,6 +589,40 @@ private fun SettingsMainScreen(
                 AzButton(
                     onClick = { showAppPicker = true },
                     text = stringResource(R.string.settings_add_app_to_monitor),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+            }
+
+            SettingsCard(stringResource(R.string.settings_section_deobfuscation)) {
+                val mappedApps by viewModel.mappedApps.collectAsState()
+                Text(
+                    stringResource(R.string.settings_deobfuscation_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                mappedApps.sorted().forEach { pkg ->
+                    val label by produceState(initialValue = pkg, pkg) {
+                        value = withContext(Dispatchers.IO) { appLabel(context, pkg) }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                            Text(pkg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { viewModel.removeMapping(pkg) }) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove_mapping, pkg))
+                        }
+                    }
+                }
+                AzButton(
+                    onClick = { showMappingPicker = true },
+                    text = stringResource(R.string.settings_add_mapping),
                     shape = AzButtonShape.RECTANGLE,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 )

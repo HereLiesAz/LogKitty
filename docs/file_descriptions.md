@@ -22,6 +22,11 @@
 *   `LogKittyOverlayService.kt`: The core service. Manages the system overlay window, handles window resizing/pass-through logic, and hosts the Compose UI.
 *   `ForegroundAppMonitor.kt`: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground app and broadcasts changes for Context Mode.
 
+### retrace/
+*   `MappingFile.kt`: Parses an R8/ProGuard `mapping.txt` into an obfuscated-class index (class renames, R8 `sourceFile` metadata, method line ranges and inline chains).
+*   `Retracer.kt`: Rewrites `at cls.method(File:line)` frames and obfuscated exception class names; inlined frames expand to several lines, each keeping the logcat header.
+*   `MappingStore.kt`: Per-app mappings in `files/mappings/<pkg>.txt`; matches log lines to apps by UID and retraces them on ingest.
+
 ### ui/
 *   `LogBottomSheet.kt`: The primary UI composable. Custom 4-detent overlay (HIDDEN shows one line, PEEK the last four, HALF/FULL the full list) with tab row, gesture zones, and selectable log items. Forces `fontScale = 1` on log lines so the rendered line height always matches the detent strip sizing regardless of the device's system font setting.
 *   `ContextSegments.kt`: Context Mode history — one segment per app visited (`pkg`, `startId`); pure helpers to map lines to segments, group them for section headers, and append/trim segments.
