@@ -66,6 +66,16 @@
     <string name="accessibility_disclosure_body">Context Mode uses Usage Access so LogKitty can detect which app is currently in the foreground. LogKitty uses this only to automatically filter the log to the app you\'re using and to get out of the way when you\'re on the home screen.\n\nIt does not read screen contents, the text you type, passwords, or any personal data, and this information never leaves your device. To turn Context Mode on, you\'ll be taken to the Usage Access settings to enable LogKitty. (On rooted devices this works without any grant.)</string>
     <string name="accessibility_disclosure_agree">Agree &amp; open settings</string>
     <string name="context_mode_usage_disabled_warning">Usage Access is off — Context Mode won\'t work until you grant it.</string>
+    <string name="sheet_more_frames">… %1$d more frames</string>
+    <string name="settings_section_native_symbols">Native Symbols</string>
+    <string name="settings_native_symbols_desc">Load an app\'s unstripped .so / .so.dbg files or native-debug-symbols.zip and native crash frames gain function names. With Root, the full tombstone of a monitored app\'s native crash is also saved, symbolicated, with your session logs.</string>
+    <string name="settings_add_symbols">Add symbol files</string>
+    <string name="cd_remove_symbols">Remove symbols for %1$s</string>
+    <string name="toast_symbols_invalid">No ELF libraries with symbols found.</string>
+    <plurals name="toast_symbols_imported">
+        <item quantity="one">%d library loaded.</item>
+        <item quantity="other">%d libraries loaded.</item>
+    </plurals>
     <string name="settings_section_deobfuscation">Deobfuscation</string>
     <string name="settings_deobfuscation_desc">Load an app\'s R8/ProGuard mapping.txt and its stack traces are retraced live: original class, method and line names, with inlined frames expanded.</string>
     <string name="settings_add_mapping">Add mapping file</string>

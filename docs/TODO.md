@@ -1,5 +1,9 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0.5 v0.14 — Native Crashes (DONE)
+- [x] Native symbolication from per-app `.so`/`.so.dbg`/`native-debug-symbols.zip` (function names; no DWARF line numbers, names stay mangled).
+- [x] Root: save full symbolicated tombstones of monitored apps.
+- [x] Fold long stack traces in the log list.
 ## 0.4 v0.13 — Deobfuscation (DONE)
 - [x] Per-app R8/ProGuard mapping import; stack traces retraced live (inline frames expanded, merged classes, exception names restored). Not supported: R8 outline / rewriteFrame metadata.
 ## 0.3 v0.12 — Privileged Access (DONE)

@@ -210,6 +210,33 @@ private fun SettingsMainScreen(
         )
     }
 
+    // Native symbol import: pick the app first, then its .so / .so.dbg files or native-debug-symbols.zip.
+    // Saveable: the activity may be recreated while the document picker is open.
+    var showSymbolPicker by remember { mutableStateOf(false) }
+    var symbolTarget by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val symbolLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
+        val pkg = symbolTarget
+        symbolTarget = null
+        if (uris.isNotEmpty() && pkg != null) {
+            val appContext = context.applicationContext
+            viewModel.importSymbols(pkg, uris) { count ->
+                val msg = if (count > 0) appContext.resources.getQuantityString(R.plurals.toast_symbols_imported, count, count)
+                    else appContext.getString(R.string.toast_symbols_invalid)
+                Toast.makeText(appContext, msg, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    if (showSymbolPicker) {
+        AppPickerDialog(
+            onDismiss = { showSymbolPicker = false },
+            onAppSelected = {
+                showSymbolPicker = false
+                symbolTarget = it
+                symbolLauncher.launch(arrayOf("*/*"))
+            }
+        )
+    }
+
     // Mapping import: pick the app first, then the mapping.txt for it.
     // Saveable: the activity may be recreated while the document picker is open.
     var showMappingPicker by remember { mutableStateOf(false) }
@@ -640,6 +667,40 @@ private fun SettingsMainScreen(
                 AzButton(
                     onClick = { showMappingPicker = true },
                     text = stringResource(R.string.settings_add_mapping),
+                    shape = AzButtonShape.RECTANGLE,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                )
+            }
+
+            SettingsCard(stringResource(R.string.settings_section_native_symbols)) {
+                val symbolApps by viewModel.symbolApps.collectAsState()
+                Text(
+                    stringResource(R.string.settings_native_symbols_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                symbolApps.sorted().forEach { pkg ->
+                    val label by produceState(initialValue = pkg, pkg) {
+                        value = withContext(Dispatchers.IO) { appLabel(context, pkg) }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(label, style = MaterialTheme.typography.bodyLarge)
+                            Text(pkg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = { viewModel.removeSymbols(pkg) }) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove_symbols, pkg))
+                        }
+                    }
+                }
+                AzButton(
+                    onClick = { showSymbolPicker = true },
+                    text = stringResource(R.string.settings_add_symbols),
                     shape = AzButtonShape.RECTANGLE,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                 )

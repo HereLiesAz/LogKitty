@@ -14,6 +14,7 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
 
 ### 2. UI Layer (View)
 * **`LogBottomSheet`**: The primary UI. A pure Jetpack Compose component that renders the log stream, tabs, and control surfaces.
+* **Native crashes (`nativecrash/`)**: `StateDelegate.lineTransformer` symbolicates backtrace frames with user-supplied symbol files (`NativeSymbolStore`); with Root, `TombstoneCollector` saves the full tombstone of a monitored app's native crash. The log list folds long traces (`BacktraceFolding`).
 * **`MappingStore` / `Retracer`**: Live deobfuscation. `StateDelegate.lineTransformer` hands each ingested line (with its UID) to `MappingStore`, which retraces it when that app has a mapping loaded (Settings → Deobfuscation).
 * **`PrivilegeGranter` / `ShizukuShell`**: Convert root or Shizuku into permanent `READ_LOGS` / `DUMP` / usage-access grants. Root grants automatically whenever Root Access is enabled; Shizuku grants from the setup card or Settings, then the detached grant script force-stops and relaunches LogKitty (the `log` gid is only attached at fork, and the grant itself may kill the app).
 * **`MainActivity`**: Serves as the configuration hub and permission wizard (Overlay, Root). It also hosts the entry point to the `SettingsScreen`.

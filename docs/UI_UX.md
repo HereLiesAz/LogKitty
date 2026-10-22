@@ -23,3 +23,4 @@ LogKitty is a developer tool designed to be unobtrusive yet instantly accessible
 - **Tap:** Tapping the peek view expands it.
 - **Copy:** A dedicated button allows copying visible logs to the clipboard.
 - **Clear:** A button to clear the current log buffer.
+- **Stack traces:** Traces longer than five frames show the first four plus a "… N more frames" row; tap it to expand.

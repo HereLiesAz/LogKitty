@@ -23,6 +23,12 @@
 *   `DebugAppMonitor.kt`: Polls `debug_app` (Developer options → Select debug app) for Follow Debug App and opens that app's tab.
 *   `ForegroundAppMonitor.kt`: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground app and broadcasts changes for Context Mode.
 
+### nativecrash/
+*   `ElfSymbols.kt`: Reads an ELF `.so` (32/64-bit LE): function symbols from `.symtab` (else `.dynsym`), Thumb-bit aware, plus the GNU build-id; `lookup(pc)` → `name+0xoff`.
+*   `NativeFrame.kt`: Parses a crash-dump backtrace frame (`#NN pc … lib.so (sym) (BuildId: …)`), including `base.apk!lib` paths and ABI.
+*   `NativeSymbolStore.kt`: Per-app symbol files in `files/symbols/<pkg>/<abi>/`, from loose `.so`/`.so.dbg` or AGP's `native-debug-symbols.zip`; annotates frames with `[symbol]` on ingest, checking build-ids.
+*   `TombstoneCollector.kt`: Root only — after a monitored app's native crash, saves the full `/data/tombstones` entry, symbolicated, to the logs dir.
+*   `BacktraceFolding.kt`: Folds stack traces longer than 5 frames into "… N more frames" rows in the log list.
 ### retrace/
 *   `MappingFile.kt`: Parses an R8/ProGuard `mapping.txt` into an obfuscated-class index (class renames, R8 `sourceFile` metadata, method line ranges and inline chains).
 *   `Retracer.kt`: Rewrites `at cls.method(File:line)` frames and obfuscated exception class names; inlined frames expand to several lines, each keeping the logcat header.

@@ -18,6 +18,9 @@ object CrashDetector {
      * Returns the package from [watched] (package → UID, UID may be null) that [text] / [uid] report
      * as crashing, or `null`.
      */
+    /** True for the tombstone header line (`>>> pkg <<<`) that marks a native crash. */
+    fun isNativeCrash(text: String): Boolean = NATIVE_LINE.containsMatchIn(text)
+
     fun crashedPackage(text: String, uid: Int?, watched: Map<String, Int?>): String? {
         if (watched.isEmpty()) return null
         // Only the runtime's own header counts — an app logging the phrase itself is not a crash.

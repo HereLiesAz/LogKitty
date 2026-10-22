@@ -72,6 +72,19 @@ object SessionLogFileWriter {
         }
     }
     
+    /** Writes [lines] to a new `<prefix>_<timestamp>.log` in the logs dir (e.g. a pulled tombstone). */
+    suspend fun writeStandalone(context: Context, prefix: String, lines: List<String>): File? = withContext(Dispatchers.IO) {
+        try {
+            val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
+            File(getLogsDir(context), "${prefix}_${timestamp}.log").also { file ->
+                file.bufferedWriter().use { w -> lines.forEach { w.write(it); w.newLine() } }
+            }
+        } catch (e: IOException) {
+            Log.e(TAG, "Failed to write $prefix", e)
+            null
+        }
+    }
+
     fun listSavedSessions(context: Context): List<File> {
         val dir = getLogsDir(context)
         return dir.listFiles()?.filter { it.isFile && it.name.endsWith(".log") }?.sortedByDescending { it.lastModified() } ?: emptyList()
