@@ -23,6 +23,10 @@
 *   `DebugAppMonitor.kt`: Polls `debug_app` (Developer options → Select debug app) for Follow Debug App and opens that app's tab.
 *   `ForegroundAppMonitor.kt`: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground app and broadcasts changes for Context Mode.
 
+### retrace/
+*   `MappingFile.kt`: Parses an R8/ProGuard `mapping.txt` into an obfuscated-class index (class renames, R8 `sourceFile` metadata, method line ranges and inline chains).
+*   `Retracer.kt`: Rewrites `at cls.method(File:line)` frames and obfuscated exception class names; inlined frames expand to several lines, each keeping the logcat header.
+*   `MappingStore.kt`: Per-app mappings in `files/mappings/<pkg>.txt`; matches log lines to apps by UID and retraces them on ingest.
 ### privilege/
 *   `ShizukuShell.kt`: Shizuku status, permission handshake, and `sh -c` execution as the ADB `shell` user (reflective `newProcess`, kept by `proguard-rules.pro`).
 *   `PrivilegeGranter.kt`: Self-grants `DUMP`, usage access and `READ_LOGS` via root or Shizuku. A new READ_LOGS grant runs detached and ends with `am force-stop` + `am start`, relaunching LogKitty into a process that carries the `log` gid.

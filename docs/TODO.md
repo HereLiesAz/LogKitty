@@ -1,5 +1,7 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0.4 v0.13 — Deobfuscation (DONE)
+- [x] Per-app R8/ProGuard mapping import; stack traces retraced live (inline frames expanded, merged classes, exception names restored). Not supported: R8 outline / rewriteFrame metadata.
 ## 0.3 v0.12 — Privileged Access (DONE)
 - [x] Shizuku backend: one-tap self-grant of READ_LOGS / DUMP / usage access, with automatic relaunch (`am force-stop` + `am start` from the privileged shell).
 - [x] Root: enabling Root Access also self-grants the same permissions.

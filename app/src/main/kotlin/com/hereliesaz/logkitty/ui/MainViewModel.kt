@@ -108,6 +108,15 @@ class MainViewModel(
     val monitoredApps: StateFlow<Set<String>> = userPreferences.monitoredApps
 
     fun addMonitoredApp(pkg: String) = userPreferences.addMonitoredApp(pkg)
+
+    // R8/ProGuard mappings: obfuscated stack-trace lines are retraced as they arrive.
+    private val mappingStore by lazy { com.hereliesaz.logkitty.retrace.MappingStore(application, viewModelScope) }
+    val mappedApps: StateFlow<Set<String>> get() = mappingStore.packages
+    /** Imports on [viewModelScope] so leaving Settings can't abort a large copy; [onDone] runs on main. */
+    fun importMapping(pkg: String, uri: android.net.Uri, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch { onDone(mappingStore.import(pkg, uri)) }
+    }
+    fun removeMapping(pkg: String) = mappingStore.remove(pkg)
     fun removeMonitoredApp(pkg: String) = userPreferences.removeMonitoredApp(pkg)
 
     // Classifies each log line's UID into source/category buckets for the per-source tabs.
@@ -120,7 +129,9 @@ class MainViewModel(
         userPreferences.setSourceFilterEnabled(key, enabled)
 
     // Delegate to handle the heavy lifting of log buffering.
-    val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize)
+    val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize).also { delegate ->
+        delegate.lineTransformer = { uid, text -> mappingStore.retrace(uid, text) }
+    }
 
     // Developer-stats collection now lives in the on-demand `:feature:stats` module; the base only
     // exposes the root flag the feature needs (via isRootEnabled below) and hosts its UI slot.
