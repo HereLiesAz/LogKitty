@@ -44,6 +44,29 @@ class NativeCrashTest {
         assertEquals("abc", f.buildId)
     }
 
+    @Test fun packageNamesContainingDotSoDoNotCutThePath() {
+        val f = NativeFrame.parse("  #03 pc 000000000001a2b4  /data/app/~~x/com.example.social-y/lib/arm64/libfoo.so (Java_foo+20) (BuildId: ab12)")!!
+        assertEquals("libfoo.so", f.libName)
+        assertEquals("Java_foo+20", f.existingSymbol)
+        assertEquals("ab12", f.buildId)
+    }
+
+    @Test fun demangledSymbolsWithParenthesesParse() {
+        val line = "  #02 pc 0000000000001142  /data/app/x/com.foo-1/lib/arm64/libtest.so (ns::Foo::bar(int, char const*)+20) (BuildId: abcd)"
+        val f = NativeFrame.parse(line)!!
+        assertEquals("ns::Foo::bar(int, char const*)+20", f.existingSymbol)
+        assertEquals("abcd", f.buildId)
+        assertEquals(line.length, f.end)
+    }
+
+    @Test fun returnAddressesResolveToTheCaller() {
+        // pc 0x1150 is second_fn's first byte; as a return address (#01) it belongs to exported_fn.
+        val f = NativeFrame.parse("  #01 pc 0000000000001150  /x/libtest.so")!!
+        assertEquals("exported_fn+0x1e", lib.lookup(f.lookupPc, f.pc))
+        val top = NativeFrame.parse("  #00 pc 0000000000001150  /x/libtest.so")!!
+        assertEquals("second_fn", lib.lookup(top.lookupPc, top.pc))
+    }
+
     @Test fun foldsLongTracesOnly() {
         val lines = listOf(IndexedLogLine(1, "E/AndroidRuntime( 1): java.lang.RuntimeException: x")) +
             (2L..9L).map { IndexedLogLine(it, "E/AndroidRuntime( 1): \tat a.b.c$it(SourceFile:$it)") } +

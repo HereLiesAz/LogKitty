@@ -23,8 +23,12 @@ class ElfSymbols private constructor(
 ) {
     val size get() = names.size
 
-    /** `name+0xoff` for [pc], or null when no function covers it. */
-    fun lookup(pc: Long): String? {
+    /**
+     * `name+0xoff` for the function containing [address], or null. The offset is reported relative
+     * to [display] (the printed pc), so a pc-1 lookup still shows the familiar offset.
+     */
+    fun lookup(address: Long, display: Long = address): String? {
+        val pc = address
         var lo = 0
         var hi = starts.size - 1
         var found = -1
@@ -33,7 +37,7 @@ class ElfSymbols private constructor(
             if (starts[mid] <= pc) { found = mid; lo = mid + 1 } else hi = mid - 1
         }
         if (found < 0 || pc >= ends[found]) return null
-        val off = pc - starts[found]
+        val off = display - starts[found]
         return if (off == 0L) names[found] else "${names[found]}+0x${off.toString(16)}"
     }
 
@@ -42,6 +46,7 @@ class ElfSymbols private constructor(
         private const val SHT_NOTE = 7
         private const val SHT_DYNSYM = 11
         private const val STT_FUNC = 2
+        private const val STT_GNU_IFUNC = 10
         private const val NT_GNU_BUILD_ID = 3
         private const val EM_ARM = 40
 
@@ -91,7 +96,8 @@ class ElfSymbols private constructor(
                     nameIdx = buf.getInt(b); value = buf.getInt(b + 4).toUInt().toLong(); size = buf.getInt(b + 8).toUInt().toLong(); info = buf.get(b + 12).toInt()
                 }
                 off += entsize
-                if (info and 0xf != STT_FUNC || value == 0L) continue
+                val type = info and 0xf
+                if ((type != STT_FUNC && type != STT_GNU_IFUNC) || value == 0L) continue
                 if (machine == EM_ARM) value = value and 1L.inv() // Thumb bit
                 val name = cString(buf, (strtab.offset + nameIdx).toInt()) ?: continue
                 if (name.isNotEmpty()) syms += Triple(value, size, name)
@@ -112,8 +118,11 @@ class ElfSymbols private constructor(
             val end = (start + size).toInt()
             while (p + 12 <= end) {
                 val namesz = buf.getInt(p); val descsz = buf.getInt(p + 4); val type = buf.getInt(p + 8)
+                // Malformed notes must not loop forever or walk backwards.
+                if (namesz < 0 || descsz < 0 || namesz > end || descsz > end) return null
                 val name = p + 12
                 val desc = name + ((namesz + 3) and 3.inv())
+                if (desc + descsz > end) return null
                 if (type == NT_GNU_BUILD_ID && namesz == 4 && cString(buf, name) == "GNU") {
                     return (0 until descsz).joinToString("") { "%02x".format(buf.get(desc + it)) }
                 }

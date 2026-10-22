@@ -18,17 +18,24 @@ object BacktraceFolding {
         data class Fold(val firstId: Long, val hidden: Int) : Entry { override val key: Any get() = "fold_$firstId" }
     }
 
-    private val JAVA_FRAME = Regex("""(?:^|\s)at [\w$.<>-]+\([^)]*\)\s*$""")
+    // `at pkg.Cls.method(…)`: at least one dot, so prose like "retry at connect()" isn't a frame.
+    private val JAVA_FRAME = Regex("""(?:^|\s)at [\w$]+(?:\.[\w$<>-]+)+\([^)]*\)\s*$""")
 
     fun isFrame(text: String): Boolean = JAVA_FRAME.containsMatchIn(text) || NativeFrame.parse(text) != null
 
-    fun fold(lines: List<IndexedLogLine>, expanded: Set<Long>): List<Entry> {
+    /**
+     * [frameCache] memoizes [isFrame] per line id (lines are immutable), so recomputing the fold on
+     * each log batch only pays the regex cost for new lines.
+     */
+    fun fold(lines: List<IndexedLogLine>, expanded: Set<Long>, frameCache: MutableMap<Long, Boolean>? = null): List<Entry> {
+        fun isFrame(line: IndexedLogLine): Boolean =
+            frameCache?.getOrPut(line.id) { isFrame(line.text) } ?: isFrame(line.text)
         val out = ArrayList<Entry>(lines.size)
         var i = 0
         while (i < lines.size) {
-            if (!isFrame(lines[i].text)) { out += Entry.Line(lines[i]); i++; continue }
+            if (!isFrame(lines[i])) { out += Entry.Line(lines[i]); i++; continue }
             var end = i
-            while (end < lines.size && isFrame(lines[end].text)) end++
+            while (end < lines.size && isFrame(lines[end])) end++
             val run = lines.subList(i, end)
             if (run.size <= KEEP + 1 || run[KEEP].id in expanded) {
                 run.forEach { out += Entry.Line(it) }

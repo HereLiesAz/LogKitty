@@ -640,11 +640,14 @@ private fun ExpandedView(
 
             // Expanded stack-trace folds (see BacktraceFolding), keyed by first hidden line id.
             var expandedFolds by remember { mutableStateOf(emptySet<Long>()) }
+            // Per-line "is a stack frame" memo; bounded by clearing once it outgrows any buffer size.
+            val frameCache = remember { HashMap<Long, Boolean>() }
+            if (frameCache.size > 50_000) frameCache.clear()
             fun androidx.compose.foundation.lazy.LazyListScope.foldedItems(
                 lines: List<IndexedLogLine>,
                 row: @Composable (IndexedLogLine) -> Unit,
             ) {
-                items(BacktraceFolding.fold(lines, expandedFolds), key = { it.key }) { entry ->
+                items(BacktraceFolding.fold(lines, expandedFolds, frameCache), key = { it.key }) { entry ->
                     when (entry) {
                         is BacktraceFolding.Entry.Line -> row(entry.line)
                         is BacktraceFolding.Entry.Fold -> FoldRow(entry.hidden, fontSize) { expandedFolds = expandedFolds + entry.firstId }

@@ -383,7 +383,7 @@ class MainViewModel(
             // Root: save the full, symbolicated tombstone alongside the session logs.
             if (isRootEnabled.value && com.hereliesaz.logkitty.utils.CrashDetector.isNativeCrash(line.text)) {
                 viewModelScope.launch {
-                    com.hereliesaz.logkitty.nativecrash.TombstoneCollector.collect(getApplication(), pkg, nativeSymbols)
+                    com.hereliesaz.logkitty.nativecrash.TombstoneCollector.collect(getApplication(), pkg, now, nativeSymbols)
                         ?.let { _sessionFinishedChannel.trySend(it) }
                 }
             }

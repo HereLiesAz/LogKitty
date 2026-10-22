@@ -15,24 +15,41 @@ import java.io.File
  */
 object TombstoneCollector {
 
-    // tombstoned writes the file a moment after logcat's excerpt; give it time to finish.
-    private const val SETTLE_MS = 3000L
+    // tombstoned writes the file a moment after logcat's excerpt; poll briefly for it.
+    private const val FIRST_WAIT_MS = 2000L
+    private const val RETRY_WAIT_MS = 2000L
+    private const val ATTEMPTS = 3
     private const val MARKER = "@@TOMBSTONE@@"
+    private val SAFE_PACKAGE = Regex("""^[A-Za-z0-9_.]+$""")
 
-    suspend fun collect(context: Context, pkg: String, symbols: NativeSymbolStore): File? = withContext(Dispatchers.IO) {
-        delay(SETTLE_MS)
-        // Newest text tombstones first (Android 12+ also writes a .pb twin); first one naming the app wins.
+    /**
+     * [crashedAtMs] = when the crash was seen; only tombstones written since then count, so an older
+     * crash of the same app is never saved as this one.
+     */
+    suspend fun collect(context: Context, pkg: String, crashedAtMs: Long, symbols: NativeSymbolStore): File? = withContext(Dispatchers.IO) {
+        // The package goes into a root shell script: accept only real package-name characters.
+        if (!SAFE_PACKAGE.matches(pkg)) return@withContext null
+        val since = crashedAtMs / 1000 - 5 // small allowance for clock rounding
+        // Newest text tombstones first (Android 12+ also writes a .pb twin); the header must name
+        // exactly this app (`>>> pkg <<<`, or `>>> pkg:process <<<`).
         val script = """
             cd /data/tombstones 2>/dev/null || exit 0
             for f in $(ls -t | grep '^tombstone_' | grep -v '\.pb$' | head -n 5); do
-              if grep -qF '>>> $pkg' "${'$'}f"; then echo '$MARKER'; cat "${'$'}f"; break; fi
+              [ "$(stat -c %Y "${'$'}f")" -ge $since ] || continue
+              if grep -qF -e '>>> $pkg <<<' -e '>>> $pkg:' "${'$'}f"; then echo '$MARKER'; cat "${'$'}f"; break; fi
             done
         """.trimIndent()
-        val output = RootShell.run(script, useRoot = true, timeoutMs = 10_000) ?: return@withContext null
-        val body = output.substringAfter(MARKER, "").trimStart('\n')
-        if (body.isBlank()) return@withContext null
-        val lines = body.lines().map { line -> symbolicate(line, symbols) }
-        SessionLogFileWriter.writeStandalone(context, "${pkg}_tombstone", lines)
+        delay(FIRST_WAIT_MS)
+        repeat(ATTEMPTS) { attempt ->
+            if (attempt > 0) delay(RETRY_WAIT_MS)
+            val output = RootShell.run(script, useRoot = true, timeoutMs = 10_000) ?: return@repeat
+            val body = output.substringAfter(MARKER, "").trimStart('\n')
+            if (body.isNotBlank()) {
+                val lines = body.lines().map { line -> symbolicate(line, symbols) }
+                return@withContext SessionLogFileWriter.writeStandalone(context, "${pkg}_tombstone", lines)
+            }
+        }
+        null
     }
 
     private fun symbolicate(line: String, symbols: NativeSymbolStore): String {

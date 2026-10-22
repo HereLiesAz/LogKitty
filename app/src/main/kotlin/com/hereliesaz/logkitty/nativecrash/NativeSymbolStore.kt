@@ -55,12 +55,14 @@ class NativeSymbolStore(context: Context, scope: CoroutineScope) {
                         generateSequence { zip.nextEntry }.forEach { entry ->
                             val lib = libName(entry.name.substringAfterLast('/')) ?: return@forEach
                             val abi = entry.name.split('/').dropLast(1).lastOrNull { it in KNOWN_ABIS } ?: ANY
-                            if (store(pkg, abi, lib) { out -> zip.copyTo(out) }) added++
+                            // One bad entry must not abort the rest of the archive.
+                            runCatching { if (store(pkg, abi, lib) { out -> copyCapped(zip, out) }) added++ }
+                                .onFailure { Log.w(TAG, "Skipping ${entry.name}", it) }
                         }
                     }
                 } else {
                     val lib = libName(name) ?: return@runCatching
-                    if (store(pkg, ANY, lib) { out -> app.contentResolver.openInputStream(uri)?.use { it.copyTo(out) } }) added++
+                    if (store(pkg, ANY, lib) { out -> app.contentResolver.openInputStream(uri)?.use { copyCapped(it, out) } }) added++
                 }
             }.onFailure { Log.w(TAG, "Symbol import failed for $name", it) }
         }
@@ -83,21 +85,23 @@ class NativeSymbolStore(context: Context, scope: CoroutineScope) {
         if (loaded.isEmpty()) return null
         val frame = NativeFrame.parse(line) ?: return null
         val symbol = lookup(frame) ?: return null
-        if (frame.existingSymbol != null && frame.existingSymbol.substringBefore('+') == symbol.substringBefore('+')) return null
         return line.substring(0, frame.end) + " [" + symbol + "]" + line.substring(frame.end)
     }
 
     /** Symbol for [frame], or null. Also used to symbolicate tombstone files. */
     fun lookup(frame: NativeFrame): String? {
         val owners = loaded.keys.filter { frame.path.contains("/$it-") || frame.path.contains("/$it/") }
-            .ifEmpty { loaded.keys.toList() }
+        // A frame from another app or the system may share a library name (libc++_shared.so):
+        // without an owning package, only an exact build-id match is trusted.
+        val strict = owners.isEmpty()
         val abis = listOfNotNull(frame.abi) + Build.SUPPORTED_ABIS + ANY
-        for (pkg in owners) {
+        for (pkg in owners.ifEmpty { loaded.keys.toList() }) {
             val libs = loaded[pkg] ?: continue
             for (abi in abis.distinct()) {
                 val syms = libs["$abi/${frame.libName}"] ?: continue
+                if (strict && (frame.buildId == null || syms.buildId != frame.buildId)) continue
                 if (frame.buildId != null && syms.buildId != null && frame.buildId != syms.buildId) continue
-                syms.lookup(frame.pc)?.let { return it }
+                syms.lookup(frame.lookupPc, frame.pc)?.let { return it }
             }
         }
         return null
@@ -107,18 +111,36 @@ class NativeSymbolStore(context: Context, scope: CoroutineScope) {
         val target = File(root, "$pkg/$abi/$lib")
         target.parentFile?.mkdirs()
         val tmp = File(target.path + ".tmp")
-        tmp.outputStream().use(write)
-        val syms = ElfSymbols.read(tmp)
-        if (syms == null) { tmp.delete(); return false }
-        tmp.renameTo(target)
-        loaded.getOrPut(pkg) { ConcurrentHashMap() }["$abi/$lib"] = syms
-        return true
+        try {
+            tmp.outputStream().use(write)
+            val syms = ElfSymbols.read(tmp) ?: return false
+            target.delete()
+            if (!tmp.renameTo(target)) return false
+            loaded.getOrPut(pkg) { ConcurrentHashMap() }["$abi/$lib"] = syms
+            return true
+        } finally {
+            tmp.delete() // no-op after a successful rename
+        }
     }
 
     private fun load(pkg: String, file: File) {
+        if (!file.name.endsWith(".so")) { file.delete(); return } // leftover .tmp from an interrupted import
         val abi = file.parentFile?.name ?: return
         ElfSymbols.read(file)?.let { loaded.getOrPut(pkg) { ConcurrentHashMap() }["$abi/${file.name}"] = it }
             ?: Log.w(TAG, "Unreadable symbol file ${file.path}")
+    }
+
+    /** Copies at most [MAX_FILE_BYTES]; a larger (or zip-bomb) entry throws instead of filling storage. */
+    private fun copyCapped(input: java.io.InputStream, out: java.io.OutputStream) {
+        val buf = ByteArray(64 * 1024)
+        var total = 0L
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            total += n
+            if (total > MAX_FILE_BYTES) throw java.io.IOException("Symbol file over ${MAX_FILE_BYTES shr 20} MB")
+            out.write(buf, 0, n)
+        }
     }
 
     private fun publish() {
@@ -134,6 +156,7 @@ class NativeSymbolStore(context: Context, scope: CoroutineScope) {
     private companion object {
         const val TAG = "NativeSymbolStore"
         const val ANY = "any"
+        const val MAX_FILE_BYTES = 512L shl 20
         val KNOWN_ABIS = setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64", "riscv64")
 
         /** `libfoo.so`, `libfoo.so.dbg`, `libfoo.so.sym` → `libfoo.so`; anything else → null. */
