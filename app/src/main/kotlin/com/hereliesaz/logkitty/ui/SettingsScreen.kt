@@ -1036,14 +1036,25 @@ private fun SourceFilterGroup(
 }
 
 /**
- * Shizuku status + one-tap self-grant. A fresh READ_LOGS grant only applies in a new process, so the
- * app restarts itself when that is the case.
+ * Shizuku status + one-tap self-grant. When READ_LOGS was missing, the grant relaunches LogKitty
+ * into a fresh process (see PrivilegeGranter). Status refreshes on resume, since Shizuku can be
+ * started while this screen is open.
  */
 @Composable
 private fun ShizukuRow() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf(com.hereliesaz.logkitty.privilege.ShizukuShell.status()) }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                scope.launch { status = com.hereliesaz.logkitty.privilege.ShizukuShell.awaitStatus() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1065,13 +1076,9 @@ private fun ShizukuRow() {
             scope.launch {
                 val result = com.hereliesaz.logkitty.privilege.PrivilegeGranter.grant(context, com.hereliesaz.logkitty.privilege.PrivilegeGranter.Backend.SHIZUKU)
                 status = com.hereliesaz.logkitty.privilege.ShizukuShell.status()
-                when {
-                    result.needsRestart -> com.hereliesaz.logkitty.privilege.RestartActivity.restart(context)
-                    status != com.hereliesaz.logkitty.privilege.ShizukuShell.Status.READY ->
-                        android.widget.Toast.makeText(context, R.string.shizuku_not_running, android.widget.Toast.LENGTH_LONG).show()
-                    !result.readLogs ->
-                        android.widget.Toast.makeText(context, R.string.shizuku_grant_failed, android.widget.Toast.LENGTH_LONG).show()
-                }
+                val message = if (result.restarting) R.string.privilege_restarting
+                    else com.hereliesaz.logkitty.privilege.ShizukuShell.failureMessage(status)
+                message?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
             }
         }) { Text(stringResource(R.string.settings_shizuku_grant)) }
     }

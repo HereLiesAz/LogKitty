@@ -24,8 +24,7 @@
 
 ### privilege/
 *   `ShizukuShell.kt`: Shizuku status, permission handshake, and `sh -c` execution as the ADB `shell` user (reflective `newProcess`, kept by `proguard-rules.pro`).
-*   `PrivilegeGranter.kt`: Self-grants `READ_LOGS`, `DUMP` and usage access via root or Shizuku; verifies by re-checking grants.
-*   `RestartActivity.kt`: `:restart`-process trampoline that kills and relaunches the main process so a fresh `READ_LOGS` grant applies.
+*   `PrivilegeGranter.kt`: Self-grants `DUMP`, usage access and `READ_LOGS` via root or Shizuku. A new READ_LOGS grant runs detached and ends with `am force-stop` + `am start`, relaunching LogKitty into a process that carries the `log` gid.
 
 ### ui/
 *   `LogBottomSheet.kt`: The primary UI composable. Custom 4-detent overlay (HIDDEN shows one line, PEEK the last four, HALF/FULL the full list) with tab row, gesture zones, and selectable log items. Forces `fontScale = 1` on log lines so the rendered line height always matches the detent strip sizing regardless of the device's system font setting.

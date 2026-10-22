@@ -22,7 +22,9 @@
     <string name="main_or_shizuku">…or, with Shizuku running, grant it on-device:</string>
     <string name="main_grant_with_shizuku">Grant with Shizuku</string>
     <string name="shizuku_not_running">Shizuku isn\'t running. Start it in the Shizuku app, then try again.</string>
-    <string name="shizuku_grant_failed">Shizuku couldn\'t grant READ_LOGS. Check that LogKitty is allowed in Shizuku.</string>
+    <string name="shizuku_too_old">This Shizuku version is too old. Update Shizuku, then try again.</string>
+    <string name="shizuku_denied">LogKitty isn\'t allowed in Shizuku. Allow it in the Shizuku app, then try again.</string>
+    <string name="privilege_restarting">Permissions granted. LogKitty is restarting…</string>
     <string name="settings_shizuku">Shizuku</string>
     <string name="settings_shizuku_desc">Grants READ_LOGS, DUMP and usage access without root. Status: %1$s</string>
     <string name="settings_shizuku_grant">Grant</string>

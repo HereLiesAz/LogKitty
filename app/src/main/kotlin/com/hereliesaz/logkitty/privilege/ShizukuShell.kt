@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
@@ -25,6 +26,22 @@ object ShizukuShell {
 
     private const val REQUEST_CODE = 0x10C4
 
+    /**
+     * Like [status], but gives the Shizuku binder up to [waitMs] to arrive: ShizukuProvider delivers
+     * it asynchronously after process start, so an early check would wrongly report NOT_RUNNING.
+     */
+    suspend fun awaitStatus(waitMs: Long = 2000): Status {
+        if (runCatching { Shizuku.pingBinder() }.getOrDefault(false)) return status()
+        withTimeoutOrNull(waitMs) {
+            suspendCancellableCoroutine<Unit> { cont ->
+                val listener = Shizuku.OnBinderReceivedListener { if (cont.isActive) cont.resume(Unit) }
+                Shizuku.addBinderReceivedListenerSticky(listener)
+                cont.invokeOnCancellation { Shizuku.removeBinderReceivedListener(listener) }
+            }
+        }
+        return status()
+    }
+
     fun status(): Status = when {
         !runCatching { Shizuku.pingBinder() }.getOrDefault(false) -> Status.NOT_RUNNING
         Shizuku.isPreV11() -> Status.UNSUPPORTED
@@ -32,9 +49,17 @@ object ShizukuShell {
         else -> Status.READY
     }
 
+    /** User-facing reason Shizuku can't be used right now, or null when it is ready. */
+    fun failureMessage(status: Status): Int? = when (status) {
+        Status.NOT_RUNNING -> com.hereliesaz.logkitty.R.string.shizuku_not_running
+        Status.UNSUPPORTED -> com.hereliesaz.logkitty.R.string.shizuku_too_old
+        Status.NO_PERMISSION -> com.hereliesaz.logkitty.R.string.shizuku_denied
+        Status.READY -> null
+    }
+
     /** Shows Shizuku's own consent dialog; resumes with whether access was granted. */
     suspend fun requestPermission(): Boolean {
-        when (status()) {
+        when (awaitStatus()) {
             Status.READY -> return true
             Status.NO_PERMISSION -> Unit
             else -> return false

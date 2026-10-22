@@ -87,15 +87,6 @@
                       android:value="Used to display a persistent logcat overlay for real-time application debugging." />
         </service>
 
-        <!-- Process-restart trampoline: applies a fresh READ_LOGS grant (see RestartActivity). -->
-        <activity
-            android:name=".privilege.RestartActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:process=":restart"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
         <!-- Shizuku hands its binder to LogKitty through this provider. -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

@@ -36,7 +36,6 @@ import com.hereliesaz.logkitty.core.shell.RootShell
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import com.hereliesaz.logkitty.privilege.PrivilegeGranter
-import com.hereliesaz.logkitty.privilege.RestartActivity
 import com.hereliesaz.logkitty.privilege.ShizukuShell
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
@@ -318,21 +317,24 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Uses Shizuku to self-grant READ_LOGS / DUMP / usage access, then restarts the process when the
-     * new READ_LOGS grant needs a fresh process to take effect.
+     * Uses Shizuku to self-grant READ_LOGS / DUMP / usage access. When READ_LOGS was missing the
+     * grant script relaunches LogKitty itself (see [PrivilegeGranter]).
      */
     private fun grantViaShizuku() {
         lifecycleScope.launch {
-            val status = ShizukuShell.status()
-            if (status == ShizukuShell.Status.NOT_RUNNING || status == ShizukuShell.Status.UNSUPPORTED) {
-                Toast.makeText(this@MainActivity, R.string.shizuku_not_running, Toast.LENGTH_LONG).show()
+            ShizukuShell.failureMessage(ShizukuShell.awaitStatus())?.let {
+                Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show()
                 return@launch
             }
             val result = PrivilegeGranter.grant(this@MainActivity, PrivilegeGranter.Backend.SHIZUKU)
             when {
-                result.needsRestart -> RestartActivity.restart(this@MainActivity)
-                !result.readLogs -> Toast.makeText(this@MainActivity, R.string.shizuku_grant_failed, Toast.LENGTH_LONG).show()
-                else -> checkPermissions()
+                result.restarting -> Toast.makeText(this@MainActivity, R.string.privilege_restarting, Toast.LENGTH_SHORT).show()
+                else -> {
+                    ShizukuShell.failureMessage(ShizukuShell.status())?.let {
+                        Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show()
+                    }
+                    checkPermissions()
+                }
             }
         }
     }
