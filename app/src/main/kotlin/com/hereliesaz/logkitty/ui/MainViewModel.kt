@@ -748,6 +748,11 @@ class MainViewModel(
 
     fun setRootEnabled(enabled: Boolean) {
         userPreferences.setRootEnabled(enabled)
+        // Turn root into permanent grants too, so non-su code paths (usage stats, dumpsys) work
+        // and LogKitty keeps working if root later goes away.
+        if (enabled) viewModelScope.launch {
+            com.hereliesaz.logkitty.privilege.PrivilegeGranter.grant(getApplication(), com.hereliesaz.logkitty.privilege.PrivilegeGranter.Backend.ROOT, userInitiated = false)
+        }
     }
 
     fun setLogReversed(enabled: Boolean) {

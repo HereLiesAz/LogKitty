@@ -1,5 +1,9 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0.3 v0.12 — Privileged Access (DONE)
+- [x] Shizuku backend: one-tap self-grant of READ_LOGS / DUMP / usage access, with automatic relaunch (`am force-stop` + `am start` from the privileged shell).
+- [x] Root: enabling Root Access also self-grants the same permissions.
+
 ## 0.2 v0.11 — Follow Debug App (DONE)
 - [x] Settings toggle that tracks Developer options → Select debug app and opens/selects its tab (`DebugAppMonitor`).
 

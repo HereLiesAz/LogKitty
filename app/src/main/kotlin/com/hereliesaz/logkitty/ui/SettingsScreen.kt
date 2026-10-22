@@ -538,6 +538,8 @@ private fun SettingsMainScreen(
                     Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
                 }
 
+                ShizukuRow()
+
                 Text(
                     stringResource(R.string.settings_app_monitoring_desc),
                     style = MaterialTheme.typography.bodySmall,
@@ -1043,5 +1045,54 @@ private fun SourceFilterGroup(
             )
             Text(LogSources.label(key), style = MaterialTheme.typography.bodyLarge)
         }
+    }
+}
+
+/**
+ * Shizuku status + one-tap self-grant. When READ_LOGS was missing, the grant relaunches LogKitty
+ * into a fresh process (see PrivilegeGranter). Status refreshes on resume, since Shizuku can be
+ * started while this screen is open.
+ */
+@Composable
+private fun ShizukuRow() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf(com.hereliesaz.logkitty.privilege.ShizukuShell.status()) }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                scope.launch { status = com.hereliesaz.logkitty.privilege.ShizukuShell.awaitStatus() }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val label = stringResource(
+            when (status) {
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.NOT_RUNNING -> R.string.shizuku_status_not_running
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.UNSUPPORTED -> R.string.shizuku_status_unsupported
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.NO_PERMISSION -> R.string.shizuku_status_no_permission
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.READY -> R.string.shizuku_status_ready
+            }
+        )
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+            Text(stringResource(R.string.settings_shizuku), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.settings_shizuku_desc, label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = {
+            scope.launch {
+                val result = com.hereliesaz.logkitty.privilege.PrivilegeGranter.grant(context, com.hereliesaz.logkitty.privilege.PrivilegeGranter.Backend.SHIZUKU)
+                status = com.hereliesaz.logkitty.privilege.ShizukuShell.status()
+                val message = if (result.restarting) R.string.privilege_restarting
+                    else com.hereliesaz.logkitty.privilege.ShizukuShell.failureMessage(status)
+                message?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
+            }
+        }) { Text(stringResource(R.string.settings_shizuku_grant)) }
     }
 }
