@@ -22,6 +22,13 @@
 *   `LogKittyOverlayService.kt`: The core service. Manages the system overlay window, handles window resizing/pass-through logic, and hosts the Compose UI.
 *   `ForegroundAppMonitor.kt`: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground app and broadcasts changes for Context Mode.
 
+### nativecrash/
+*   `ElfSymbols.kt`: Reads an ELF `.so` (32/64-bit LE): function symbols from `.symtab` (else `.dynsym`), Thumb-bit aware, plus the GNU build-id; `lookup(pc)` → `name+0xoff`.
+*   `NativeFrame.kt`: Parses a crash-dump backtrace frame (`#NN pc … lib.so (sym) (BuildId: …)`), including `base.apk!lib` paths and ABI.
+*   `NativeSymbolStore.kt`: Per-app symbol files in `files/symbols/<pkg>/<abi>/`, from loose `.so`/`.so.dbg` or AGP's `native-debug-symbols.zip`; annotates frames with `[symbol]` on ingest, checking build-ids.
+*   `TombstoneCollector.kt`: Root only — after a monitored app's native crash, saves the full `/data/tombstones` entry, symbolicated, to the logs dir.
+*   `BacktraceFolding.kt`: Folds stack traces longer than 5 frames into "… N more frames" rows in the log list.
+
 ### ui/
 *   `LogBottomSheet.kt`: The primary UI composable. Custom 4-detent overlay (HIDDEN shows one line, PEEK the last four, HALF/FULL the full list) with tab row, gesture zones, and selectable log items. Forces `fontScale = 1` on log lines so the rendered line height always matches the detent strip sizing regardless of the device's system font setting.
 *   `ContextSegments.kt`: Context Mode history — one segment per app visited (`pkg`, `startId`); pure helpers to map lines to segments, group them for section headers, and append/trim segments.

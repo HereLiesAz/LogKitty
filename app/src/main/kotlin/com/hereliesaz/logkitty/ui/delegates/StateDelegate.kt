@@ -119,6 +119,13 @@ class StateDelegate(
     // from the single batch-processing coroutine below, so no synchronization is needed.
     private var lastSeenUid: Int? = null
 
+    /**
+     * Optional per-line rewrite (deobfuscation): returns replacement lines for a line from a UID, or
+     * null to keep it. Runs on the batch coroutine, so it must not block.
+     */
+    @Volatile
+    var lineTransformer: ((uid: Int?, text: String) -> List<String>?)? = null
+
     private val targetUids = MutableStateFlow<Set<Int>>(emptySet())
     private val targetPkgs = MutableStateFlow<Set<String>>(emptySet())
 
@@ -190,7 +197,12 @@ class StateDelegate(
 
                             // Every line is kept (System/Errors/source tabs need them); the target
                             // flag only decides eviction order in appendCapped.
-                            systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), parsed.text, uid, isTarget))
+                            val texts = lineTransformer?.invoke(uid, parsed.text) ?: listOf(parsed.text)
+                            texts.forEach { text ->
+                                // Rewritten lines may now name a target package; re-check for eviction order.
+                                val target = isTarget || (text !== parsed.text && pkgs.any { text.contains(it, ignoreCase = true) })
+                                systemLines.add(IndexedLogLine(idCounter.incrementAndGet(), text, uid, target))
+                            }
                         }
                     }
                 }

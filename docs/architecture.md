@@ -12,6 +12,7 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
 
 ### 2. UI Layer (View)
 * **`LogBottomSheet`**: The primary UI. A pure Jetpack Compose component that renders the log stream, tabs, and control surfaces.
+* **Native crashes (`nativecrash/`)**: `StateDelegate.lineTransformer` symbolicates backtrace frames with user-supplied symbol files (`NativeSymbolStore`); with Root, `TombstoneCollector` saves the full tombstone of a monitored app's native crash. The log list folds long traces (`BacktraceFolding`).
 * **`MainActivity`**: Serves as the configuration hub and permission wizard (Overlay, Root). It also hosts the entry point to the `SettingsScreen`.
 * **`FileSaverActivity`**: A transient component responsible for writing the *filtered* log buffer to disk via the Android Storage Access Framework.
 * **`SettingsScreen`**: A full-screen Compose UI for configuring application preferences, managed via `MainActivity`.

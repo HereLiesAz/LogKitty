@@ -108,6 +108,15 @@ class MainViewModel(
     val monitoredApps: StateFlow<Set<String>> = userPreferences.monitoredApps
 
     fun addMonitoredApp(pkg: String) = userPreferences.addMonitoredApp(pkg)
+
+    // Native symbol files: backtrace frames are symbolicated as they arrive (and in pulled tombstones).
+    private val nativeSymbols by lazy { com.hereliesaz.logkitty.nativecrash.NativeSymbolStore(application, viewModelScope) }
+    val symbolApps: StateFlow<Set<String>> get() = nativeSymbols.packages
+    /** Imports on [viewModelScope] so leaving Settings can't abort a large copy; [onDone] runs on main. */
+    fun importSymbols(pkg: String, uris: List<android.net.Uri>, onDone: (Int) -> Unit) {
+        viewModelScope.launch { onDone(nativeSymbols.import(pkg, uris)) }
+    }
+    fun removeSymbols(pkg: String) = nativeSymbols.remove(pkg)
     fun removeMonitoredApp(pkg: String) = userPreferences.removeMonitoredApp(pkg)
 
     // Classifies each log line's UID into source/category buckets for the per-source tabs.
@@ -120,7 +129,9 @@ class MainViewModel(
         userPreferences.setSourceFilterEnabled(key, enabled)
 
     // Delegate to handle the heavy lifting of log buffering.
-    val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize)
+    val stateDelegate = StateDelegate(viewModelScope, bufferSizeFlow = userPreferences.bufferSize).also { delegate ->
+        delegate.lineTransformer = { _, text -> nativeSymbols.symbolicate(text)?.let(::listOf) }
+    }
 
     // Developer-stats collection now lives in the on-demand `:feature:stats` module; the base only
     // exposes the root flag the feature needs (via isRootEnabled below) and hosts its UI slot.
@@ -369,6 +380,13 @@ class MainViewModel(
             if (last != null && now - last < CRASH_DEBOUNCE_MS) continue
             lastCrashAt[pkg] = now
             _crashChannel.trySend(pkg)
+            // Root: save the full, symbolicated tombstone alongside the session logs.
+            if (isRootEnabled.value && com.hereliesaz.logkitty.utils.CrashDetector.isNativeCrash(line.text)) {
+                viewModelScope.launch {
+                    com.hereliesaz.logkitty.nativecrash.TombstoneCollector.collect(getApplication(), pkg, nativeSymbols)
+                        ?.let { _sessionFinishedChannel.trySend(it) }
+                }
+            }
         }
     }
 

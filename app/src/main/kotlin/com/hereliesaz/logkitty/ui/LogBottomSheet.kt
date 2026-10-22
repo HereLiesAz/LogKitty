@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import com.hereliesaz.logkitty.nativecrash.BacktraceFolding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -637,6 +638,19 @@ private fun ExpandedView(
                 )
             }
 
+            // Expanded stack-trace folds (see BacktraceFolding), keyed by first hidden line id.
+            var expandedFolds by remember { mutableStateOf(emptySet<Long>()) }
+            fun androidx.compose.foundation.lazy.LazyListScope.foldedItems(
+                lines: List<IndexedLogLine>,
+                row: @Composable (IndexedLogLine) -> Unit,
+            ) {
+                items(BacktraceFolding.fold(lines, expandedFolds), key = { it.key }) { entry ->
+                    when (entry) {
+                        is BacktraceFolding.Entry.Line -> row(entry.line)
+                        is BacktraceFolding.Entry.Fold -> FoldRow(entry.hidden, fontSize) { expandedFolds = expandedFolds + entry.firstId }
+                    }
+                }
+            }
             val displayLogs = remember(indexedLog, searchQuery) {
                 if (searchQuery.isBlank()) indexedLog else indexedLog.filter { it.text.contains(searchQuery, ignoreCase = true) }
             }
@@ -675,7 +689,7 @@ private fun ExpandedView(
                                             contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 0.dp),
                                             modifier = Modifier.fillMaxSize()
                                         ) {
-                                            items(appLogs, key = { it.id }) { line ->
+                                            foldedItems(appLogs) { line ->
                                                 LogRow(
                                                     line = line,
                                                     isSelected = line.id in selectedLineIds,
@@ -762,7 +776,7 @@ private fun ExpandedView(
                                 )
                             }
                             if (contextSegments.isEmpty()) {
-                                items(displayLogs, key = { it.id }) { line -> logRow(line) }
+                                foldedItems(displayLogs) { line -> logRow(line) }
                             } else {
                                 // Context Mode: one section per app visited, each with its own header.
                                 // In reverseLayout the list draws bottom-up, so the header is emitted
@@ -777,7 +791,7 @@ private fun ExpandedView(
                                         )
                                     }
                                     if (!isLogReversed) item(key = "seg_${segment.startId}") { header() }
-                                    items(lines, key = { it.id }) { line -> logRow(line) }
+                                    foldedItems(lines) { line -> logRow(line) }
                                     if (isLogReversed) item(key = "seg_${segment.startId}") { header() }
                                 }
                             }
@@ -1012,5 +1026,25 @@ private fun ContextSegmentHeader(pkg: String, lineCount: Int, onCopy: () -> Unit
         IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Default.DeleteSweep, stringResource(R.string.cd_delete_segment, label), modifier = Modifier.size(18.dp))
         }
+    }
+}
+
+/** Collapsed stack-trace frames; tap to show them. Sized exactly like a [LogRow] line. */
+@Composable
+private fun FoldRow(hidden: Int, fontSize: Int, onExpand: () -> Unit) {
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 1f)) {
+        Text(
+            text = stringResource(R.string.sheet_more_frames, hidden),
+            fontSize = fontSize.sp,
+            lineHeight = (fontSize * 1.35f).sp,
+            maxLines = 1,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onExpand)
+                .padding(horizontal = 4.dp, vertical = 1.dp)
+                .padding(start = 20.dp)
+        )
     }
 }

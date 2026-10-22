@@ -1,5 +1,10 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0.5 v0.14 — Native Crashes (DONE)
+- [x] Native symbolication from per-app `.so`/`.so.dbg`/`native-debug-symbols.zip` (function names; no DWARF line numbers, names stay mangled).
+- [x] Root: save full symbolicated tombstones of monitored apps.
+- [x] Fold long stack traces in the log list.
+
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
 - [x] ~~Google Play Billing / `AdsState`~~ — removed in 0.9.0 (gated nothing).
 - [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).
