@@ -13,6 +13,13 @@ This document provides a high-level overview of the key classes and components i
     *   Handling window pass-through interactions (switching between `FLAG_NOT_TOUCHABLE` and interactive modes).
     *   Observing `MainViewModel` and `LogBottomSheet` state to resize the window dynamically.
 
+### `DebugAppMonitor`
+*   **Package:** `com.hereliesaz.logkitty.services`
+*   **Description:** Follows the app chosen in Developer options → Select debug app.
+*   **Key Responsibilities:**
+    *   Polling `debug_app` directly (non-root) or via `settings get global` (root).
+    *   Calling `MainViewModel.onDebugAppChanged`, which opens and selects that app's tab.
+
 ### `ForegroundAppMonitor`
 *   **Package:** `com.hereliesaz.logkitty.services`
 *   **Description:** Detects the foreground app for Context Mode, without an accessibility service.

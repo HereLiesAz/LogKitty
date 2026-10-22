@@ -22,6 +22,7 @@ import kotlinx.serialization.json.Json
 data class ExportedPreferences(
     val contextMode: Boolean,
     val isHardContextMode: Boolean = true,
+    val followDebugApp: Boolean = false,
     val themeMode: String = "SYSTEM",
     val customFilter: String,
     val overlayOpacity: Float,
@@ -65,6 +66,10 @@ class UserPreferences(context: Context) {
     // Controls if Context Mode is Hard (filters out other apps) or Soft (just highlights foreground app)
     private val _isHardContextMode = MutableStateFlow(prefs.getBoolean(KEY_IS_HARD_CONTEXT_MODE, true))
     val isHardContextMode: StateFlow<Boolean> = _isHardContextMode.asStateFlow()
+
+    // Follows the app picked in Developer options → Select debug app (see DebugAppMonitor).
+    private val _isFollowDebugApp = MutableStateFlow(prefs.getBoolean(KEY_FOLLOW_DEBUG_APP, false))
+    val isFollowDebugApp: StateFlow<Boolean> = _isFollowDebugApp.asStateFlow()
 
     // --- Preference: Theme Mode ---
     // "SYSTEM", "DARK", or "LIGHT"
@@ -173,6 +178,11 @@ class UserPreferences(context: Context) {
     fun setHardContextMode(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_IS_HARD_CONTEXT_MODE, enabled).apply()
         _isHardContextMode.value = enabled
+    }
+
+    fun setFollowDebugApp(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FOLLOW_DEBUG_APP, enabled).apply()
+        _isFollowDebugApp.value = enabled
     }
 
     fun setThemeMode(mode: String) {
@@ -393,6 +403,7 @@ class UserPreferences(context: Context) {
         val exported = ExportedPreferences(
             contextMode = _isContextModeEnabled.value,
             isHardContextMode = _isHardContextMode.value,
+            followDebugApp = _isFollowDebugApp.value,
             themeMode = _themeMode.value,
             customFilter = _customFilter.value,
             overlayOpacity = _overlayOpacity.value,
@@ -428,6 +439,7 @@ class UserPreferences(context: Context) {
 
             setContextModeEnabled(imported.contextMode)
             setHardContextMode(imported.isHardContextMode)
+            setFollowDebugApp(imported.followDebugApp)
             setThemeMode(imported.themeMode)
             setCustomFilter(imported.customFilter)
             // Imported files are user-supplied: clamp numbers to the ranges Settings offers.
@@ -502,6 +514,7 @@ class UserPreferences(context: Context) {
         private const val KEY_COLOR_SCHEME = "color_scheme"
         private const val KEY_TAG_COLORING = "tag_coloring_enabled"
         private const val KEY_MONITORED_APPS = "monitored_apps"
+        private const val KEY_FOLLOW_DEBUG_APP = "follow_debug_app"
         private const val KEY_ACTIVE_SOURCE_FILTERS = "active_source_filters"
         private const val KEY_AUTO_DELETE_DURATION_DAYS = "auto_delete_duration_days"
         private const val KEY_MAX_TOTAL_LOG_SIZE_MB = "max_total_log_size_mb"

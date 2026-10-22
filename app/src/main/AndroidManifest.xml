@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
+    <!-- Development permission: never prompted, only grantable via ADB / Shizuku / root
+         (`pm grant`). Lets non-root code run `dumpsys` (e.g. Follow Debug App's fallback). -->
+    <uses-permission android:name="android.permission.DUMP" tools:ignore="ProtectedPermissions" />
 
     <!-- LogKitty does not use the advertising ID. The ads feature module and the Google Mobile Ads
          SDK were removed, so nothing declares AD_ID today; this explicit removal keeps it that way

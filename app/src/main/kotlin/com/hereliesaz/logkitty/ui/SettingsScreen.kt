@@ -136,6 +136,7 @@ private fun SettingsMainScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val isContextMode by viewModel.isContextModeEnabled.collectAsState()
     val isHardContextMode by viewModel.isHardContextMode.collectAsState()
+    val isFollowDebugApp by viewModel.isFollowDebugApp.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
@@ -521,6 +522,18 @@ private fun SettingsMainScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text(stringResource(R.string.settings_follow_debug_app), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_follow_debug_app_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = isFollowDebugApp, onCheckedChange = { viewModel.setFollowDebugApp(it) })
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(stringResource(R.string.settings_root_access), style = MaterialTheme.typography.bodyLarge)
                     Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
                 }
@@ -862,6 +875,7 @@ private fun permissionJustification(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_why_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_why_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_why_read_logs
+        "android.permission.DUMP" -> R.string.perm_why_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_why_query_all_packages
         else -> 0
     }
@@ -879,6 +893,7 @@ private fun permissionLabel(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_read_logs
+        "android.permission.DUMP" -> R.string.perm_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_query_all_packages
         else -> 0
     }
