@@ -525,6 +525,8 @@ private fun SettingsMainScreen(
                     Switch(checked = isRootEnabled, onCheckedChange = { viewModel.setRootEnabled(it) })
                 }
 
+                ShizukuRow()
+
                 Text(
                     stringResource(R.string.settings_app_monitoring_desc),
                     style = MaterialTheme.typography.bodySmall,
@@ -862,6 +864,7 @@ private fun permissionJustification(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_why_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_why_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_why_read_logs
+        "android.permission.DUMP" -> R.string.perm_why_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_why_query_all_packages
         else -> 0
     }
@@ -879,6 +882,7 @@ private fun permissionLabel(permission: String): String {
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE" -> R.string.perm_foreground_service_special
         "android.permission.SYSTEM_ALERT_WINDOW" -> R.string.perm_system_alert_window
         "android.permission.READ_LOGS" -> R.string.perm_read_logs
+        "android.permission.DUMP" -> R.string.perm_dump
         "android.permission.QUERY_ALL_PACKAGES" -> R.string.perm_query_all_packages
         else -> 0
     }
@@ -1028,5 +1032,47 @@ private fun SourceFilterGroup(
             )
             Text(LogSources.label(key), style = MaterialTheme.typography.bodyLarge)
         }
+    }
+}
+
+/**
+ * Shizuku status + one-tap self-grant. A fresh READ_LOGS grant only applies in a new process, so the
+ * app restarts itself when that is the case.
+ */
+@Composable
+private fun ShizukuRow() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf(com.hereliesaz.logkitty.privilege.ShizukuShell.status()) }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val label = stringResource(
+            when (status) {
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.NOT_RUNNING -> R.string.shizuku_status_not_running
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.UNSUPPORTED -> R.string.shizuku_status_unsupported
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.NO_PERMISSION -> R.string.shizuku_status_no_permission
+                com.hereliesaz.logkitty.privilege.ShizukuShell.Status.READY -> R.string.shizuku_status_ready
+            }
+        )
+        Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+            Text(stringResource(R.string.settings_shizuku), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.settings_shizuku_desc, label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = {
+            scope.launch {
+                val result = com.hereliesaz.logkitty.privilege.PrivilegeGranter.grant(context, com.hereliesaz.logkitty.privilege.PrivilegeGranter.Backend.SHIZUKU)
+                status = com.hereliesaz.logkitty.privilege.ShizukuShell.status()
+                when {
+                    result.needsRestart -> com.hereliesaz.logkitty.privilege.RestartActivity.restart(context)
+                    status != com.hereliesaz.logkitty.privilege.ShizukuShell.Status.READY ->
+                        android.widget.Toast.makeText(context, R.string.shizuku_not_running, android.widget.Toast.LENGTH_LONG).show()
+                    !result.readLogs ->
+                        android.widget.Toast.makeText(context, R.string.shizuku_grant_failed, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }) { Text(stringResource(R.string.settings_shizuku_grant)) }
     }
 }

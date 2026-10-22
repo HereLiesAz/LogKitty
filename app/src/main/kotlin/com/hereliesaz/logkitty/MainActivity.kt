@@ -34,6 +34,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.lifecycleScope
 import com.hereliesaz.logkitty.core.shell.RootShell
 import kotlinx.coroutines.launch
+import android.widget.Toast
+import com.hereliesaz.logkitty.privilege.PrivilegeGranter
+import com.hereliesaz.logkitty.privilege.RestartActivity
+import com.hereliesaz.logkitty.privilege.ShizukuShell
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
 import com.google.android.play.core.install.InstallStateUpdatedListener
@@ -186,6 +190,7 @@ class MainActivity : ComponentActivity() {
                                             updateReadyToInstall = updateReadyToInstall,
                                             onCompleteUpdate = { appUpdateManager.completeUpdate() },
                                             onGrantOverlay = { requestOverlayPermission() },
+                                            onGrantViaShizuku = { grantViaShizuku() },
                                             onToggleService = { toggleOverlayService() },
                                             onOpenSettings = { showSettings = true }
                                         )
@@ -312,6 +317,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Uses Shizuku to self-grant READ_LOGS / DUMP / usage access, then restarts the process when the
+     * new READ_LOGS grant needs a fresh process to take effect.
+     */
+    private fun grantViaShizuku() {
+        lifecycleScope.launch {
+            val status = ShizukuShell.status()
+            if (status == ShizukuShell.Status.NOT_RUNNING || status == ShizukuShell.Status.UNSUPPORTED) {
+                Toast.makeText(this@MainActivity, R.string.shizuku_not_running, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val result = PrivilegeGranter.grant(this@MainActivity, PrivilegeGranter.Backend.SHIZUKU)
+            when {
+                result.needsRestart -> RestartActivity.restart(this@MainActivity)
+                !result.readLogs -> Toast.makeText(this@MainActivity, R.string.shizuku_grant_failed, Toast.LENGTH_LONG).show()
+                else -> checkPermissions()
+            }
+        }
+    }
+
     /** Starts a flexible Play update if one is available, or surfaces the restart prompt if already downloaded. */
     private fun checkForAppUpdate() {
         appUpdateManager.registerListener(installStateListener)
@@ -358,6 +383,7 @@ fun MainScreenContent(
     updateReadyToInstall: Boolean,
     onCompleteUpdate: () -> Unit,
     onGrantOverlay: () -> Unit,
+    onGrantViaShizuku: () -> Unit,
     onToggleService: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -427,6 +453,10 @@ fun MainScreenContent(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         AzButton(onClick = { clipboardManager.setText(AnnotatedString(command)) }, text = stringResource(R.string.main_copy_command), shape = AzButtonShape.RECTANGLE, modifier = Modifier.fillMaxWidth())
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(stringResource(R.string.main_or_shizuku), style = MaterialTheme.typography.bodyMedium)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        AzButton(onClick = onGrantViaShizuku, text = stringResource(R.string.main_grant_with_shizuku), shape = AzButtonShape.RECTANGLE, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))

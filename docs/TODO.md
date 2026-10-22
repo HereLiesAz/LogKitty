@@ -1,5 +1,9 @@
 # TODO Roadmap & Tactical Implementation Plan
 
+## 0.3 v0.12 — Privileged Access (DONE)
+- [x] Shizuku backend: one-tap self-grant of READ_LOGS / DUMP / usage access, with automatic process restart.
+- [x] Root: enabling Root Access also self-grants the same permissions.
+
 ## 0.1 v0.8 — Monetization & Deployment (DONE)
 - [x] ~~Google Play Billing / `AdsState`~~ — removed in 0.9.0 (gated nothing).
 - [x] Setup GitHub Actions workflow to automatically build and deploy `docs/` to SFTP (`deploy-sftp.yml`).
