@@ -171,6 +171,7 @@ class MainViewModel(
     // Preference Flows (Directly exposed from UserPreferences)
     val isContextModeEnabled: StateFlow<Boolean> = userPreferences.isContextModeEnabled
     val isHardContextMode: StateFlow<Boolean> = userPreferences.isHardContextMode
+    val isFollowDebugApp: StateFlow<Boolean> = userPreferences.isFollowDebugApp
     val themeMode: StateFlow<String> = userPreferences.themeMode
     val customFilter: StateFlow<String> = userPreferences.customFilter
     val overlayOpacity: StateFlow<Float> = userPreferences.overlayOpacity
@@ -724,6 +725,14 @@ class MainViewModel(
         userPreferences.setHardContextMode(enabled)
     }
 
+    fun setFollowDebugApp(enabled: Boolean) = userPreferences.setFollowDebugApp(enabled)
+
+    /** The Developer-options debug app changed: open its tab (which also targets its logs) and show it. */
+    fun onDebugAppChanged(pkg: String) {
+        addAppTab(pkg)
+        selectAppTab(pkg)
+    }
+
     fun setThemeMode(mode: String) {
         userPreferences.setThemeMode(mode)
     }
@@ -750,6 +759,11 @@ class MainViewModel(
 
     fun setRootEnabled(enabled: Boolean) {
         userPreferences.setRootEnabled(enabled)
+        // Turn root into permanent grants too, so non-su code paths (usage stats, dumpsys) work
+        // and LogKitty keeps working if root later goes away.
+        if (enabled) viewModelScope.launch {
+            com.hereliesaz.logkitty.privilege.PrivilegeGranter.grant(getApplication(), com.hereliesaz.logkitty.privilege.PrivilegeGranter.Backend.ROOT, userInitiated = false)
+        }
     }
 
     fun setLogReversed(enabled: Boolean) {

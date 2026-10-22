@@ -9,10 +9,13 @@ LogKitty follows a refined **MVVM (Model-View-ViewModel)** architecture, specifi
     * **Responsibility**: It handles the delicate negotiation of window flags (`FLAG_NOT_TOUCHABLE`), managing the overlay's pass-through capabilities. It dynamically resizes the underlying window container based on the `LogBottomSheet` state to ensure the overlay never blocks touches it shouldn't.
 * **`ForegroundAppMonitor`**: Run by the overlay service while Context Mode is on.
     * **Responsibility**: Polls `UsageStatsManager` (non-root) or `dumpsys` (root) for the foreground package and broadcasts changes. Transit packages (launcher, System UI, crash dialog, LogKitty) never become the context target.
+* **`DebugAppMonitor`**: Run by the overlay service while Follow Debug App is on.
+    * **Responsibility**: Polls `Settings.Global.debug_app` (non-root; may be refused on Android 12+, then falls back to `dumpsys activity processes` when `DUMP` is granted) or `settings get global debug_app` (root) and opens/selects that app's tab on change.
 
 ### 2. UI Layer (View)
 * **`LogBottomSheet`**: The primary UI. A pure Jetpack Compose component that renders the log stream, tabs, and control surfaces.
 * **`MappingStore` / `Retracer`**: Live deobfuscation. `StateDelegate.lineTransformer` hands each ingested line (with its UID) to `MappingStore`, which retraces it when that app has a mapping loaded (Settings → Deobfuscation).
+* **`PrivilegeGranter` / `ShizukuShell`**: Convert root or Shizuku into permanent `READ_LOGS` / `DUMP` / usage-access grants. Root grants automatically whenever Root Access is enabled; Shizuku grants from the setup card or Settings, then the detached grant script force-stops and relaunches LogKitty (the `log` gid is only attached at fork, and the grant itself may kill the app).
 * **`MainActivity`**: Serves as the configuration hub and permission wizard (Overlay, Root). It also hosts the entry point to the `SettingsScreen`.
 * **`FileSaverActivity`**: A transient component responsible for writing the *filtered* log buffer to disk via the Android Storage Access Framework.
 * **`SettingsScreen`**: A full-screen Compose UI for configuring application preferences, managed via `MainActivity`.

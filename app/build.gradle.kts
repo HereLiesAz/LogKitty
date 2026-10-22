@@ -308,6 +308,9 @@ dependencies {
     // Custom UI components we kept
     implementation(libs.dokar3.sheets.m3)
     implementation(libs.aznavrail)
+    // Shizuku: ADB-level shell without root, used to self-grant READ_LOGS / DUMP / usage access.
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)

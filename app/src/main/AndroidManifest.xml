@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />
+    <!-- Development permission: never prompted, only grantable via ADB / Shizuku / root
+         (`pm grant`). Lets non-root code run `dumpsys` (e.g. Follow Debug App's fallback). -->
+    <uses-permission android:name="android.permission.DUMP" tools:ignore="ProtectedPermissions" />
 
     <!-- LogKitty does not use the advertising ID. The ads feature module and the Google Mobile Ads
          SDK were removed, so nothing declares AD_ID today; this explicit removal keeps it that way
@@ -83,6 +86,15 @@
             <property android:name="android.app.property.FOREGROUND_SERVICE_TYPE_SPECIAL_USE_DESCRIPTION"
                       android:value="Used to display a persistent logcat overlay for real-time application debugging." />
         </service>
+
+        <!-- Shizuku hands its binder to LogKitty through this provider. -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
