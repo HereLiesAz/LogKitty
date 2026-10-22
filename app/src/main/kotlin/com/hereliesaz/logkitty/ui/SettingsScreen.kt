@@ -136,6 +136,7 @@ private fun SettingsMainScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val isContextMode by viewModel.isContextModeEnabled.collectAsState()
     val isHardContextMode by viewModel.isHardContextMode.collectAsState()
+    val isFollowDebugApp by viewModel.isFollowDebugApp.collectAsState()
     val isRootEnabled by viewModel.isRootEnabled.collectAsState()
     val isLogReversed by viewModel.isLogReversed.collectAsState()
     val fontSize by viewModel.fontSize.collectAsState()
@@ -514,6 +515,18 @@ private fun SettingsMainScreen(
                             onCheckedChange = { viewModel.setHardContextMode(it) }
                         )
                     }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text(stringResource(R.string.settings_follow_debug_app), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.settings_follow_debug_app_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = isFollowDebugApp, onCheckedChange = { viewModel.setFollowDebugApp(it) })
                 }
 
                 Row(

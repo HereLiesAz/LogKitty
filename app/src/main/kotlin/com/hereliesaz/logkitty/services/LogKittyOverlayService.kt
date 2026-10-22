@@ -333,6 +333,14 @@ class LogKittyOverlayService : Service() {
                     if (contextMode) ForegroundAppMonitor(this@LogKittyOverlayService).observe(useRoot)
                 }
         }
+
+        // Follow Debug App: track Developer options → Select debug app while enabled.
+        serviceScope.launch {
+            combine(viewModel.isFollowDebugApp, viewModel.isRootEnabled) { follow, root -> follow to root }
+                .collectLatest { (follow, useRoot) ->
+                    if (follow) DebugAppMonitor(this@LogKittyOverlayService).observe(useRoot, viewModel::onDebugAppChanged)
+                }
+        }
     }
 
     /**
