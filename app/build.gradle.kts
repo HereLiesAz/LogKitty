@@ -220,7 +220,7 @@ configurations.all {
             val n = requested.name
             when {
                 g == "commons-logging" && n == "commons-logging" -> {
-                    useTarget("org.slf4j:jcl-over-slf4j:2.0.18")
+                    useTarget("org.slf4j:jcl-over-slf4j:2.0.20")
                     because("Avoids duplicate classes with jcl-over-slf4j")
                 }
                 g == "com.google.guava" && n == "guava" -> {
